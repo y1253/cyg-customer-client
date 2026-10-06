@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/plus-jakarta-sans";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -11,7 +11,6 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -22,12 +21,13 @@ body {
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
-  --animate-todo-circle-spring: todo-circle-spring 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  --animate-todo-check-draw: todo-check-draw 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-todo-particle: todo-particle 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  --animate-todo-row-pulse: todo-row-pulse 1.5s ease-out forwards;
-  --animate-missed-call-pulse: missed-call-pulse 2.2s ease-in-out infinite;
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  /* cygfinance.com brand swatches (Webflow --swatch--brand2 / --swatch--brand). */
+  --color-brand: #169f96;
+  --color-brand-light: #47c4bc;
+  --color-brand-blue: #2830b3;
+  --color-ink: #303633;
+  --color-tile: #d4d4d4;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -75,8 +75,8 @@ body {
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #169f96;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -86,7 +86,7 @@ body {
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #169f96;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -137,8 +137,6 @@ body {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* ─── Composer window ────────────────────────────────────────────────────── */
-
 /* A teal outline pulses once when an already-open compose window is re-requested.
    Two identical keyframes on purpose: the window alternates between them, and it is
    the change of animation-name that restarts the animation. Same name twice in a row
@@ -153,6 +151,6 @@ body {
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply scroll-smooth font-sans;
   }
 }
