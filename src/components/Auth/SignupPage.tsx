@@ -17,7 +17,7 @@ export function SignupPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
-  const goToAccount = () => navigate('/account', { replace: true })
+  const goToDashboard = () => navigate('/dashboard', { replace: true })
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -29,7 +29,7 @@ export function SignupPage() {
     }
     if (confirm !== password) return setFormError('Passwords do not match')
     setFormError(null)
-    signup.mutate({ name, email, password }, { onSuccess: goToAccount })
+    signup.mutate({ name, email, password }, { onSuccess: goToDashboard })
   }
 
   const error = formError ?? signup.error?.message
@@ -47,7 +47,7 @@ export function SignupPage() {
         </>
       }
     >
-      <GoogleButton text="signup_with" onSuccess={goToAccount} />
+      <GoogleButton text="signup_with" onSuccess={goToDashboard} />
       <OrDivider />
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">

@@ -12,11 +12,11 @@ export function LoginPage() {
   const login = useLogin()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const goToAccount = () => navigate('/account', { replace: true })
+  const goToDashboard = () => navigate('/dashboard', { replace: true })
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
-    login.mutate({ email, password }, { onSuccess: goToAccount })
+    login.mutate({ email, password }, { onSuccess: goToDashboard })
   }
 
   return (
@@ -32,7 +32,7 @@ export function LoginPage() {
         </>
       }
     >
-      <GoogleButton text="signin_with" onSuccess={goToAccount} />
+      <GoogleButton text="signin_with" onSuccess={goToDashboard} />
       <OrDivider />
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">

@@ -7,8 +7,8 @@ export function CustomerRoute() {
   return token ? <Outlet /> : <Navigate to="/login" replace />
 }
 
-/** Login and signup: a signed-in customer goes straight to their account. */
+/** Login and signup: a signed-in customer goes straight to their dashboard. */
 export function GuestRoute() {
   const { token } = useAuth()
-  return token ? <Navigate to="/account" replace /> : <Outlet />
+  return token ? <Navigate to="/dashboard" replace /> : <Outlet />
 }

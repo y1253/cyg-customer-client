@@ -1,4 +1,4 @@
-import { ChevronDown, LogOut, UserRound } from 'lucide-react'
+import { ChevronDown, LayoutDashboard, LogOut, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import {
@@ -60,7 +60,10 @@ export function HeaderAccountDesktop() {
               <p className="truncate text-xs text-muted-foreground">{customer.email}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-3 px-3 py-2.5" render={<Link to="/account" />}>
+            <DropdownMenuItem className="gap-3 px-3 py-2.5" render={<Link to="/dashboard" />}>
+              <LayoutDashboard /> Dashboard
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-3 px-3 py-2.5" render={<Link to="/dashboard/account" />}>
               <UserRound /> My account
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-3 px-3 py-2.5" onClick={logout}>
@@ -103,10 +106,10 @@ export function HeaderAccountMobile() {
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{customer.name}</p>
           <SheetClose
-            render={<Link to="/account" />}
+            render={<Link to="/dashboard" />}
             className="text-sm font-medium text-brand hover:underline"
           >
-            My account
+            Go to dashboard
           </SheetClose>
         </div>
         <SheetClose
