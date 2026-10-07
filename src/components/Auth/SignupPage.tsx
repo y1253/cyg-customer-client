@@ -15,6 +15,7 @@ export function SignupPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const goToAccount = () => navigate('/account', { replace: true })
 
@@ -26,6 +27,7 @@ export function SignupPage() {
     if (password.length < MIN_PASSWORD) {
       return setFormError(`Password must be at least ${MIN_PASSWORD} characters`)
     }
+    if (confirm !== password) return setFormError('Passwords do not match')
     setFormError(null)
     signup.mutate({ name, email, password }, { onSuccess: goToAccount })
   }
@@ -80,6 +82,21 @@ export function SignupPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">At least {MIN_PASSWORD} characters.</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="confirm-password">Confirm password</Label>
+          <Input
+            id="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            className="h-11"
+            value={confirm}
+            aria-invalid={confirm.length > 0 && confirm !== password}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          {confirm.length > 0 && confirm !== password && (
+            <p className="text-xs text-destructive">Passwords do not match.</p>
+          )}
         </div>
         {error && (
           <p role="alert" className="text-sm text-destructive">
