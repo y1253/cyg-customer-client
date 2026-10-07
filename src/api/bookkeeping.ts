@@ -1,6 +1,6 @@
 import { errorFrom, fetchWithAuth, handleUnauthorized } from './client'
 
-export type StatementStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED'
+export type StatementStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'NEEDS_REVIEW'
 
 export type Statement = {
   id: number
@@ -9,9 +9,16 @@ export type Statement = {
   status: StatementStatus
   error: string | null
   accountName: string | null
+  bankName: string | null
+  /** "Chase 4362 · Sep 2026" — the same label every ledger row of it shows. */
+  label: string
   periodStart: string | null
   periodEnd: string | null
   transactionCount: number
+  /** VERIFIED | UNVERIFIED (statement prints nothing to check) | MISMATCH; null before reading. */
+  verification: 'VERIFIED' | 'UNVERIFIED' | 'MISMATCH' | null
+  /** Each check against the bank's own figures, with a ready-made sentence. */
+  checks: Array<{ name: string; ok: boolean; text: string }>
   createdAt: string
   processedAt: string | null
 }
@@ -26,6 +33,8 @@ export type LedgerTransaction = {
   offsetAccount: string
   debitAccount: string
   creditAccount: string
+  /** The statement it came from, e.g. "Chase 4362 · Sep 2026". */
+  statementLabel: string
 }
 
 export type ExportFormat = 'xlsx' | 'pdf'

@@ -65,7 +65,7 @@ export function LedgerTable({
   return (
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
       <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+        <div className="relative w-full shrink-0 sm:w-72">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
@@ -78,7 +78,7 @@ export function LedgerTable({
           />
         </div>
         {done.length > 1 && (
-          <div className="flex gap-1.5 overflow-x-auto">
+          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
             {[{ id: 'all' as const, label: 'All statements' }, ...statementLabels(done)].map(
               (opt) => (
                 <button
@@ -124,8 +124,9 @@ export function LedgerTable({
               <TableHead className="w-28">Posting date</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="w-32 text-right">Amount</TableHead>
-              <TableHead className="w-48">Debit</TableHead>
-              <TableHead className="w-48 pr-5">Credit</TableHead>
+              <TableHead className="w-44">Debit</TableHead>
+              <TableHead className="w-44">Credit</TableHead>
+              <TableHead className="w-44 pr-5">Statement</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -147,8 +148,16 @@ export function LedgerTable({
                 <TableCell>
                   <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} />
                 </TableCell>
-                <TableCell className="pr-5">
+                <TableCell>
                   <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} />
+                </TableCell>
+                <TableCell className="pr-5">
+                  <span
+                    className="inline-flex max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                    title={t.statementLabel}
+                  >
+                    {t.statementLabel}
+                  </span>
                 </TableCell>
               </TableRow>
             ))}
@@ -164,7 +173,7 @@ export function LedgerTable({
               >
                 {money(net)}
               </TableCell>
-              <TableCell colSpan={2} className="pr-5 text-sm text-muted-foreground">
+              <TableCell colSpan={3} className="pr-5 text-sm text-muted-foreground">
                 net change
               </TableCell>
             </TableRow>
@@ -188,18 +197,15 @@ export function LedgerTable({
 }
 
 /**
- * A short chip label per statement: "Chase 4362 · 2026-09". Two statements of the same
- * account and month (a re-upload, or two pages of one month) would read identically, so
- * those fall back to their file name.
+ * Filter chips use the statement's own label ("Chase 4362 · Sep 2026"). Two statements of
+ * the same account and month (a re-upload) would read identically, so those add the file name.
  */
 function statementLabels(list: Statement[]): Array<{ id: number; label: string }> {
-  const base = (s: Statement) =>
-    s.accountName ? `${s.accountName}${s.periodStart ? ' · ' + s.periodStart.slice(0, 7) : ''}` : s.filename
   const counts = new Map<string, number>()
-  list.forEach((s) => counts.set(base(s), (counts.get(base(s)) ?? 0) + 1))
+  list.forEach((s) => counts.set(s.label, (counts.get(s.label) ?? 0) + 1))
   return list.map((s) => ({
     id: s.id,
-    label: (counts.get(base(s)) ?? 0) > 1 ? `${base(s)} · ${s.filename}` : base(s),
+    label: (counts.get(s.label) ?? 0) > 1 ? `${s.label} · ${s.filename}` : s.label,
   }))
 }
 
