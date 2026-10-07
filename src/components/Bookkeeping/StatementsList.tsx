@@ -8,7 +8,6 @@ import {
   FileText,
   Loader2,
   RotateCcw,
-  ShieldCheck,
   Trash2,
 } from 'lucide-react'
 import { isBusy, openOriginal, type Statement } from '@/api/bookkeeping'
@@ -29,23 +28,12 @@ import { useDeleteStatement } from '@/hooks/useDeleteStatement'
 import { useRetryStatement } from '@/hooks/useRetryStatement'
 import { cn } from '@/lib/utils'
 
-/** Re-reading because the first reading did not add up. Still hidden from the ledger. */
-const isRechecking = (s: Statement) => s.status === 'PENDING' && s.verification === 'MISMATCH'
-
+// The check against the bank's own totals happens on the server and is kept there; the
+// customer only sees the outcome — Done, or Needs review with the reason.
 function StatusBadge({ s }: { s: Statement }) {
-  if (s.status === 'DONE' && s.verification === 'VERIFIED') {
-    return (
-      <Badge
-        className="gap-1 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"
-        title="Every total the bank printed matches the transactions we read"
-      >
-        <ShieldCheck className="size-3" /> Verified
-      </Badge>
-    )
-  }
   if (s.status === 'DONE') {
     return (
-      <Badge className="gap-1 bg-slate-100 text-slate-700 ring-1 ring-slate-500/15">
+      <Badge className="gap-1 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20">
         <CheckCircle2 className="size-3" /> Done
       </Badge>
     )
@@ -64,10 +52,10 @@ function StatusBadge({ s }: { s: Statement }) {
       </Badge>
     )
   }
-  if (s.status === 'PROCESSING' || isRechecking(s)) {
+  if (s.status === 'PROCESSING') {
     return (
       <Badge className="gap-1 bg-brand/10 text-brand ring-1 ring-brand/25">
-        <Loader2 className="size-3 animate-spin" /> {isRechecking(s) ? 'Checking totals…' : 'Reading…'}
+        <Loader2 className="size-3 animate-spin" /> Reading…
       </Badge>
     )
   }
@@ -84,35 +72,14 @@ function subtitle(s: Statement): string {
     case 'FAILED':
       return s.error ?? 'We could not read this statement.'
     case 'NEEDS_REVIEW':
-      return s.checks.filter((c) => !c.ok).map((c) => c.text).join(' · ') || (s.error ?? '')
+      return s.error ?? "This statement doesn't match the bank's totals."
     case 'DONE':
       return [`${s.transactionCount} transactions`, s.filename].join(' · ')
     case 'PROCESSING':
-      return 'Reading every transaction and checking it against the bank\'s totals…'
+      return 'Reading every transaction…'
     default:
-      return isRechecking(s)
-        ? "The totals didn't match the bank's figures yet — reading it again…"
-        : 'Waiting to be read…'
+      return 'Waiting to be read…'
   }
-}
-
-/** The checks that passed, under a verified statement: "Deposits $5,433.67 ✓ · …". */
-function CheckLine({ s }: { s: Statement }) {
-  if (s.status !== 'DONE') return null
-  if (s.verification === 'UNVERIFIED') {
-    return (
-      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-        Totals not printed on this statement — nothing to check against.
-      </p>
-    )
-  }
-  if (s.verification !== 'VERIFIED' || !s.checks.length) return null
-  const text = s.checks.map((c) => c.text).join(' · ')
-  return (
-    <p className="mt-0.5 truncate text-xs text-emerald-700" title={text}>
-      {text}
-    </p>
-  )
 }
 
 /** Every uploaded statement with its status, newest first. */
@@ -166,14 +133,14 @@ export function StatementsList({ statements, loading }: { statements: Statement[
               </div>
               <p
                 className={cn(
-                  'truncate text-xs',
-                  s.status === 'NEEDS_REVIEW' ? 'text-amber-800' : 'text-muted-foreground',
+                  'text-xs',
+                  // The needs-review reason is the customer's only explanation — never cut it off.
+                  s.status === 'NEEDS_REVIEW' ? 'mt-0.5 text-amber-800' : 'truncate text-muted-foreground',
                 )}
                 title={subtitle(s)}
               >
                 {subtitle(s)}
               </p>
-              <CheckLine s={s} />
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
               {(s.status === 'FAILED' || s.status === 'NEEDS_REVIEW') && (

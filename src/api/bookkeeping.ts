@@ -15,10 +15,6 @@ export type Statement = {
   periodStart: string | null
   periodEnd: string | null
   transactionCount: number
-  /** VERIFIED | UNVERIFIED (statement prints nothing to check) | MISMATCH; null before reading. */
-  verification: 'VERIFIED' | 'UNVERIFIED' | 'MISMATCH' | null
-  /** Each check against the bank's own figures, with a ready-made sentence. */
-  checks: Array<{ name: string; ok: boolean; text: string }>
   createdAt: string
   processedAt: string | null
 }
