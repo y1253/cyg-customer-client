@@ -12,6 +12,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { Link } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 import { NAV_LINKS } from './content'
 import { ctaClass } from './cta'
 
@@ -20,6 +22,7 @@ const NAV_LINK =
 
 /** Transparent bar laid over the hero, as on cygfinance.com. */
 export function SiteHeader() {
+  const { token } = useAuth()
   return (
     <header className="absolute inset-x-0 top-0 z-40 py-3 lg:py-6">
       <div className="mx-auto flex max-w-[1280px] items-center gap-8 px-4 sm:px-8">
@@ -61,6 +64,20 @@ export function SiteHeader() {
           <a href="#contact" className={ctaClass('brand')}>
             Contact Us
           </a>
+          {token ? (
+            <Link to="/account" className={ctaClass('light')}>
+              My account
+            </Link>
+          ) : (
+            <>
+              <Link to="/login" className={NAV_LINK}>
+                Log in
+              </Link>
+              <Link to="/signup" className={ctaClass('light')}>
+                Sign up
+              </Link>
+            </>
+          )}
         </nav>
 
         <Sheet>
@@ -92,6 +109,29 @@ export function SiteHeader() {
               >
                 Contact Us
               </SheetClose>
+              {token ? (
+                <SheetClose
+                  render={<Link to="/account" />}
+                  className={ctaClass('brand', 'mt-3 bg-[#0B1C2C] hover:bg-[#0B1C2C]/85')}
+                >
+                  My account
+                </SheetClose>
+              ) : (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <SheetClose
+                    render={<Link to="/login" />}
+                    className={ctaClass('light', 'border border-black/15')}
+                  >
+                    Log in
+                  </SheetClose>
+                  <SheetClose
+                    render={<Link to="/signup" />}
+                    className={ctaClass('brand', 'bg-[#0B1C2C] hover:bg-[#0B1C2C]/85')}
+                  >
+                    Sign up
+                  </SheetClose>
+                </div>
+              )}
             </nav>
           </SheetContent>
         </Sheet>
