@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
+import { CornerDownRight, Search } from 'lucide-react'
 import type { LedgerTransaction, Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -34,7 +34,9 @@ const fmtDate = (iso: string | null) =>
  * description, amount, debit, credit. The bank account sits on one side of every row and
  * the AI-chosen account on the other (the offset), shown as a chip.
  * `account` limits it to the rows posted to one account (from the chart of accounts).
- * A statement's printed starting balance comes as its own shaded row (`isOpening`).
+ * A statement's printed starting balance comes as its own shaded row (`kind: 'opening'`).
+ * A tax line (`kind: 'tax'`) sits directly under the transaction it taxes: indented,
+ * lighter, joined to it without a divider, and left out of the net change (no cash moves).
  */
 export function LedgerTable({
   transactions,
@@ -67,7 +69,11 @@ export function LedgerTable({
           t.creditAccount.toLowerCase().includes(q)),
     )
   }, [transactions, query, statementId, account])
-  const net = rows.reduce((cents, t) => cents + Math.round(t.amount * 100), 0) / 100
+  const net =
+    rows.reduce((cents, t) => (t.kind === 'tax' ? cents : cents + Math.round(t.amount * 100)), 0) / 100
+  const taxCount = rows.filter((t) => t.kind === 'tax').length
+  const txCount = rows.length - taxCount
+  const allTx = useMemo(() => transactions.filter((t) => t.kind !== 'tax').length, [transactions])
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
@@ -148,46 +154,63 @@ export function LedgerTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.slice(0, shown).map((t) => (
-              <TableRow key={t.id} className={cn(t.isOpening && 'bg-muted/40')}>
-                <TableCell className="pl-5 text-muted-foreground">{fmtDate(t.pendingDate)}</TableCell>
-                <TableCell className="text-muted-foreground">{fmtDate(t.postingDate)}</TableCell>
-                <TableCell className="max-w-[10rem] truncate font-medium text-[#0B1C2C]" title={t.name ?? undefined}>
-                  {t.name ?? <span className="text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell className="max-w-[18rem] truncate text-[#0B1C2C]" title={t.description}>
-                  {t.isOpening ? <Badge variant="secondary">{t.description}</Badge> : t.description}
-                </TableCell>
-                <TableCell
+            {rows.slice(0, shown).map((t, i, page) =>
+              t.kind === 'tax' ? (
+                <TaxRow key={t.key} t={t} />
+              ) : (
+                <TableRow
+                  key={t.key}
                   className={cn(
-                    'text-right font-semibold tabular-nums',
-                    t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
+                    t.kind === 'opening' && 'bg-muted/40',
+                    // Joined to its tax lines: no divider between them.
+                    page[i + 1]?.kind === 'tax' && 'border-b-0',
                   )}
                 >
-                  {money(t.amount)}
-                </TableCell>
-                <TableCell>
-                  <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} />
-                </TableCell>
-                <TableCell>
-                  <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} />
-                </TableCell>
-                <TableCell className="pr-5">
-                  <span
-                    className="inline-flex max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-                    title={t.statementLabel}
+                  <TableCell className="pl-5 text-muted-foreground">{fmtDate(t.pendingDate)}</TableCell>
+                  <TableCell className="text-muted-foreground">{fmtDate(t.postingDate)}</TableCell>
+                  <TableCell className="max-w-[10rem] truncate font-medium text-[#0B1C2C]" title={t.name ?? undefined}>
+                    {t.name ?? <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="max-w-[18rem] truncate text-[#0B1C2C]" title={t.description}>
+                    {t.kind === 'opening' ? <Badge variant="secondary">{t.description}</Badge> : t.description}
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      'text-right font-semibold tabular-nums',
+                      t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
+                    )}
                   >
-                    {t.statementLabel}
-                  </span>
-                </TableCell>
-              </TableRow>
-            ))}
+                    {money(t.amount)}
+                  </TableCell>
+                  <TableCell>
+                    <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} />
+                  </TableCell>
+                  <TableCell>
+                    <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} />
+                  </TableCell>
+                  <TableCell className="pr-5">
+                    <span
+                      className="inline-flex max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                      title={t.statementLabel}
+                    >
+                      {t.statementLabel}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ),
+            )}
           </TableBody>
           <TableFooter className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={4} className="pl-5 font-medium">
-                {rows.length.toLocaleString()} transaction{rows.length === 1 ? '' : 's'}
-                {rows.length !== transactions.length && ` of ${transactions.length.toLocaleString()}`}
+                {txCount.toLocaleString()} transaction{txCount === 1 ? '' : 's'}
+                {txCount !== allTx && ` of ${allTx.toLocaleString()}`}
+                {taxCount > 0 && (
+                  <span className="font-normal text-muted-foreground">
+                    {' '}
+                    + {taxCount.toLocaleString()} tax line{taxCount === 1 ? '' : 's'}
+                  </span>
+                )}
               </TableCell>
               <TableCell
                 className={cn('text-right font-bold tabular-nums', net < 0 ? 'text-red-600' : 'text-emerald-700')}
@@ -230,8 +253,53 @@ function statementLabels(list: Statement[]): Array<{ id: number; label: string }
   }))
 }
 
+/**
+ * A tax line, under the transaction it taxes: same dates and payee, lighter, indented
+ * with a hook arrow and the agency + rate, the amount in neutral grey (it moves no cash).
+ */
+function TaxRow({ t }: { t: LedgerTransaction }) {
+  return (
+    <TableRow className="bg-slate-50/80 text-slate-500 hover:bg-slate-100/70">
+      <TableCell className="py-1.5 pl-5 text-xs">{fmtDate(t.pendingDate)}</TableCell>
+      <TableCell className="py-1.5 text-xs">{fmtDate(t.postingDate)}</TableCell>
+      <TableCell className="max-w-[10rem] truncate py-1.5 text-xs" title={t.name ?? undefined}>
+        {t.name}
+      </TableCell>
+      <TableCell className="max-w-[18rem] py-1.5" title={`${t.offsetAccount} on: ${t.description}`}>
+        <span className="flex min-w-0 items-center gap-1.5 pl-2">
+          <CornerDownRight className="size-3.5 shrink-0 text-slate-400" />
+          <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/20">
+            {t.offsetAccount}
+            {t.taxRate !== undefined && ` · ${t.taxRate.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`}
+          </span>
+          <span className="truncate text-xs">{t.description}</span>
+        </span>
+      </TableCell>
+      <TableCell className="py-1.5 text-right text-sm font-medium tabular-nums">{money(t.amount)}</TableCell>
+      <TableCell className="py-1.5">
+        <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} tax />
+      </TableCell>
+      <TableCell className="py-1.5">
+        <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} tax />
+      </TableCell>
+      <TableCell className="py-1.5 pr-5" />
+    </TableRow>
+  )
+}
+
 /** The AI-chosen (offset) account gets a soft chip; the bank account is plain text. */
-function AccountCell({ name, offset }: { name: string; offset: boolean }) {
+function AccountCell({ name, offset, tax }: { name: string; offset: boolean; tax?: boolean }) {
+  if (tax) {
+    // On a tax line the agency is the chip (amber, like its label); the account the tax
+    // is taken from is plain grey text.
+    return offset ? (
+      <span className="inline-flex max-w-full truncate rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20">
+        {name}
+      </span>
+    ) : (
+      <span className="truncate text-xs text-slate-500">{name}</span>
+    )
+  }
   return offset ? (
     <span className="inline-flex max-w-full truncate rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
       {name}

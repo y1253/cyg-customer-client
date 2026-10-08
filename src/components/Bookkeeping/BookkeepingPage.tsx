@@ -10,14 +10,16 @@ import { useStatements } from '@/hooks/useStatements'
 import { BalanceSheet } from './BalanceSheet'
 import { ChartOfAccounts } from './ChartOfAccounts'
 import { DebitCreditGuide } from './DebitCreditGuide'
+import { GenerateBar } from './GenerateBar'
 import { IncomeStatement } from './IncomeStatement'
 import { LedgerDialog } from './LedgerDialog'
 import { ReportPeriod } from './ReportPeriod'
 import { ReportSkeleton } from './ReportParts'
 import { StatementsList } from './StatementsList'
+import { TaxAgencies } from './TaxAgencies'
 import { UploadDropzone } from './UploadDropzone'
 
-type Tab = 'overview' | 'accounts' | 'income' | 'balance'
+type Tab = 'overview' | 'accounts' | 'income' | 'balance' | 'names'
 
 /**
  * Bookkeeping: upload statements → the AI posts every transaction as a double entry →
@@ -39,7 +41,7 @@ export function BookkeepingPage() {
 
   // The reports are fetched only once a report tab is opened.
   const periodValid = !period.from || !period.to || period.from <= period.to
-  const reportsTab = tab !== 'overview'
+  const reportsTab = tab === 'accounts' || tab === 'income' || tab === 'balance'
   const reports = useReports(period, { enabled: reportsTab && periodValid && done.length > 0 })
 
   const openLedger = (account: string | null) => {
@@ -114,9 +116,13 @@ export function BookkeepingPage() {
           <TabsTrigger value="balance" className="h-9 flex-none px-4">
             Balance sheet
           </TabsTrigger>
+          <TabsTrigger value="names" className="h-9 flex-none px-4">
+            Names
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
+          <GenerateBar statements={list} />
           <div className="mb-8 grid gap-6 lg:grid-cols-5">
             <section className="lg:col-span-2">
               <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Upload</h2>
@@ -172,6 +178,9 @@ export function BookkeepingPage() {
         </TabsContent>
         <TabsContent value="income">{report((r) => <IncomeStatement reports={r} />)}</TabsContent>
         <TabsContent value="balance">{report((r) => <BalanceSheet reports={r} />)}</TabsContent>
+        <TabsContent value="names">
+          <TaxAgencies />
+        </TabsContent>
       </Tabs>
 
       <LedgerDialog

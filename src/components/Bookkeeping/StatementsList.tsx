@@ -1,15 +1,5 @@
 import { useState } from 'react'
-import {
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  FileText,
-  Loader2,
-  RotateCcw,
-  Trash2,
-} from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Clock, ExternalLink, FileClock, FileText, Loader2, RotateCcw, Trash2 } from 'lucide-react'
 import { isBusy, openOriginal, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -52,6 +42,13 @@ function StatusBadge({ s }: { s: Statement }) {
       </Badge>
     )
   }
+  if (s.status === 'UPLOADED') {
+    return (
+      <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
+        <FileClock className="size-3" /> Not read yet
+      </Badge>
+    )
+  }
   if (s.status === 'PROCESSING') {
     return (
       <Badge className="gap-1 bg-brand/10 text-brand ring-1 ring-brand/25">
@@ -77,6 +74,8 @@ function subtitle(s: Statement): string {
       return [`${s.transactionCount} transactions`, s.filename].join(' · ')
     case 'PROCESSING':
       return 'Reading every transaction…'
+    case 'UPLOADED':
+      return [s.filename, 'click Generate to read it'].join(' · ')
     default:
       return 'Waiting to be read…'
   }

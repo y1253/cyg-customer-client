@@ -1,6 +1,7 @@
 import { errorFrom, fetchWithAuth, handleUnauthorized } from './client'
 
-export type StatementStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'NEEDS_REVIEW'
+/** UPLOADED = not read yet; reading starts when the customer clicks Generate. */
+export type StatementStatus = 'UPLOADED' | 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'NEEDS_REVIEW'
 
 export type Statement = {
   id: number
@@ -20,6 +21,9 @@ export type Statement = {
 }
 
 export type LedgerTransaction = {
+  /** Unique per row (`t:`, `o:` starting balance, `x:` tax line) — use as the React key. */
+  key: string
+  /** The transaction's id; on a tax row, the id of the transaction it belongs to. */
   id: number
   statementId: number
   pendingDate: string | null
@@ -34,10 +38,12 @@ export type LedgerTransaction = {
   /** The statement it came from, e.g. "Chase 4362 · Sep 2026". */
   statementLabel: string
   /**
-   * The statement's printed starting balance, offset to Owner's Loan (id is negative).
-   * Computed by the server; a statement continuing the previous one of its account has none.
+   * `opening`: the statement's printed starting balance, offset to Owner's Loan.
+   * `tax`: an agency's tax on the transaction right above it — moves no cash.
    */
-  isOpening?: true
+  kind?: 'opening' | 'tax'
+  /** On a tax row: the agency's rate, a percent. */
+  taxRate?: number
 }
 
 export type ExportFormat = 'xlsx' | 'pdf'
@@ -209,8 +215,80 @@ export async function openOriginal(token: string, id: number): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
+export type TaxAgencyType = 'SALES' | 'PURCHASE' | 'BOTH'
+
+export type TaxAgency = {
+  id: number
+  name: string
+  type: TaxAgencyType
+  /** Percent: 10 = 10%. */
+  rate: number
+  active: boolean
+}
+
+export type TaxAgencyInput = Omit<TaxAgency, 'id'>
+
+export type TaxSettings = {
+  enabled: boolean
+  /** Agencies or the switch changed since the last tax run — Generate applies them. */
+  stale: boolean
+  running: boolean
+  agencies: TaxAgency[]
+}
+
+export const AGENCY_TYPE_LABEL: Record<TaxAgencyType, string> = {
+  SALES: 'Sales',
+  PURCHASE: 'Purchases',
+  BOTH: 'Sales & purchases',
+}
+
+const json = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+})
+
+/** Reads every not-yet-read statement and re-applies changed tax settings. */
+export async function generate(token: string): Promise<{ queued: number; taxing: boolean }> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/generate', { method: 'POST' })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function fetchTax(token: string): Promise<TaxSettings> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/tax')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function updateTax(token: string, enabled: boolean): Promise<TaxSettings> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/tax', json('PATCH', { enabled }))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function saveAgency(
+  token: string,
+  values: Partial<TaxAgencyInput> & { id?: number },
+): Promise<TaxAgency> {
+  const { id, ...body } = values
+  const res = await fetchWithAuth(
+    token,
+    id ? `/api/bookkeeping/agencies/${id}` : '/api/bookkeeping/agencies',
+    json(id ? 'PATCH' : 'POST', body),
+  )
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function deleteAgency(token: string, id: number): Promise<void> {
+  const res = await fetchWithAuth(token, `/api/bookkeeping/agencies/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw await errorFrom(res)
+}
+
 /** React Query keys — one place, so every invalidation hits what the views read. */
 export const STATEMENTS_KEY = ['bookkeeping', 'statements'] as const
 export const TRANSACTIONS_KEY = ['bookkeeping', 'transactions'] as const
 /** Prefix — the hook appends the period. */
 export const REPORTS_KEY = ['bookkeeping', 'reports'] as const
+export const TAX_KEY = ['bookkeeping', 'tax'] as const

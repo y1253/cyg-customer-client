@@ -86,7 +86,7 @@ export function UploadDropzone() {
       {upload.isPending && <Progress value={Math.round(upload.progress * 100)} className="h-1.5" />}
       {upload.isSuccess && !upload.isPending && (
         <p className="flex items-center gap-2 text-sm text-emerald-700">
-          <CheckCircle2 className="size-4" /> Uploaded — we are reading your statements now.
+          <CheckCircle2 className="size-4" /> Uploaded — click Generate when you have added them all.
         </p>
       )}
       {upload.error && (
