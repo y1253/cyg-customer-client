@@ -25,6 +25,8 @@ export type LedgerTransaction = {
   pendingDate: string | null
   postingDate: string | null
   description: string
+  /** The payee / payer the AI read out of the description ("Walmart"); null when none. */
+  name: string | null
   amount: number
   offsetAccount: string
   debitAccount: string
@@ -34,6 +36,49 @@ export type LedgerTransaction = {
 }
 
 export type ExportFormat = 'xlsx' | 'pdf'
+
+export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE'
+
+export type AccountBalance = {
+  name: string
+  type: AccountType
+  /** The bank / card account itself — the cash side of every entry. */
+  bank: boolean
+  /** On the account's normal side: $50 of office supplies is +50, a refund lowers it. */
+  balance: number
+  count: number
+}
+
+export type ReportLine = { name: string; amount: number }
+
+/** `GET /api/bookkeeping/reports` — chart of accounts + income statement for the period, balance sheet as of its end. */
+export type Reports = {
+  from: string | null
+  to: string | null
+  accounts: AccountBalance[]
+  incomeStatement: {
+    income: ReportLine[]
+    totalIncome: number
+    expenses: ReportLine[]
+    totalExpenses: number
+    netIncome: number
+  }
+  balanceSheet: {
+    asOf: string | null
+    assets: ReportLine[]
+    totalAssets: number
+    liabilities: ReportLine[]
+    totalLiabilities: number
+    equity: ReportLine[]
+    totalEquity: number
+    totalLiabilitiesAndEquity: number
+    balanced: boolean
+  }
+  uncategorized: { count: number; amount: number }
+}
+
+/** A report period as YYYY-MM-DD; null on either side = open-ended. */
+export type Period = { from: string | null; to: string | null }
 
 /** Server-side ceilings — mirrored so the picker can refuse before uploading. */
 export const MAX_STATEMENT_BYTES = 50 * 1024 * 1024
@@ -52,6 +97,15 @@ export async function fetchStatements(token: string): Promise<Statement[]> {
 
 export async function fetchTransactions(token: string): Promise<LedgerTransaction[]> {
   const res = await fetchWithAuth(token, '/api/bookkeeping/transactions')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function fetchReports(token: string, period: Period): Promise<Reports> {
+  const qs = new URLSearchParams()
+  if (period.from) qs.set('from', period.from)
+  if (period.to) qs.set('to', period.to)
+  const res = await fetchWithAuth(token, `/api/bookkeeping/reports${qs.size ? `?${qs}` : ''}`)
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -153,3 +207,5 @@ export async function openOriginal(token: string, id: number): Promise<void> {
 /** React Query keys — one place, so every invalidation hits what the views read. */
 export const STATEMENTS_KEY = ['bookkeeping', 'statements'] as const
 export const TRANSACTIONS_KEY = ['bookkeeping', 'transactions'] as const
+/** Prefix — the hook appends the period. */
+export const REPORTS_KEY = ['bookkeeping', 'reports'] as const

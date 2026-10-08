@@ -12,13 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
 /** Rows rendered at once. A year of statements is thousands of rows; more load on demand. */
 const PAGE = 200
-
-const money = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /** Date-only ISO → "Sep 2, 2026", parsed as LOCAL midnight so it never slips a day. */
 const fmtDate = (iso: string | null) =>
@@ -31,18 +29,23 @@ const fmtDate = (iso: string | null) =>
     : ''
 
 /**
- * The ledger, read-only, in the firm's own columns: pending date, posting date,
+ * The ledger, read-only, in the firm's own columns: pending date, posting date, name,
  * description, amount, debit, credit. The bank account sits on one side of every row and
  * the AI-chosen account on the other (the offset), shown as a chip.
+ * `account` limits it to the rows posted to one account (from the chart of accounts).
  */
 export function LedgerTable({
   transactions,
   statements,
   loading,
+  account,
+  onClearAccount,
 }: {
   transactions: LedgerTransaction[]
   statements: Statement[]
   loading: boolean
+  account?: string | null
+  onClearAccount?: () => void
 }) {
   const [query, setQuery] = useState('')
   const [statementId, setStatementId] = useState<number | 'all'>('all')
@@ -54,12 +57,14 @@ export function LedgerTable({
     return transactions.filter(
       (t) =>
         (statementId === 'all' || t.statementId === statementId) &&
+        (!account || t.debitAccount === account || t.creditAccount === account) &&
         (!q ||
           t.description.toLowerCase().includes(q) ||
+          t.name?.toLowerCase().includes(q) ||
           t.debitAccount.toLowerCase().includes(q) ||
           t.creditAccount.toLowerCase().includes(q)),
     )
-  }, [transactions, query, statementId])
+  }, [transactions, query, statementId, account])
   const net = rows.reduce((cents, t) => cents + Math.round(t.amount * 100), 0) / 100
 
   return (
@@ -73,10 +78,20 @@ export function LedgerTable({
               setQuery(e.target.value)
               setShown(PAGE)
             }}
-            placeholder="Search description or account"
+            placeholder="Search name, description or account"
             className="h-10 pl-9"
           />
         </div>
+        {account && (
+          <button
+            type="button"
+            onClick={onClearAccount}
+            className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
+            title="Show every account"
+          >
+            {account} ✕
+          </button>
+        )}
         {done.length > 1 && (
           <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
             {[{ id: 'all' as const, label: 'All statements' }, ...statementLabels(done)].map(
@@ -122,6 +137,7 @@ export function LedgerTable({
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-28 pl-5">Pending date</TableHead>
               <TableHead className="w-28">Posting date</TableHead>
+              <TableHead className="w-40">Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="w-32 text-right">Amount</TableHead>
               <TableHead className="w-44">Debit</TableHead>
@@ -134,7 +150,10 @@ export function LedgerTable({
               <TableRow key={t.id}>
                 <TableCell className="pl-5 text-muted-foreground">{fmtDate(t.pendingDate)}</TableCell>
                 <TableCell className="text-muted-foreground">{fmtDate(t.postingDate)}</TableCell>
-                <TableCell className="max-w-[18rem] truncate font-medium text-[#0B1C2C]" title={t.description}>
+                <TableCell className="max-w-[10rem] truncate font-medium text-[#0B1C2C]" title={t.name ?? undefined}>
+                  {t.name ?? <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell className="max-w-[18rem] truncate text-[#0B1C2C]" title={t.description}>
                   {t.description}
                 </TableCell>
                 <TableCell
@@ -164,7 +183,7 @@ export function LedgerTable({
           </TableBody>
           <TableFooter className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={3} className="pl-5 font-medium">
+              <TableCell colSpan={4} className="pl-5 font-medium">
                 {rows.length.toLocaleString()} transaction{rows.length === 1 ? '' : 's'}
                 {rows.length !== transactions.length && ` of ${transactions.length.toLocaleString()}`}
               </TableCell>

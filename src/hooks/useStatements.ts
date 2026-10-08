@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchStatements, isBusy, STATEMENTS_KEY, TRANSACTIONS_KEY } from '@/api/bookkeeping'
+import { fetchStatements, isBusy, REPORTS_KEY, STATEMENTS_KEY, TRANSACTIONS_KEY } from '@/api/bookkeeping'
 import { useAuth } from '@/context/AuthContext'
 
 /** The customer's statements. Polls every 4s while any is still being read. */
@@ -10,8 +10,9 @@ export function useStatements() {
     queryKey: STATEMENTS_KEY,
     queryFn: async () => {
       const list = await fetchStatements(token!)
-      // A statement finishing changes the ledger too.
+      // A statement finishing changes the ledger and the reports too.
       void queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY })
+      void queryClient.invalidateQueries({ queryKey: REPORTS_KEY })
       return list
     },
     enabled: !!token,
