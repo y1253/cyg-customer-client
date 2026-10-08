@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import type { LedgerTransaction, Statement } from '@/api/bookkeeping'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -33,6 +34,7 @@ const fmtDate = (iso: string | null) =>
  * description, amount, debit, credit. The bank account sits on one side of every row and
  * the AI-chosen account on the other (the offset), shown as a chip.
  * `account` limits it to the rows posted to one account (from the chart of accounts).
+ * A statement's printed starting balance comes as its own shaded row (`isOpening`).
  */
 export function LedgerTable({
   transactions,
@@ -147,14 +149,14 @@ export function LedgerTable({
           </TableHeader>
           <TableBody>
             {rows.slice(0, shown).map((t) => (
-              <TableRow key={t.id}>
+              <TableRow key={t.id} className={cn(t.isOpening && 'bg-muted/40')}>
                 <TableCell className="pl-5 text-muted-foreground">{fmtDate(t.pendingDate)}</TableCell>
                 <TableCell className="text-muted-foreground">{fmtDate(t.postingDate)}</TableCell>
                 <TableCell className="max-w-[10rem] truncate font-medium text-[#0B1C2C]" title={t.name ?? undefined}>
                   {t.name ?? <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell className="max-w-[18rem] truncate text-[#0B1C2C]" title={t.description}>
-                  {t.description}
+                  {t.isOpening ? <Badge variant="secondary">{t.description}</Badge> : t.description}
                 </TableCell>
                 <TableCell
                   className={cn(

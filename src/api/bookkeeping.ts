@@ -33,6 +33,11 @@ export type LedgerTransaction = {
   creditAccount: string
   /** The statement it came from, e.g. "Chase 4362 · Sep 2026". */
   statementLabel: string
+  /**
+   * The statement's printed starting balance, offset to Owner's Loan (id is negative).
+   * Computed by the server; a statement continuing the previous one of its account has none.
+   */
+  isOpening?: true
 }
 
 export type ExportFormat = 'xlsx' | 'pdf'
