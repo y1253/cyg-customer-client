@@ -36,7 +36,8 @@ const fmtDate = (iso: string | null) =>
  * `account` limits it to the rows posted to one account (from the chart of accounts).
  * A statement's printed starting balance comes as its own shaded row (`kind: 'opening'`).
  * A tax line (`kind: 'tax'`) sits directly under the transaction it taxes: indented,
- * lighter, joined to it without a divider, and left out of the net change (no cash moves).
+ * lighter, joined to it without a divider. The transaction shows net of its tax, so the
+ * two add up to the bank amount and both count in the net change.
  */
 export function LedgerTable({
   transactions,
@@ -70,7 +71,7 @@ export function LedgerTable({
     )
   }, [transactions, query, statementId, account])
   const net =
-    rows.reduce((cents, t) => (t.kind === 'tax' ? cents : cents + Math.round(t.amount * 100)), 0) / 100
+    rows.reduce((cents, t) => cents + Math.round(t.amount * 100), 0) / 100
   const taxCount = rows.filter((t) => t.kind === 'tax').length
   const txCount = rows.length - taxCount
   const allTx = useMemo(() => transactions.filter((t) => t.kind !== 'tax').length, [transactions])
@@ -255,7 +256,7 @@ function statementLabels(list: Statement[]): Array<{ id: number; label: string }
 
 /**
  * A tax line, under the transaction it taxes: same dates and payee, lighter, indented
- * with a hook arrow and the agency + rate, the amount in neutral grey (it moves no cash).
+ * with a hook arrow and the agency + rate, the amount in neutral grey (its share of the bank amount above).
  */
 function TaxRow({ t }: { t: LedgerTransaction }) {
   return (

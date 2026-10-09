@@ -39,7 +39,7 @@ export type LedgerTransaction = {
   statementLabel: string
   /**
    * `opening`: the statement's printed starting balance, offset to Owner's Loan.
-   * `tax`: an agency's tax on the transaction right above it — moves no cash.
+   * `tax`: an agency's tax on the transaction right above it, which shows net of it (the two add up to the bank amount).
    */
   kind?: 'opening' | 'tax'
   /** On a tax row: the agency's rate, a percent. */
