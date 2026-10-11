@@ -39,7 +39,7 @@ export type LedgerTransaction = {
   statementLabel: string
   /**
    * `opening`: the statement's printed starting balance, offset to Owner's Loan.
-   * `tax`: an agency's tax on the transaction right above it, which shows net of it (the two add up to the bank amount).
+   * `tax`: an agency's tax on the transaction right above it, added on top of it (the transaction keeps its bank amount).
    */
   kind?: 'opening' | 'tax'
   /** On a tax row: the agency's rate, a percent. */
@@ -215,14 +215,13 @@ export async function openOriginal(token: string, id: number): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
-export type TaxAgencyType = 'SALES' | 'PURCHASE' | 'BOTH'
+export type TaxKind = 'SALES' | 'PURCHASE'
 
 export type TaxAgency = {
   id: number
   name: string
-  type: TaxAgencyType
-  /** Percent: 10 = 10%. */
-  rate: number
+  /** At most one per kind, Sales first. `rate` is a percent: 10 = 10%. */
+  rates: Array<{ kind: TaxKind; rate: number }>
   active: boolean
 }
 
@@ -236,10 +235,25 @@ export type TaxSettings = {
   agencies: TaxAgency[]
 }
 
-export const AGENCY_TYPE_LABEL: Record<TaxAgencyType, string> = {
+export const TAX_KIND_LABEL: Record<TaxKind, string> = {
   SALES: 'Sales',
-  PURCHASE: 'Purchases',
-  BOTH: 'Sales & purchases',
+  PURCHASE: 'Purchase',
+}
+
+/** What a payee is, from its category: income → customer, expense → supplier. */
+export type NameType = 'CUSTOMER' | 'SUPPLIER' | 'OTHER'
+
+/** One AI-read payee name on the Names tab. */
+export type LedgerName = {
+  name: string
+  /** Its most frequent category. */
+  category: string
+  /** How many other categories its rows have. */
+  otherCategories: number
+  type: NameType
+  rows: number
+  /** Its tax lines are left out of the ledger, reports and downloads. */
+  taxExempt: boolean
 }
 
 const json = (method: string, body: unknown): RequestInit => ({
@@ -286,9 +300,25 @@ export async function deleteAgency(token: string, id: number): Promise<void> {
   if (!res.ok) throw await errorFrom(res)
 }
 
+export async function fetchNames(token: string): Promise<LedgerName[]> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/names')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function updateName(
+  token: string,
+  values: { name: string; taxExempt: boolean },
+): Promise<LedgerName[]> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/names', json('PATCH', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
 /** React Query keys — one place, so every invalidation hits what the views read. */
 export const STATEMENTS_KEY = ['bookkeeping', 'statements'] as const
 export const TRANSACTIONS_KEY = ['bookkeeping', 'transactions'] as const
 /** Prefix — the hook appends the period. */
 export const REPORTS_KEY = ['bookkeeping', 'reports'] as const
 export const TAX_KEY = ['bookkeeping', 'tax'] as const
+export const NAMES_KEY = ['bookkeeping', 'names'] as const

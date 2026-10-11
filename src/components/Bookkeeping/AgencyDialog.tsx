@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AGENCY_TYPE_LABEL, type TaxAgency, type TaxAgencyInput, type TaxAgencyType } from '@/api/bookkeeping'
+import { TAX_KIND_LABEL, type TaxAgency, type TaxAgencyInput, type TaxKind } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,13 +12,23 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 
+const KINDS: TaxKind[] = ['SALES', 'PURCHASE']
+const EMPTY: Record<TaxKind, { on: boolean; rate: string }> = {
+  SALES: { on: true, rate: '' },
+  PURCHASE: { on: false, rate: '' },
+}
+
+const rateOf = (agency: TaxAgency, kind: TaxKind) => {
+  const r = agency.rates.find((x) => x.kind === kind)
+  return { on: !!r, rate: r ? String(r.rate) : '' }
+}
+
 /**
- * Add or edit a tax agency. `agency` = edit it; null = a new one. `onSaved` runs after a
- * successful save (the sales-tax switch uses it to turn itself on after the first agency).
+ * Add or edit a tax agency: a Sales rate, a Purchase rate, or both (each its own %).
+ * `agency` = edit it; null = a new one. `onSaved` runs after a successful save (the sales-tax switch uses it to turn itself on after the first agency).
  */
 export function AgencyDialog({
   open,
@@ -37,8 +47,8 @@ export function AgencyDialog({
 }) {
   const save = useSaveAgency()
   const [name, setName] = useState('')
-  const [type, setType] = useState<TaxAgencyType>('SALES')
-  const [rate, setRate] = useState('')
+  /** Per kind: whether the agency charges it, and the rate as typed. */
+  const [rates, setRates] = useState<Record<TaxKind, { on: boolean; rate: string }>>(EMPTY)
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,8 +56,14 @@ export function AgencyDialog({
   useEffect(() => {
     if (!open) return
     setName(agency?.name ?? '')
-    setType(agency?.type ?? 'SALES')
-    setRate(agency ? String(agency.rate) : '')
+    setRates(
+      agency
+        ? {
+            SALES: rateOf(agency, 'SALES'),
+            PURCHASE: rateOf(agency, 'PURCHASE'),
+          }
+        : EMPTY,
+    )
     setActive(agency?.active ?? true)
     setError(null)
     save.reset()
@@ -56,13 +72,21 @@ export function AgencyDialog({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    const value = Number(rate)
     if (!name.trim()) return setError('Give the agency a name.')
-    if (rate.trim() === '' || !Number.isFinite(value) || value < 0 || value > 100) {
-      return setError('The rate is a percent between 0 and 100.')
+    const chosen = KINDS.filter((k) => rates[k].on)
+    if (!chosen.length) return setError('Give the agency a Sales rate, a Purchase rate, or both.')
+    for (const k of chosen) {
+      const value = Number(rates[k].rate)
+      if (rates[k].rate.trim() === '' || !Number.isFinite(value) || value < 0 || value > 100) {
+        return setError(`The ${TAX_KIND_LABEL[k].toLowerCase()} rate is a percent between 0 and 100.`)
+      }
     }
     setError(null)
-    const values: TaxAgencyInput = { name: name.trim(), type, rate: Math.round(value * 1000) / 1000, active }
+    const values: TaxAgencyInput = {
+      name: name.trim(),
+      rates: chosen.map((kind) => ({ kind, rate: Math.round(Number(rates[kind].rate) * 1000) / 1000 })),
+      active,
+    }
     save.mutate(
       { ...values, id: agency?.id },
       {
@@ -100,42 +124,49 @@ export function AgencyDialog({
                 autoFocus
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label>Applies to</Label>
-                <Select
-                  items={AGENCY_TYPE_LABEL}
-                  value={type}
-                  onValueChange={(v) => v && setType(v as TaxAgencyType)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(AGENCY_TYPE_LABEL).map(([v, label]) => (
-                      <SelectItem key={v} value={v}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label>Rates</Label>
+                {rates.SALES.on && rates.PURCHASE.on && rates.SALES.rate !== rates.PURCHASE.rate && (
+                  <button
+                    type="button"
+                    onClick={() => setRates((r) => ({ ...r, PURCHASE: { ...r.PURCHASE, rate: r.SALES.rate } }))}
+                    className="text-xs font-medium text-brand hover:underline"
+                  >
+                    Same rate for both
+                  </button>
+                )}
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="agency-rate">Rate</Label>
-                <div className="relative">
-                  <Input
-                    id="agency-rate"
-                    inputMode="decimal"
-                    value={rate}
-                    onChange={(e) => setRate(e.target.value)}
-                    placeholder="10"
-                    className="pr-8"
+              {KINDS.map((kind) => (
+                <div key={kind} className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2">
+                  <Switch
+                    checked={rates[kind].on}
+                    onCheckedChange={(on) => setRates((r) => ({ ...r, [kind]: { ...r[kind], on } }))}
+                    className="data-checked:bg-brand"
+                    aria-label={`${TAX_KIND_LABEL[kind]} tax`}
                   />
-                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
-                    %
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium">{TAX_KIND_LABEL[kind]} tax</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {kind === 'SALES' ? 'Charged on money you receive for a sale.' : 'Paid on money you spend on a purchase.'}
+                    </span>
                   </span>
+                  <div className="relative w-24">
+                    <Input
+                      inputMode="decimal"
+                      value={rates[kind].rate}
+                      disabled={!rates[kind].on}
+                      onChange={(e) => setRates((r) => ({ ...r, [kind]: { ...r[kind], rate: e.target.value } }))}
+                      placeholder="10"
+                      className="bg-white pr-7"
+                      aria-label={`${TAX_KIND_LABEL[kind]} rate`}
+                    />
+                    <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground">
+                      %
+                    </span>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
             <label className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
               <span>

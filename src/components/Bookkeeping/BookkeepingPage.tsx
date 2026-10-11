@@ -16,7 +16,7 @@ import { LedgerDialog } from './LedgerDialog'
 import { ReportPeriod } from './ReportPeriod'
 import { ReportSkeleton } from './ReportParts'
 import { StatementsList } from './StatementsList'
-import { TaxAgencies } from './TaxAgencies'
+import { Names } from './Names'
 import { UploadDropzone } from './UploadDropzone'
 
 type Tab = 'overview' | 'accounts' | 'income' | 'balance' | 'names'
@@ -179,7 +179,7 @@ export function BookkeepingPage() {
         <TabsContent value="income">{report((r) => <IncomeStatement reports={r} />)}</TabsContent>
         <TabsContent value="balance">{report((r) => <BalanceSheet reports={r} />)}</TabsContent>
         <TabsContent value="names">
-          <TaxAgencies />
+          <Names />
         </TabsContent>
       </Tabs>
 

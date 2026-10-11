@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { CornerDownRight, Search } from 'lucide-react'
+import { ChevronsDownUp, ChevronsUpDown, CornerDownRight, Search } from 'lucide-react'
 import type { LedgerTransaction, Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -36,8 +37,10 @@ const fmtDate = (iso: string | null) =>
  * `account` limits it to the rows posted to one account (from the chart of accounts).
  * A statement's printed starting balance comes as its own shaded row (`kind: 'opening'`).
  * A tax line (`kind: 'tax'`) sits directly under the transaction it taxes: indented,
- * lighter, joined to it without a divider. The transaction shows net of its tax, so the
- * two add up to the bank amount and both count in the net change.
+ * lighter, joined to it without a divider. Tax is added ON TOP: the transaction keeps
+ * its bank amount, so with the tax lines shown the net change is the real total incl. tax.
+ * "Hide tax lines" collapses them (view only; downloads always include them) and the net
+ * change is then the statement's own figure, before tax.
  */
 export function LedgerTable({
   transactions,
@@ -55,12 +58,21 @@ export function LedgerTable({
   const [query, setQuery] = useState('')
   const [statementId, setStatementId] = useState<number | 'all'>('all')
   const [shown, setShown] = useState(PAGE)
+  const [taxShown, setTaxShown] = useState(true)
 
   const done = statements.filter((s) => s.status === 'DONE')
+  const hasTax = useMemo(() => transactions.some((t) => t.kind === 'tax'), [transactions])
+  // An agency's own ledger is nothing but tax lines: never hide them there.
+  const isAgency = useMemo(
+    () => !!account && transactions.some((t) => t.kind === 'tax' && t.offsetAccount === account),
+    [transactions, account],
+  )
+  const withTax = taxShown || isAgency
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return transactions.filter(
       (t) =>
+        (withTax || t.kind !== 'tax') &&
         (statementId === 'all' || t.statementId === statementId) &&
         (!account || t.debitAccount === account || t.creditAccount === account) &&
         (!q ||
@@ -69,7 +81,7 @@ export function LedgerTable({
           t.debitAccount.toLowerCase().includes(q) ||
           t.creditAccount.toLowerCase().includes(q)),
     )
-  }, [transactions, query, statementId, account])
+  }, [transactions, query, statementId, account, withTax])
   const net =
     rows.reduce((cents, t) => cents + Math.round(t.amount * 100), 0) / 100
   const taxCount = rows.filter((t) => t.kind === 'tax').length
@@ -124,6 +136,18 @@ export function LedgerTable({
               ),
             )}
           </div>
+        )}
+        {hasTax && !isAgency && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTaxShown((v) => !v)}
+            className="h-9 shrink-0 gap-1.5 sm:ml-auto"
+            title={taxShown ? 'Collapse the tax lines — totals before tax' : 'Expand the tax lines — totals incl. tax'}
+          >
+            {taxShown ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
+            {taxShown ? 'Hide tax lines' : 'Show tax lines'}
+          </Button>
         )}
       </div>
 
@@ -219,7 +243,7 @@ export function LedgerTable({
                 {money(net)}
               </TableCell>
               <TableCell colSpan={3} className="pr-5 text-sm text-muted-foreground">
-                net change
+                {hasTax ? (withTax ? 'net change incl. tax' : 'net change before tax') : 'net change'}
               </TableCell>
             </TableRow>
           </TableFooter>
@@ -256,7 +280,7 @@ function statementLabels(list: Statement[]): Array<{ id: number; label: string }
 
 /**
  * A tax line, under the transaction it taxes: same dates and payee, lighter, indented
- * with a hook arrow and the agency + rate, the amount in neutral grey (its share of the bank amount above).
+ * with a hook arrow and the agency + rate, the amount in neutral grey (tax on top of the bank amount above).
  */
 function TaxRow({ t }: { t: LedgerTransaction }) {
   return (
