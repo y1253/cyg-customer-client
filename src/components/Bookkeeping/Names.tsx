@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
-import { CircleDashed, Landmark, Pencil, Plus, Search, Store, Trash2, UserRound } from 'lucide-react'
-import { TAX_KIND_LABEL, type LedgerName, type NameType, type TaxAgency } from '@/api/bookkeeping'
+import { CircleDashed, CircleHelp, Landmark, Pencil, Plus, RotateCcw, Search, Store, Trash2, UserRound } from 'lucide-react'
+import {
+  TAX_KIND_LABEL,
+  type LedgerName,
+  type NameRuleRef,
+  type NameType,
+  type TaxAgency,
+  type UnrecognizedName,
+} from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,15 +24,17 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNames } from '@/hooks/useNames'
+import { useResetNameRule } from '@/hooks/useNameRule'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useTax } from '@/hooks/useTax'
 import { useUpdateName } from '@/hooks/useUpdateName'
 import { cn } from '@/lib/utils'
 import { AgencyDialog } from './AgencyDialog'
+import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 
 const pct = (n: number) => `${n.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`
 
-type Filter = 'ALL' | 'AGENCY' | NameType
+type Filter = 'ALL' | 'AGENCY' | 'UNRECOGNIZED' | NameType
 
 const TYPE_LABEL: Record<NameType | 'AGENCY', string> = {
   AGENCY: 'Tax agency',
@@ -40,6 +49,7 @@ const FILTERS: Array<{ id: Filter; label: string }> = [
   { id: 'CUSTOMER', label: 'Customers' },
   { id: 'AGENCY', label: 'Tax agencies' },
   { id: 'OTHER', label: 'Other' },
+  { id: 'UNRECOGNIZED', label: 'Unrecognized' },
 ]
 
 const TYPE_ICON: Record<NameType | 'AGENCY', typeof Landmark> = {
@@ -67,8 +77,10 @@ function TypeIcon({ type }: { type: NameType | 'AGENCY' }) {
 
 /**
  * The Names tab: every name on the ledger with its type — the tax agencies (rates, Active
- * switch, edit, delete) and every payee the AI read (category, and a switch that keeps
- * its rows out of tax, applied at once — no Generate).
+ * switch, edit, delete), every payee the AI read (category, a switch that keeps its rows
+ * out of tax, and Edit to rename or re-categorise it), and the rows the AI could NOT name,
+ * grouped by description, so they can be assigned once. Edits are the customer's own rules:
+ * applied to their ledger at once and to every statement they upload from now on.
  */
 export function Names() {
   const tax = useTax()
@@ -76,6 +88,8 @@ export function Names() {
   const save = useSaveAgency()
   const remove = useDeleteAgency()
   const setNameTax = useUpdateName()
+  const resetRule = useResetNameRule()
+  const [ruleTarget, setRuleTarget] = useState<NameRuleTarget | null>(null)
   const [editing, setEditing] = useState<TaxAgency | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirm, setConfirm] = useState<TaxAgency | null>(null)
@@ -90,22 +104,49 @@ export function Names() {
   )
   const payees = useMemo(
     () =>
-      (names.data ?? []).filter(
+      (names.data?.names ?? []).filter(
         (n) => !q || n.name.toLowerCase().includes(q) || n.category.toLowerCase().includes(q),
       ),
     [names.data, q],
   )
+  const unrecognized = useMemo(
+    () =>
+      (names.data?.unrecognized ?? []).filter(
+        (u) =>
+          !q ||
+          u.sampleDescription.toLowerCase().includes(q) ||
+          u.category.toLowerCase().includes(q),
+      ),
+    [names.data, q],
+  )
   const count = (f: Filter) =>
-    f === 'ALL' ? agencies.length + payees.length : f === 'AGENCY' ? agencies.length : payees.filter((n) => n.type === f).length
+    f === 'ALL'
+      ? agencies.length + payees.length + unrecognized.length
+      : f === 'AGENCY'
+        ? agencies.length
+        : f === 'UNRECOGNIZED'
+          ? unrecognized.length
+          : payees.filter((n) => n.type === f).length
   const shownAgencies = filter === 'ALL' || filter === 'AGENCY' ? agencies : []
-  const shownNames = filter === 'ALL' ? payees : filter === 'AGENCY' ? [] : payees.filter((n) => n.type === filter)
+  const shownNames =
+    filter === 'ALL'
+      ? payees
+      : filter === 'AGENCY' || filter === 'UNRECOGNIZED'
+        ? []
+        : payees.filter((n) => n.type === filter)
+  const shownUnrecognized = filter === 'ALL' || filter === 'UNRECOGNIZED' ? unrecognized : []
+  const resetting = (rule: NameRuleRef | null) =>
+    !!rule &&
+    resetRule.isPending &&
+    resetRule.variables?.matchType === rule.matchType &&
+    resetRule.variables?.matchKey === rule.matchKey
 
   const open = (agency: TaxAgency | null) => {
     setEditing(agency)
     setDialogOpen(true)
   }
   const loading = tax.isLoading || names.isLoading
-  const error = tax.error ?? names.error ?? save.error ?? setNameTax.error
+  const error = tax.error ?? names.error ?? save.error ?? setNameTax.error ?? resetRule.error
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
@@ -115,7 +156,7 @@ export function Names() {
           <p className="text-sm text-muted-foreground">
             {tax.data && !taxOn
               ? 'Sales tax is off — switch it on in Overview to add tax to your ledger.'
-              : 'Every name on your ledger. Switch tax off for a name and its tax lines leave the ledger right away.'}
+              : 'Every name on your ledger. Edit a name or category and it is saved to your account — used for this ledger and every statement you upload from now on.'}
           </p>
         </div>
         <Button onClick={() => open(null)} className="h-10 gap-2 rounded-lg bg-brand px-4 text-white hover:bg-brand/85">
@@ -159,7 +200,7 @@ export function Names() {
             <Skeleton key={i} className="h-12" />
           ))}
         </div>
-      ) : !shownAgencies.length && !shownNames.length ? (
+      ) : !shownAgencies.length && !shownNames.length && !shownUnrecognized.length ? (
         <div className="px-6 py-14 text-center">
           <span className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-brand/10 text-brand">
             <Landmark className="size-5" />
@@ -218,6 +259,18 @@ export function Names() {
               taxOn={taxOn}
               pending={setNameTax.isPending && setNameTax.variables?.name === n.name}
               onTax={(applies) => setNameTax.mutate({ name: n.name, taxExempt: !applies })}
+              onEdit={() => setRuleTarget({ kind: 'name', view: n })}
+              onReset={() => n.rule && resetRule.mutate(n.rule)}
+              resetting={resetting(n.rule)}
+            />
+          ))}
+          {shownUnrecognized.map((u) => (
+            <UnrecognizedRow
+              key={`u:${u.key}`}
+              u={u}
+              onAssign={() => setRuleTarget({ kind: 'unrecognized', view: u })}
+              onReset={() => u.rule && resetRule.mutate(u.rule)}
+              resetting={resetting(u.rule)}
             />
           ))}
         </ul>
@@ -225,6 +278,7 @@ export function Names() {
       {error && <p className="px-5 pb-4 text-sm text-destructive">{error.message}</p>}
 
       <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} />
+      <NameRuleDialog target={ruleTarget} onOpenChange={(o) => !o && setRuleTarget(null)} />
 
       <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <DialogContent>
@@ -256,11 +310,17 @@ function NameRow({
   taxOn,
   pending,
   onTax,
+  onEdit,
+  onReset,
+  resetting,
 }: {
   n: LedgerName
   taxOn: boolean
   pending: boolean
   onTax: (applies: boolean) => void
+  onEdit: () => void
+  onReset: () => void
+  resetting: boolean
 }) {
   return (
     <li className="flex items-center gap-4 px-5 py-3">
@@ -269,6 +329,7 @@ function NameRow({
         <p className="truncate font-medium text-[#0B1C2C]">{n.name}</p>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
           <Badge className={TYPE_BADGE[n.type]}>{TYPE_LABEL[n.type]}</Badge>
+          {n.rule && <Badge className="bg-brand/10 text-brand">Edited</Badge>}
           <span className="truncate text-sm text-muted-foreground">
             {n.category}
             {n.otherCategories > 0 && ` +${n.otherCategories} more`}
@@ -290,6 +351,71 @@ function NameRow({
           />
         </label>
       )}
+      <div className="flex shrink-0 gap-1">
+        <Button variant="ghost" size="icon-sm" title={`Edit ${n.name}`} onClick={onEdit}>
+          <Pencil />
+        </Button>
+        {n.rule && <ResetButton onReset={onReset} resetting={resetting} />}
+      </div>
     </li>
+  )
+}
+
+/** Rows the AI found no name for: one line per description, to assign once. */
+function UnrecognizedRow({
+  u,
+  onAssign,
+  onReset,
+  resetting,
+}: {
+  u: UnrecognizedName
+  onAssign: () => void
+  onReset: () => void
+  resetting: boolean
+}) {
+  return (
+    <li className="flex items-center gap-4 px-5 py-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700">
+        <CircleHelp className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-[#0B1C2C]" title={u.sampleDescription}>
+          {u.sampleDescription}
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          <Badge className="bg-orange-100 text-orange-800">Unrecognized</Badge>
+          {u.rule && <Badge className="bg-brand/10 text-brand">Edited</Badge>}
+          <span className="truncate text-sm text-muted-foreground">
+            {u.category}
+            {u.otherCategories > 0 && ` +${u.otherCategories} more`}
+          </span>
+          <span className="text-xs text-muted-foreground/80 tabular-nums">
+            · {u.rows.toLocaleString()} row{u.rows === 1 ? '' : 's'}
+          </span>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button variant="outline" size="sm" onClick={onAssign}>
+          Assign
+        </Button>
+        {u.rule && <ResetButton onReset={onReset} resetting={resetting} />}
+      </div>
+    </li>
+  )
+}
+
+/** Remove the customer's own change: the rows go back to the default. */
+function ResetButton({ onReset, resetting }: { onReset: () => void; resetting: boolean }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      title="Reset to default"
+      disabled={resetting}
+      onClick={onReset}
+      className="text-muted-foreground"
+    >
+      <RotateCcw />
+    </Button>
   )
 }

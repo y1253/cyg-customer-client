@@ -254,7 +254,34 @@ export type LedgerName = {
   rows: number
   /** Its tax lines are left out of the ledger, reports and downloads. */
   taxExempt: boolean
+  /** What an edit of this name saves under (a NAME rule with this key). */
+  ruleKey: string
+  /** The customer's own change behind this row — what "Reset to default" removes. */
+  rule: NameRuleRef | null
 }
+
+export type NameRuleMatch = 'NAME' | 'DESCRIPTION'
+export type NameRuleRef = { matchType: NameRuleMatch; matchKey: string }
+
+/** Rows the AI found no payee name for, grouped by description. */
+export type UnrecognizedName = {
+  /** The description key — what an assignment saves under. */
+  key: string
+  /** One of the descriptions, as printed. */
+  sampleDescription: string
+  category: string
+  otherCategories: number
+  rows: number
+  rule: NameRuleRef | null
+}
+
+export type NamesData = {
+  names: LedgerName[]
+  unrecognized: UnrecognizedName[]
+}
+
+/** One account of the fixed chart of accounts. */
+export type ChartAccount = { name: string; type: string }
 
 const json = (method: string, body: unknown): RequestInit => ({
   method,
@@ -300,7 +327,7 @@ export async function deleteAgency(token: string, id: number): Promise<void> {
   if (!res.ok) throw await errorFrom(res)
 }
 
-export async function fetchNames(token: string): Promise<LedgerName[]> {
+export async function fetchNames(token: string): Promise<NamesData> {
   const res = await fetchWithAuth(token, '/api/bookkeeping/names')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
@@ -309,8 +336,35 @@ export async function fetchNames(token: string): Promise<LedgerName[]> {
 export async function updateName(
   token: string,
   values: { name: string; taxExempt: boolean },
-): Promise<LedgerName[]> {
+): Promise<NamesData> {
   const res = await fetchWithAuth(token, '/api/bookkeeping/names', json('PATCH', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/**
+ * Save the customer's own name and/or category. It is applied to their existing rows at
+ * once and to every statement they upload from now on; null leaves that value as it is.
+ */
+export async function saveNameRule(
+  token: string,
+  values: NameRuleRef & { name: string | null; category: string | null },
+): Promise<NamesData> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/names/rule', json('PUT', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** Drop the customer's own change: the rows go back to the default. */
+export async function resetNameRule(token: string, values: NameRuleRef): Promise<NamesData> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/names/rule', json('DELETE', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** The fixed chart of accounts — the categories a name can be given. */
+export async function fetchAccounts(token: string): Promise<ChartAccount[]> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/accounts')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -322,3 +376,4 @@ export const TRANSACTIONS_KEY = ['bookkeeping', 'transactions'] as const
 export const REPORTS_KEY = ['bookkeeping', 'reports'] as const
 export const TAX_KEY = ['bookkeeping', 'tax'] as const
 export const NAMES_KEY = ['bookkeeping', 'names'] as const
+export const ACCOUNTS_KEY = ['bookkeeping', 'accounts'] as const
