@@ -1,5 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { NAMES_KEY, resetNameRule, saveNameRule, type NameRuleRef } from '@/api/bookkeeping'
+import {
+  NAMES_KEY,
+  resetNameRule,
+  saveNameRule,
+  type EditScope,
+  type NameRuleRef,
+} from '@/api/bookkeeping'
 import { useAuth } from '@/context/AuthContext'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
@@ -12,8 +18,9 @@ export function useSaveNameRule() {
   const queryClient = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (values: NameRuleRef & { name: string | null; category: string | null }) =>
-      saveNameRule(token!, values),
+    mutationFn: (
+      values: NameRuleRef & { name: string | null; category: string | null; scope: EditScope },
+    ) => saveNameRule(token!, values),
     onSuccess: (data) => queryClient.setQueryData(NAMES_KEY, data),
     onSettled: invalidate,
   })

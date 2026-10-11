@@ -39,7 +39,8 @@ export type LedgerTransaction = {
   statementLabel: string
   /**
    * `opening`: the statement's printed starting balance, offset to Owner's Loan.
-   * `tax`: an agency's tax on the transaction right above it, added on top of it (the transaction keeps its bank amount).
+   * `tax`: an agency's tax on the transaction right above it, taken OUT of it — the row above shows its amount
+   * without tax, and the two add back to what the bank moved.
    */
   kind?: 'opening' | 'tax'
   /** On a tax row: the agency's rate, a percent. */
@@ -254,6 +255,8 @@ export type LedgerName = {
   rows: number
   /** Its tax lines are left out of the ledger, reports and downloads. */
   taxExempt: boolean
+  /** The descriptions the AI put under this name. */
+  descriptions: NameDescription[]
   /** What an edit of this name saves under (a NAME rule with this key). */
   ruleKey: string
   /** The customer's own change behind this row — what "Reset to default" removes. */
@@ -281,7 +284,14 @@ export type NamesData = {
 }
 
 /** One account of the fixed chart of accounts. */
-export type ChartAccount = { name: string; type: string }
+/** One category a customer may pick: the fixed chart, plus their own (`custom`). */
+export type ChartAccount = { name: string; type: AccountType; custom: boolean }
+
+/** How far an edit reaches: saved for the future, or only the rows changed now. */
+export type EditScope = 'ALWAYS' | 'ONCE'
+
+/** One description the AI put under a name, with the category its rows mostly have. */
+export type NameDescription = { description: string; category: string; rows: number }
 
 const json = (method: string, body: unknown): RequestInit => ({
   method,
@@ -348,7 +358,7 @@ export async function updateName(
  */
 export async function saveNameRule(
   token: string,
-  values: NameRuleRef & { name: string | null; category: string | null },
+  values: NameRuleRef & { name: string | null; category: string | null; scope: EditScope },
 ): Promise<NamesData> {
   const res = await fetchWithAuth(token, '/api/bookkeeping/names/rule', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
@@ -362,7 +372,27 @@ export async function resetNameRule(token: string, values: NameRuleRef): Promise
   return res.json()
 }
 
-/** The fixed chart of accounts — the categories a name can be given. */
+/** Change one ledger row's name and/or category — only that row, or always for its payee. */
+export async function editTransaction(
+  token: string,
+  id: number,
+  values: { name: string | null; category: string | null; scope: EditScope },
+): Promise<void> {
+  const res = await fetchWithAuth(token, `/api/bookkeeping/transactions/${id}`, json('PATCH', values))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** A category of the customer's own, for when nothing in the list fits. */
+export async function createAccount(
+  token: string,
+  values: { name: string; type: AccountType },
+): Promise<ChartAccount> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/accounts', json('POST', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** The fixed chart of accounts plus the customer's own — the categories a name can be given. */
 export async function fetchAccounts(token: string): Promise<ChartAccount[]> {
   const res = await fetchWithAuth(token, '/api/bookkeeping/accounts')
   if (!res.ok) throw await errorFrom(res)

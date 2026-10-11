@@ -1,5 +1,17 @@
 import { useMemo, useState } from 'react'
-import { CircleDashed, CircleHelp, Landmark, Pencil, Plus, RotateCcw, Search, Store, Trash2, UserRound } from 'lucide-react'
+import {
+  ChevronDown,
+  CircleDashed,
+  CircleHelp,
+  Landmark,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Store,
+  Trash2,
+  UserRound,
+} from 'lucide-react'
 import {
   TAX_KIND_LABEL,
   type LedgerName,
@@ -322,8 +334,11 @@ function NameRow({
   onReset: () => void
   resetting: boolean
 }) {
+  const [open, setOpen] = useState(false)
+  const many = n.descriptions.length
   return (
-    <li className="flex items-center gap-4 px-5 py-3">
+    <li className="px-5 py-3">
+      <div className="flex items-center gap-4">
       <TypeIcon type={n.type} />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-[#0B1C2C]">{n.name}</p>
@@ -352,11 +367,38 @@ function NameRow({
         </label>
       )}
       <div className="flex shrink-0 gap-1">
+        {many > 0 && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={open ? 'Hide descriptions' : 'Show the descriptions under this name'}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <ChevronDown className={cn('transition-transform', open && 'rotate-180')} />
+          </Button>
+        )}
         <Button variant="ghost" size="icon-sm" title={`Edit ${n.name}`} onClick={onEdit}>
           <Pencil />
         </Button>
         {n.rule && <ResetButton onReset={onReset} resetting={resetting} />}
       </div>
+      </div>
+      {open && (
+        <ul className="mt-2 ml-13 flex flex-col gap-1 rounded-lg bg-muted/40 p-2">
+          {n.descriptions.map((d) => (
+            <li key={d.description} className="flex items-center gap-3 px-2 py-1 text-sm">
+              <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={d.description}>
+                {d.description}
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">{d.category}</span>
+              <span className="w-14 shrink-0 text-right text-xs text-muted-foreground/80 tabular-nums">
+                {d.rows.toLocaleString()} row{d.rows === 1 ? '' : 's'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </li>
   )
 }

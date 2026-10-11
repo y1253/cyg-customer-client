@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { NameRuleDialog } from './NameRuleDialog'
 
 /** Rows rendered at once. A year of statements is thousands of rows; more load on demand. */
 const PAGE = 200
@@ -31,16 +32,18 @@ const fmtDate = (iso: string | null) =>
     : ''
 
 /**
- * The ledger, read-only, in the firm's own columns: pending date, posting date, name,
- * description, amount, debit, credit. The bank account sits on one side of every row and
- * the AI-chosen account on the other (the offset), shown as a chip.
+ * The ledger in the firm's own columns: pending date, posting date, name, description,
+ * amount, debit, credit. The bank account sits on one side of every row and the AI-chosen
+ * account on the other (the offset), shown as a chip.
+ * A transaction's NAME and its CATEGORY (the offset chip) can be clicked to change them —
+ * for that row only, or always for that payee (`NameRuleDialog`).
  * `account` limits it to the rows posted to one account (from the chart of accounts).
  * A statement's printed starting balance comes as its own shaded row (`kind: 'opening'`).
  * A tax line (`kind: 'tax'`) sits directly under the transaction it taxes: indented,
- * lighter, joined to it without a divider. Tax is added ON TOP: the transaction keeps
- * its bank amount, so with the tax lines shown the net change is the real total incl. tax.
- * "Hide tax lines" collapses them (view only; downloads always include them) and the net
- * change is then the statement's own figure, before tax.
+ * lighter, joined to it without a divider. The tax is INCLUDED in the bank amount: the
+ * transaction shows its amount without tax and the two add back to what the bank moved.
+ * "Hide tax lines" collapses them (view only; downloads always include them) and each
+ * transaction then shows its full bank amount again — the net change is the same either way.
  */
 export function LedgerTable({
   transactions,
@@ -59,6 +62,7 @@ export function LedgerTable({
   const [statementId, setStatementId] = useState<number | 'all'>('all')
   const [shown, setShown] = useState(PAGE)
   const [taxShown, setTaxShown] = useState(true)
+  const [editing, setEditing] = useState<LedgerTransaction | null>(null)
 
   const done = statements.filter((s) => s.status === 'DONE')
   const hasTax = useMemo(() => transactions.some((t) => t.kind === 'tax'), [transactions])
@@ -68,6 +72,16 @@ export function LedgerTable({
     [transactions, account],
   )
   const withTax = taxShown || isAgency
+  // Each transaction's tax, in cents — added back onto it while the tax lines are hidden.
+  const taxOf = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const t of transactions) {
+      if (t.kind === 'tax') m.set(t.id, (m.get(t.id) ?? 0) + Math.round(t.amount * 100))
+    }
+    return m
+  }, [transactions])
+  const shownAmount = (t: LedgerTransaction) =>
+    !withTax && !t.kind ? (Math.round(t.amount * 100) + (taxOf.get(t.id) ?? 0)) / 100 : t.amount
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return transactions.filter(
@@ -83,7 +97,7 @@ export function LedgerTable({
     )
   }, [transactions, query, statementId, account, withTax])
   const net =
-    rows.reduce((cents, t) => cents + Math.round(t.amount * 100), 0) / 100
+    rows.reduce((cents, t) => cents + Math.round(shownAmount(t) * 100), 0) / 100
   const taxCount = rows.filter((t) => t.kind === 'tax').length
   const txCount = rows.length - taxCount
   const allTx = useMemo(() => transactions.filter((t) => t.kind !== 'tax').length, [transactions])
@@ -143,7 +157,7 @@ export function LedgerTable({
             size="sm"
             onClick={() => setTaxShown((v) => !v)}
             className="h-9 shrink-0 gap-1.5 sm:ml-auto"
-            title={taxShown ? 'Collapse the tax lines — totals before tax' : 'Expand the tax lines — totals incl. tax'}
+            title={taxShown ? 'Collapse the tax lines — each transaction at its full bank amount' : 'Expand the tax lines — the tax taken out of each transaction'}
           >
             {taxShown ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
             {taxShown ? 'Hide tax lines' : 'Show tax lines'}
@@ -194,7 +208,18 @@ export function LedgerTable({
                   <TableCell className="pl-5 text-muted-foreground">{fmtDate(t.pendingDate)}</TableCell>
                   <TableCell className="text-muted-foreground">{fmtDate(t.postingDate)}</TableCell>
                   <TableCell className="max-w-[10rem] truncate font-medium text-[#0B1C2C]" title={t.name ?? undefined}>
-                    {t.name ?? <span className="text-muted-foreground">—</span>}
+                    {t.kind ? (
+                      (t.name ?? <span className="text-muted-foreground">—</span>)
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditing(t)}
+                        title="Change the name or category"
+                        className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
+                      >
+                        {t.name ?? <span className="text-muted-foreground">Add name</span>}
+                      </button>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-[18rem] truncate text-[#0B1C2C]" title={t.description}>
                     {t.kind === 'opening' ? <Badge variant="secondary">{t.description}</Badge> : t.description}
@@ -205,13 +230,21 @@ export function LedgerTable({
                       t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
                     )}
                   >
-                    {money(t.amount)}
+                    {money(shownAmount(t))}
                   </TableCell>
                   <TableCell>
-                    <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} />
+                    <AccountCell
+                      name={t.debitAccount}
+                      offset={t.debitAccount === t.offsetAccount}
+                      onEdit={t.kind ? undefined : () => setEditing(t)}
+                    />
                   </TableCell>
                   <TableCell>
-                    <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} />
+                    <AccountCell
+                      name={t.creditAccount}
+                      offset={t.creditAccount === t.offsetAccount}
+                      onEdit={t.kind ? undefined : () => setEditing(t)}
+                    />
                   </TableCell>
                   <TableCell className="pr-5">
                     <span
@@ -243,12 +276,17 @@ export function LedgerTable({
                 {money(net)}
               </TableCell>
               <TableCell colSpan={3} className="pr-5 text-sm text-muted-foreground">
-                {hasTax ? (withTax ? 'net change incl. tax' : 'net change before tax') : 'net change'}
+                net change
               </TableCell>
             </TableRow>
           </TableFooter>
         </Table>
       )}
+
+      <NameRuleDialog
+        target={editing && { kind: 'transaction', view: editing }}
+        onOpenChange={(o) => !o && setEditing(null)}
+      />
 
       {rows.length > shown && (
         <div className="border-t p-3 text-center">
@@ -280,7 +318,7 @@ function statementLabels(list: Statement[]): Array<{ id: number; label: string }
 
 /**
  * A tax line, under the transaction it taxes: same dates and payee, lighter, indented
- * with a hook arrow and the agency + rate, the amount in neutral grey (tax on top of the bank amount above).
+ * with a hook arrow and the agency + rate, the amount in neutral grey (the tax taken out of the row above).
  */
 function TaxRow({ t }: { t: LedgerTransaction }) {
   return (
@@ -312,8 +350,21 @@ function TaxRow({ t }: { t: LedgerTransaction }) {
   )
 }
 
-/** The AI-chosen (offset) account gets a soft chip; the bank account is plain text. */
-function AccountCell({ name, offset, tax }: { name: string; offset: boolean; tax?: boolean }) {
+/**
+ * The AI-chosen (offset) account gets a soft chip; the bank account is plain text. With
+ * `onEdit`, the chip is a button that opens the editor for the row's category.
+ */
+function AccountCell({
+  name,
+  offset,
+  tax,
+  onEdit,
+}: {
+  name: string
+  offset: boolean
+  tax?: boolean
+  onEdit?: () => void
+}) {
   if (tax) {
     // On a tax line the agency is the chip (amber, like its label); the account the tax
     // is taken from is plain grey text.
@@ -323,6 +374,18 @@ function AccountCell({ name, offset, tax }: { name: string; offset: boolean; tax
       </span>
     ) : (
       <span className="truncate text-xs text-slate-500">{name}</span>
+    )
+  }
+  if (offset && onEdit) {
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        title="Change the category"
+        className="inline-flex max-w-full truncate rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand ring-brand/40 hover:bg-brand/15 hover:ring-1"
+      >
+        {name}
+      </button>
     )
   }
   return offset ? (
