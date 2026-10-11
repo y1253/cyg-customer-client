@@ -21,10 +21,12 @@ export type Statement = {
 }
 
 export type LedgerTransaction = {
-  /** Unique per row (`t:`, `o:` starting balance, `x:` tax line) — use as the React key. */
+  /** Unique per row (`t:`, `s:` split, `o:` starting balance, `x:` tax line) — use as the React key. */
   key: string
-  /** The transaction's id; on a tax row, the id of the transaction it belongs to. */
+  /** The transaction's id; on a tax row, the id of the row it taxes (a transaction or a split). */
   id: number
+  /** On a split, and on a split's tax lines: the transaction it was split from. */
+  splitOfId?: number
   statementId: number
   pendingDate: string | null
   postingDate: string | null
@@ -41,11 +43,18 @@ export type LedgerTransaction = {
    * `opening`: the statement's printed starting balance, offset to Owner's Loan.
    * `tax`: an agency's tax on the transaction right above it, taken OUT of it — the row above shows its amount
    * without tax, and the two add back to what the bank moved.
+   * `split`: a part the customer split off the transaction above by hand, with its own name, category and
+   * taxes; the transaction shows what is left of it.
    */
-  kind?: 'opening' | 'tax'
+  kind?: 'opening' | 'tax' | 'split'
   /** On a tax row: the agency's rate, a percent. */
   taxRate?: number
+  /** On a tax row: the agency — the key for renaming the line. */
+  taxAgencyId?: number
 }
+
+/** One hand-made split as the customer edits it: `amount` is positive, it takes the transaction's sign. */
+export type SplitInput = { id?: number; name: string | null; category: string; amount: number }
 
 export type ExportFormat = 'xlsx' | 'pdf'
 
@@ -379,6 +388,22 @@ export async function editTransaction(
   values: { name: string | null; category: string | null; scope: EditScope },
 ): Promise<void> {
   const res = await fetchWithAuth(token, `/api/bookkeeping/transactions/${id}`, json('PATCH', values))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** A transaction's whole set of splits: listed ones kept or made, the rest removed (empty = un-split). */
+export async function saveSplits(token: string, id: number, splits: SplitInput[]): Promise<void> {
+  const res = await fetchWithAuth(token, `/api/bookkeeping/transactions/${id}/splits`, json('PUT', { splits }))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** Name one tax line (an agency's tax on a row); null puts the row's own name back. */
+export async function renameTaxLine(token: string, id: number, agencyId: number, name: string | null): Promise<void> {
+  const res = await fetchWithAuth(
+    token,
+    `/api/bookkeeping/transactions/${id}/taxes/${agencyId}`,
+    json('PATCH', { name }),
+  )
   if (!res.ok) throw await errorFrom(res)
 }
 

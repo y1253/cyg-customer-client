@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type {
-  AccountType,
   EditScope,
   LedgerName,
   LedgerTransaction,
@@ -16,21 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useChartAccounts } from '@/hooks/useChartAccounts'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
 import { useSaveNameRule } from '@/hooks/useNameRule'
 import { cn } from '@/lib/utils'
+import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
+import { CategoryField } from './CategoryField'
+import { NamePicker } from './NamePicker'
 
 /** What is being edited: a payee, a group of rows the AI could not name, or one ledger row. */
 export type NameRuleTarget =
@@ -38,23 +30,13 @@ export type NameRuleTarget =
   | { kind: 'unrecognized'; view: UnrecognizedName }
   | { kind: 'transaction'; view: LedgerTransaction }
 
-/** The Select's value for "type in a category of my own". Never a real account name. */
-const NEW_CATEGORY = '__new__'
-
-const TYPE_LABEL: Record<AccountType, string> = {
-  INCOME: 'Income',
-  EXPENSE: 'Expense',
-  ASSET: 'Asset',
-  LIABILITY: 'Liability',
-  EQUITY: 'Equity',
-}
-
 /**
  * Change a name and/or category — for a payee on the Names tab, a group of unrecognised
  * rows, or one ledger row. "Always" saves it to the customer's account (their existing rows
  * and every statement from now on); "One time" changes only what is in the ledger now (one
  * row, from the ledger) and is never applied again. A category can be typed in when nothing
- * in the list fits. Only what was changed is sent.
+ * in the list fits. Only what was changed is sent. The name offers every name on the Names tab.
+ * A hand-made split belongs to its one transaction, so it is only ever changed "Only this row".
  */
 export function NameRuleDialog({
   target,
@@ -80,7 +62,6 @@ function keyOf(t: NameRuleTarget): string {
 }
 
 function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () => void }) {
-  const accounts = useChartAccounts()
   const create = useCreateAccount()
   const saveRule = useSaveNameRule()
   const editRow = useEditTransaction()
@@ -88,27 +69,22 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const initialName = target.kind === 'unrecognized' ? '' : (target.view.name ?? '')
   const initialCategory = target.kind === 'transaction' ? target.view.offsetAccount : target.view.category
   const [name, setName] = useState(initialName)
-  const [category, setCategory] = useState<string | null>(initialCategory)
-  const [newName, setNewName] = useState('')
-  const [newType, setNewType] = useState<AccountType | null>('EXPENSE')
-  const [scope, setScope] = useState<EditScope>('ALWAYS')
+  const [choice, setChoice] = useState(categoryChoice(initialCategory))
+  const isSplit = target.kind === 'transaction' && target.view.kind === 'split'
+  const [scope, setScope] = useState<EditScope>(isSplit ? 'ONCE' : 'ALWAYS')
 
   const trimmed = name.trim()
   const nameChanged = trimmed !== '' && trimmed !== initialName
-  const creating = category === NEW_CATEGORY
-  const categoryChanged = creating ? !!newName.trim() && !!newType : !!category && category !== initialCategory
+  const categoryChanged =
+    choiceReady(choice) && (choice.category === NEW_CATEGORY || choice.category !== initialCategory)
   const pending = create.isPending || saveRule.isPending || editRow.isPending
   const canSave = (nameChanged || categoryChanged) && !pending
   const error = create.error ?? saveRule.error ?? editRow.error
 
   const submit = async () => {
     if (!canSave) return
-    let chosen = categoryChanged ? category : null
-    if (creating) {
-      const made = await create.mutateAsync({ name: newName.trim(), type: newType! }).catch(() => null)
-      if (!made) return
-      chosen = made.name
-    }
+    const chosen = categoryChanged ? await resolveChoice(choice, create) : null
+    if (categoryChanged && !chosen) return
     const values = { name: nameChanged ? trimmed : null, category: chosen, scope }
     if (target.kind === 'transaction') {
       editRow.mutate({ id: target.view.id, ...values }, { onSuccess: onDone })
@@ -127,8 +103,6 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
 
   const rows = target.kind === 'transaction' ? 1 : target.view.rows
   const otherCategories = target.kind === 'transaction' ? 0 : target.view.otherCategories
-  const own = (accounts.data ?? []).filter((a) => a.custom)
-  const chart = (accounts.data ?? []).filter((a) => !a.custom)
 
   return (
     <form
@@ -161,65 +135,17 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name-rule-name">Name</Label>
-        <Input
+        <NamePicker
           id="name-rule-name"
           value={name}
-          maxLength={191}
           placeholder={initialName || 'e.g. BMO, Hydro-Québec, John Smith'}
-          onChange={(e) => setName(e.target.value)}
+          onChange={setName}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label>Category</Label>
-        <Select value={category} onValueChange={(v) => setCategory(v)}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Choose a category">
-              {(v: string | null) => (v === NEW_CATEGORY ? 'New category…' : v)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {chart.map((a) => (
-              <SelectItem key={a.name} value={a.name}>
-                {a.name}
-              </SelectItem>
-            ))}
-            {own.length > 0 && <SelectSeparator />}
-            {own.map((a) => (
-              <SelectItem key={a.name} value={a.name}>
-                {a.name} <span className="text-xs text-muted-foreground">· {TYPE_LABEL[a.type]}</span>
-              </SelectItem>
-            ))}
-            <SelectSeparator />
-            <SelectItem value={NEW_CATEGORY}>+ New category…</SelectItem>
-          </SelectContent>
-        </Select>
-        {creating && (
-          <div className="mt-1 flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row">
-            <Input
-              autoFocus
-              value={newName}
-              maxLength={191}
-              placeholder="Your category, e.g. Groceries"
-              onChange={(e) => setNewName(e.target.value)}
-              className="sm:flex-1"
-            />
-            <Select value={newType} onValueChange={(v) => setNewType(v as AccountType | null)}>
-              <SelectTrigger className="sm:w-36">
-                <SelectValue placeholder="Kind">
-                  {(v: AccountType | null) => (v ? TYPE_LABEL[v] : null)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(TYPE_LABEL) as AccountType[]).map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {TYPE_LABEL[t]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <CategoryField value={choice} onChange={setChoice} />
         {otherCategories > 0 && !categoryChanged && (
           <p className="text-xs text-muted-foreground">
             Its rows have {otherCategories + 1} different categories. Choose one to put them all in it.
@@ -227,48 +153,54 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label>Apply</Label>
-        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-          {(
-            [
-              {
-                id: 'ALWAYS',
-                label: 'Always',
-                hint: 'Saved to your account: also every statement you upload from now on.',
-              },
-              {
-                id: 'ONCE',
-                label: target.kind === 'transaction' ? 'Only this row' : 'One time',
-                hint:
-                  target.kind === 'transaction'
-                    ? 'Only this transaction. Nothing is saved for the future.'
-                    : 'Only the rows already in your ledger. Nothing is saved for the future.',
-              },
-            ] as const
-          ).map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => setScope(o.id)}
-              title={o.hint}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                scope === o.id ? 'bg-white text-[#0B1C2C] shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+      {isSplit ? (
         <p className="text-xs text-muted-foreground">
-          {scope === 'ALWAYS'
-            ? 'Saved to your account — used for this ledger and every statement you upload from now on.'
-            : target.kind === 'transaction'
-              ? 'Changes only this transaction. Nothing is saved for the future.'
-              : 'Changes only the rows already in your ledger. Nothing is saved for the future.'}
+          A split belongs to its one transaction: this changes only this split.
         </p>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <Label>Apply</Label>
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+            {(
+              [
+                {
+                  id: 'ALWAYS',
+                  label: 'Always',
+                  hint: 'Saved to your account: also every statement you upload from now on.',
+                },
+                {
+                  id: 'ONCE',
+                  label: target.kind === 'transaction' ? 'Only this row' : 'One time',
+                  hint:
+                    target.kind === 'transaction'
+                      ? 'Only this transaction. Nothing is saved for the future.'
+                      : 'Only the rows already in your ledger. Nothing is saved for the future.',
+                },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => setScope(o.id)}
+                title={o.hint}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  scope === o.id ? 'bg-white text-[#0B1C2C] shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {scope === 'ALWAYS'
+              ? 'Saved to your account — used for this ledger and every statement you upload from now on.'
+              : target.kind === 'transaction'
+                ? 'Changes only this transaction. Nothing is saved for the future.'
+                : 'Changes only the rows already in your ledger. Nothing is saved for the future.'}
+          </p>
+        </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
