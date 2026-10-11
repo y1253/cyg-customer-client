@@ -353,6 +353,26 @@ function NameRow({
             · {n.rows.toLocaleString()} row{n.rows === 1 ? '' : 's'}
           </span>
         </div>
+        {many > 0 && (
+          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
+            <span className="min-w-0 truncate" title={n.descriptions.map((d) => d.description).join('\n')}>
+              {n.descriptions
+                .slice(0, 2)
+                .map((d) => d.description)
+                .join(' · ')}
+            </span>
+            {many > 2 && (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="shrink-0 font-medium text-brand hover:underline"
+              >
+                +{many - 2} more
+              </button>
+            )}
+          </p>
+        )}
       </div>
       {taxOn && n.type !== 'OTHER' && (
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
