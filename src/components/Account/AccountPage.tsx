@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { SavedCardsCard } from '@/components/Billing/SavedCardsCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -53,6 +54,7 @@ export function AccountPage() {
           <ProfileForm key={customer.id + ':' + (me.data ? 'fresh' : 'cached')} customer={customer} />
         </CardContent>
       </Card>
+      <SavedCardsCard />
     </>
   )
 }

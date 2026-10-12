@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { AlertTriangle, Loader2, Sparkles } from 'lucide-react'
+import { money } from '@/api/billing'
 import type { Statement } from '@/api/bookkeeping'
+import { PayDialog } from '@/components/Billing/PayDialog'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { useBillingConfig } from '@/hooks/useBillingConfig'
 import { useGenerate } from '@/hooks/useGenerate'
 import { useTax } from '@/hooks/useTax'
 import { useUpdateTax } from '@/hooks/useUpdateTax'
@@ -11,13 +14,16 @@ import { AgencyDialog } from './AgencyDialog'
 /**
  * Generate + the sales-tax switch. Uploading only stores a statement; Generate reads every
  * statement not read yet and applies changed tax settings. Turning sales tax on with no
- * active agency asks for one first.
+ * active agency asks for one first. When the admin has set a price, a Generate that reads
+ * new statements opens the payment dialog first; a $0 price never asks for a card.
  */
 export function GenerateBar({ statements }: { statements: Statement[] }) {
   const tax = useTax()
   const updateTax = useUpdateTax()
   const generate = useGenerate()
+  const billing = useBillingConfig()
   const [askAgency, setAskAgency] = useState(false)
+  const [paying, setPaying] = useState(false)
 
   const waiting = statements.filter((s) => s.status === 'UPLOADED').length
   const reading = statements.some((s) => s.status === 'PENDING' || s.status === 'PROCESSING')
@@ -26,7 +32,11 @@ export function GenerateBar({ statements }: { statements: Statement[] }) {
   const stale = enabled && !!settings?.stale
   const running = !!settings?.running
   const busy = generate.isPending || reading || running
-  const canGenerate = !busy && (waiting > 0 || stale)
+  const priceCents = billing.data?.priceCents ?? 0
+  const currency = billing.data?.currency ?? 'cad'
+  const mustPay = waiting > 0 && priceCents > 0
+  // Wait for the price before letting a Generate with new statements through.
+  const canGenerate = !busy && (waiting > 0 || stale) && !(waiting > 0 && billing.isLoading)
 
   const toggle = (on: boolean) => {
     if (on && !settings?.agencies.some((a) => a.active)) {
@@ -41,7 +51,7 @@ export function GenerateBar({ statements }: { statements: Statement[] }) {
     : running
       ? 'Calculating tax…'
       : waiting
-        ? `Generate · ${waiting} new`
+        ? `Generate · ${waiting} new${mustPay ? ` · ${money(priceCents, currency)}` : ''}`
         : 'Generate'
 
   return (
@@ -70,7 +80,12 @@ export function GenerateBar({ statements }: { statements: Statement[] }) {
         </label>
         <Button
           disabled={!canGenerate}
-          onClick={() => generate.mutate()}
+          onClick={() =>
+            mustPay
+              ? setPaying(true)
+              : // A 402 means the price changed since the page loaded: fetch it again.
+                generate.mutate(undefined, { onError: () => void billing.refetch() })
+          }
           className="h-10 gap-2 rounded-lg bg-brand px-5 text-white hover:bg-brand/85"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
@@ -88,6 +103,8 @@ export function GenerateBar({ statements }: { statements: Statement[] }) {
           {(generate.error ?? updateTax.error)?.message}
         </p>
       )}
+
+      <PayDialog open={paying} onOpenChange={setPaying} statements={waiting} />
 
       <AgencyDialog
         open={askAgency}
