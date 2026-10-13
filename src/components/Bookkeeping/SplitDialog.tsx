@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { ListChecks, Plus, Trash2 } from 'lucide-react'
 import type { SplitInput } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAttachmentActions } from '@/hooks/useAttachments'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useSaveSplits } from '@/hooks/useSplits'
 import { money } from '@/lib/money'
@@ -30,10 +31,21 @@ export type SplitTarget = {
   bankAmount: number
   /** Its own category: a new split starts there. */
   category: string
-  splits: Array<{ id: number; name: string | null; category: string; amount: number }>
+  splits: Array<{ id: number; name: string | null; itemName: string | null; category: string; amount: number }>
+  /** Its receipts that list items: "Use receipt items" replaces the splits with those lines. */
+  receipts: Array<{ id: number; filename: string }>
 }
 
-type Draft = { key: string; id?: number; amount: string; name: string; choice: CategoryChoice }
+type Draft = {
+  key: string
+  id?: number
+  amount: string
+  name: string
+  itemName: string
+  /** Remember this item's category for later receipts. */
+  always: boolean
+  choice: CategoryChoice
+}
 
 const cents = (s: string): number => {
   const n = Number(s.replace(/[$,\s]/g, ''))
@@ -61,12 +73,15 @@ const draft = (category: string, from?: SplitTarget['splits'][number]): Draft =>
   id: from?.id,
   amount: from ? from.amount.toFixed(2) : '',
   name: from?.name ?? '',
+  itemName: from?.itemName ?? '',
+  always: false,
   choice: categoryChoice(from?.category ?? category),
 })
 
 function SplitForm({ target, onDone }: { target: SplitTarget; onDone: () => void }) {
   const save = useSaveSplits()
   const create = useCreateAccount()
+  const { applyItems } = useAttachmentActions()
   const [drafts, setDrafts] = useState<Draft[]>(() =>
     target.splits.length ? target.splits.map((s) => draft(target.category, s)) : [draft(target.category)],
   )
@@ -83,9 +98,9 @@ function SplitForm({ target, onDone }: { target: SplitTarget; onDone: () => void
         ? 'Every split needs an amount above $0.00.'
         : null
   const complete = drafts.every((d, i) => amounts[i] > 0 && choiceReady(d.choice))
-  const pending = save.isPending || create.isPending
+  const pending = save.isPending || create.isPending || applyItems.isPending
   const canSave = !problem && complete && !pending
-  const error = create.error ?? save.error
+  const error = create.error ?? save.error ?? applyItems.error
 
   const update = (key: string, patch: Partial<Draft>) =>
     setDrafts((list) => list.map((d) => (d.key === key ? { ...d, ...patch } : d)))
@@ -96,7 +111,15 @@ function SplitForm({ target, onDone }: { target: SplitTarget; onDone: () => void
     for (const [i, d] of drafts.entries()) {
       const category = await resolveChoice(d.choice, create)
       if (!category) return
-      splits.push({ id: d.id, name: d.name.trim() || null, category, amount: amounts[i] / 100 })
+      const itemName = d.itemName.trim() || null
+      splits.push({
+        id: d.id,
+        name: d.name.trim() || null,
+        itemName,
+        category,
+        amount: amounts[i] / 100,
+        always: d.always && !!itemName,
+      })
     }
     save.mutate({ id: target.id, splits }, { onSuccess: onDone })
   }
@@ -149,18 +172,53 @@ function SplitForm({ target, onDone }: { target: SplitTarget; onDone: () => void
                 placeholder={target.name ? `Name (e.g. ${target.name})` : 'Name'}
               />
             </div>
+            <Input
+              value={d.itemName}
+              maxLength={191}
+              placeholder="Item (e.g. Pampers) — optional"
+              onChange={(e) => update(d.key, { itemName: e.target.value })}
+              aria-label="Item"
+            />
             <CategoryField value={d.choice} onChange={(choice) => update(d.key, { choice })} />
+            {d.itemName.trim() && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={d.always}
+                  onChange={(e) => update(d.key, { always: e.target.checked })}
+                  className="size-3.5 accent-brand"
+                />
+                Always put “{d.itemName.trim()}” in this category on future receipts
+              </label>
+            )}
           </div>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setDrafts((list) => [...list, draft(target.category)])}
-          className="gap-1.5 self-start"
-        >
-          <Plus className="size-4" /> Add a split
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDrafts((list) => [...list, draft(target.category)])}
+            className="gap-1.5"
+          >
+            <Plus className="size-4" /> Add a split
+          </Button>
+          {target.receipts.map((r) => (
+            <Button
+              key={r.id}
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() => applyItems.mutate(r.id, { onSuccess: onDone })}
+              className="gap-1.5"
+              title={`Replace these splits with one per line of ${r.filename}`}
+            >
+              <ListChecks className="size-4" /> Use receipt items
+              {target.receipts.length > 1 && <span className="text-muted-foreground">· {r.filename}</span>}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm">

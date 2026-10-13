@@ -1,5 +1,6 @@
 import { ArrowRight, FileStack, ListOrdered, UploadCloud } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { TextReceiptsCard } from '@/components/Bookkeeping/TextReceiptsCard'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -67,6 +68,8 @@ export function DashboardHome() {
           </Card>
         ))}
       </div>
+
+      <TextReceiptsCard className="mb-10" />
 
       <h2 className="mb-4 text-lg font-semibold text-[#0B1C2C]">Your services</h2>
       <div className="grid gap-4 sm:grid-cols-2">

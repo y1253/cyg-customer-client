@@ -5,6 +5,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CornerDownRight,
+  Paperclip,
   Search,
   Split,
 } from 'lucide-react'
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { NameRuleDialog } from './NameRuleDialog'
 import { SplitDialog, type SplitTarget } from './SplitDialog'
 import { TaxLineNameDialog } from './TaxLineNameDialog'
+import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 
 /** Rows rendered at once. A year of statements is thousands of rows; more load on demand. */
 const PAGE = 200
@@ -60,6 +62,8 @@ const toCents = (n: number) => Math.round(n * 100)
  * their count) or all at once; folded, it shows its full bank amount again (view only —
  * downloads always include them). The net change is the same either way.
  * A tax line's and a split's name can be clicked to change it.
+ * The paperclip on a transaction opens its receipts, cheques and voice notes; `focusId`
+ * shows one transaction only (from "View transaction" on an attachment).
  */
 export function LedgerTable({
   transactions,
@@ -67,12 +71,16 @@ export function LedgerTable({
   loading,
   account,
   onClearAccount,
+  focusId,
+  onClearFocus,
 }: {
   transactions: LedgerTransaction[]
   statements: Statement[]
   loading: boolean
   account?: string | null
   onClearAccount?: () => void
+  focusId?: number | null
+  onClearFocus?: () => void
 }) {
   const [query, setQuery] = useState('')
   const [statementId, setStatementId] = useState<number | 'all'>('all')
@@ -82,6 +90,7 @@ export function LedgerTable({
   const [editing, setEditing] = useState<LedgerTransaction | null>(null)
   const [renaming, setRenaming] = useState<LedgerTransaction | null>(null)
   const [splitting, setSplitting] = useState<SplitTarget | null>(null)
+  const [attaching, setAttaching] = useState<LedgerTransaction | null>(null)
 
   const done = statements.filter((s) => s.status === 'DONE')
   // An agency's own ledger is nothing but tax lines: never fold them there.
@@ -132,9 +141,13 @@ export function LedgerTable({
         .map((r) => ({
           id: r.id,
           name: r.name,
+          itemName: r.itemName ?? null,
           category: r.offsetAccount,
           amount: Math.abs(toCents(r.amount) + taxOf(r.id)) / 100,
         })),
+      receipts: (parent.attachments ?? [])
+        .filter((a) => a.kind === 'RECEIPT')
+        .map((a) => ({ id: a.id, filename: a.filename })),
     })
   }
 
@@ -143,15 +156,17 @@ export function LedgerTable({
     return transactions.filter(
       (t) =>
         (isAgency || (t.kind !== 'tax' && t.kind !== 'split') || !collapsed.has(t.splitOfId ?? t.id)) &&
+        (focusId == null || t.id === focusId || t.splitOfId === focusId) &&
         (statementId === 'all' || t.statementId === statementId) &&
         (!account || t.debitAccount === account || t.creditAccount === account) &&
         (!q ||
           t.description.toLowerCase().includes(q) ||
           t.name?.toLowerCase().includes(q) ||
+          t.itemName?.toLowerCase().includes(q) ||
           t.debitAccount.toLowerCase().includes(q) ||
           t.creditAccount.toLowerCase().includes(q)),
     )
-  }, [transactions, query, statementId, account, collapsed, isAgency])
+  }, [transactions, query, statementId, account, collapsed, isAgency, focusId])
   const net = rows.reduce((cents, t) => cents + toCents(shownAmount(t)), 0) / 100
   const taxCount = rows.filter((t) => t.kind === 'tax').length
   const splitCount = rows.filter((t) => t.kind === 'split').length
@@ -184,6 +199,16 @@ export function LedgerTable({
             title="Show every account"
           >
             {account} ✕
+          </button>
+        )}
+        {focusId != null && (
+          <button
+            type="button"
+            onClick={onClearFocus}
+            className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
+            title="Show every transaction"
+          >
+            One transaction ✕
           </button>
         )}
         {done.length > 1 && (
@@ -345,6 +370,7 @@ export function LedgerTable({
                       >
                         {t.statementLabel}
                       </span>
+                      {!t.kind && <AttachButton count={t.attachments?.length ?? 0} onClick={() => setAttaching(t)} />}
                       {!t.kind && <SplitButton onClick={() => openSplit(t.id)} />}
                     </span>
                   </TableCell>
@@ -389,6 +415,7 @@ export function LedgerTable({
       />
       <TaxLineNameDialog line={renaming} onOpenChange={(o) => !o && setRenaming(null)} />
       <SplitDialog target={splitting} onOpenChange={(o) => !o && setSplitting(null)} />
+      <TransactionAttachmentsDialog transaction={attaching} onOpenChange={(o) => !o && setAttaching(null)} />
 
       {rows.length > shown && (
         <div className="border-t p-3 text-center">
@@ -500,6 +527,7 @@ function SplitRow({
         <span className="flex min-w-0 items-center gap-1.5 pl-2">
           <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
           <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Split</span>
+          {t.itemName && <span className="shrink-0 truncate text-xs font-medium text-[#0B1C2C]">{t.itemName}</span>}
           <span className="truncate text-xs text-muted-foreground">{t.description}</span>
         </span>
       </TableCell>
@@ -521,6 +549,29 @@ function SplitRow({
         <SplitButton onClick={onSplit} label="Edit splits" />
       </TableCell>
     </TableRow>
+  )
+}
+
+/**
+ * The transaction's attachments: a paperclip with the count when it has some (always
+ * visible), otherwise shown on hover to add one.
+ */
+function AttachButton({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={count ? 'See its receipts and files' : 'Add a receipt or file'}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 transition-opacity hover:bg-brand/10',
+        count
+          ? 'text-brand ring-brand/30'
+          : 'text-muted-foreground opacity-0 ring-black/10 group-hover:opacity-100 focus-visible:opacity-100',
+      )}
+    >
+      <Paperclip className="size-3.5" />
+      {count > 0 && count}
+    </button>
   )
 }
 

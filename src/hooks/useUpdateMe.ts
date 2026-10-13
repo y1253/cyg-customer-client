@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { INTAKE_KEY } from '@/api/bookkeeping'
 import { updateMe, type UpdateMeValues } from '@/api/customerAuth'
 import { useAuth } from '@/context/AuthContext'
 
@@ -10,6 +11,8 @@ export function useUpdateMe() {
     onSuccess: (customer) => {
       setCustomer(customer)
       queryClient.setQueryData(['customer-me'], customer)
+      // Texts to our numbers are matched on this phone.
+      void queryClient.invalidateQueries({ queryKey: INTAKE_KEY })
     },
   })
 }

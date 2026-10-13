@@ -33,6 +33,8 @@ export type LedgerTransaction = {
   description: string
   /** The payee / payer the AI read out of the description ("Walmart"); null when none. */
   name: string | null
+  /** On a split made for a receipt line: that line ("Pampers"). */
+  itemName?: string | null
   amount: number
   offsetAccount: string
   debitAccount: string
@@ -51,10 +53,24 @@ export type LedgerTransaction = {
   taxRate?: number
   /** On a tax row: the agency — the key for renaming the line. */
   taxAgencyId?: number
+  /** On a transaction row: its receipts, cheques and voice notes. */
+  attachments?: Array<{ id: number; kind: AttachmentKind; filename: string }>
 }
 
-/** One hand-made split as the customer edits it: `amount` is positive, it takes the transaction's sign. */
-export type SplitInput = { id?: number; name: string | null; category: string; amount: number }
+export type AttachmentKind = 'RECEIPT' | 'CHECK' | 'AUDIO' | 'TEXT' | 'OTHER'
+
+/**
+ * One hand-made split as the customer edits it: `amount` is positive, it takes the transaction's sign.
+ * `itemName` is the receipt line it is for; `always` remembers that item's category for later receipts.
+ */
+export type SplitInput = {
+  id?: number
+  name: string | null
+  itemName?: string | null
+  category: string
+  amount: number
+  always?: boolean
+}
 
 export type ExportFormat = 'xlsx' | 'pdf'
 
@@ -432,3 +448,5 @@ export const REPORTS_KEY = ['bookkeeping', 'reports'] as const
 export const TAX_KEY = ['bookkeeping', 'tax'] as const
 export const NAMES_KEY = ['bookkeeping', 'names'] as const
 export const ACCOUNTS_KEY = ['bookkeeping', 'accounts'] as const
+export const ATTACHMENTS_KEY = ['bookkeeping', 'attachments'] as const
+export const INTAKE_KEY = ['bookkeeping', 'intake'] as const

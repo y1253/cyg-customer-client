@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useExportLedger } from '@/hooks/useExportLedger'
 import { useReports } from '@/hooks/useReports'
 import { useStatements } from '@/hooks/useStatements'
+import { AttachmentsPanel } from './AttachmentsPanel'
 import { BalanceSheet } from './BalanceSheet'
 import { ChartOfAccounts } from './ChartOfAccounts'
 import { DebitCreditGuide } from './DebitCreditGuide'
@@ -19,7 +20,7 @@ import { StatementsList } from './StatementsList'
 import { Names } from './Names'
 import { UploadDropzone } from './UploadDropzone'
 
-type Tab = 'overview' | 'accounts' | 'income' | 'balance' | 'names'
+type Tab = 'overview' | 'receipts' | 'accounts' | 'income' | 'balance' | 'names'
 
 /**
  * Bookkeeping: upload statements → the AI posts every transaction as a double entry →
@@ -33,6 +34,7 @@ export function BookkeepingPage() {
   const [period, setPeriod] = useState<Period>({ from: null, to: null })
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [ledgerAccount, setLedgerAccount] = useState<string | null>(null)
+  const [ledgerFocus, setLedgerFocus] = useState<number | null>(null)
 
   const list = statements.data ?? []
   const done = list.filter((s) => s.status === 'DONE')
@@ -46,6 +48,12 @@ export function BookkeepingPage() {
 
   const openLedger = (account: string | null) => {
     setLedgerAccount(account)
+    setLedgerFocus(null)
+    setLedgerOpen(true)
+  }
+  const openTransaction = (id: number) => {
+    setLedgerAccount(null)
+    setLedgerFocus(id)
     setLedgerOpen(true)
   }
 
@@ -106,6 +114,9 @@ export function BookkeepingPage() {
         <TabsList className="h-auto! w-full flex-wrap justify-start gap-1 rounded-xl bg-white p-1.5 ring-1 ring-black/5 sm:w-fit">
           <TabsTrigger value="overview" className="h-9 flex-none px-4">
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="receipts" className="h-9 flex-none px-4">
+            Receipts
           </TabsTrigger>
           <TabsTrigger value="accounts" className="h-9 flex-none px-4">
             Chart of accounts
@@ -171,6 +182,10 @@ export function BookkeepingPage() {
           <DebitCreditGuide />
         </TabsContent>
 
+        <TabsContent value="receipts">
+          <AttachmentsPanel onViewTransaction={openTransaction} />
+        </TabsContent>
+
         {reportsTab && <ReportPeriod value={period} onChange={setPeriod} />}
 
         <TabsContent value="accounts">
@@ -189,6 +204,8 @@ export function BookkeepingPage() {
         statements={list}
         account={ledgerAccount}
         onAccountChange={setLedgerAccount}
+        focusId={ledgerFocus}
+        onFocusChange={setLedgerFocus}
       />
     </>
   )

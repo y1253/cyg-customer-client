@@ -13,6 +13,8 @@ export function LedgerDialog({
   statements,
   account,
   onAccountChange,
+  focusId = null,
+  onFocusChange,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -20,6 +22,9 @@ export function LedgerDialog({
   /** Pre-filter to one account (opened from the chart of accounts). */
   account: string | null
   onAccountChange: (account: string | null) => void
+  /** Show one transaction only (from "View transaction" on an attachment). */
+  focusId?: number | null
+  onFocusChange?: (id: number | null) => void
 }) {
   const transactions = useTransactions({ enabled: open })
 
@@ -39,6 +44,8 @@ export function LedgerDialog({
             loading={transactions.isLoading}
             account={account}
             onClearAccount={() => onAccountChange(null)}
+            focusId={focusId}
+            onClearFocus={() => onFocusChange?.(null)}
           />
           {transactions.error && <p className="mt-2 text-sm text-destructive">{transactions.error.message}</p>}
         </div>

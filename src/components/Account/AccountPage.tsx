@@ -97,6 +97,9 @@ function ProfileForm({ customer }: { customer: Customer }) {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
+        <p className="text-xs text-muted-foreground">
+          Receipts you text us from this number go straight into your bookkeeping.
+        </p>
       </div>
       {update.error && (
         <p role="alert" className="text-sm text-destructive">
