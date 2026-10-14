@@ -95,6 +95,11 @@ export function AttachmentsPanel({ onViewTransaction }: { onViewTransaction: (tr
                         via text
                       </span>
                     )}
+                    {a.source === 'STATEMENT' && (
+                      <span className="shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-600/20">
+                        from statement
+                      </span>
+                    )}
                     <AttachmentStatusBadge a={a} />
                   </div>
                   {expanded && (

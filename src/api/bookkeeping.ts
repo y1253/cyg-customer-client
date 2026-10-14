@@ -308,6 +308,21 @@ export type NamesData = {
   unrecognized: UnrecognizedName[]
 }
 
+/** Where a product's category came from: your own choice, the AI (remembered), or the transaction's. */
+export type ProductSource = 'rule' | 'memory' | 'parent'
+
+/** One item read off the customer's receipts (Products tab). */
+export type Product = {
+  itemKey: string
+  name: string
+  category: string
+  source: ProductSource
+  /** What the AI chose for it, null when it knows nothing. */
+  suggested: string | null
+  rows: number
+  total: number
+}
+
 /** One account of the fixed chart of accounts. */
 /** One category a customer may pick: the fixed chart, plus their own (`custom`). */
 export type ChartAccount = { name: string; type: AccountType; custom: boolean }
@@ -397,6 +412,32 @@ export async function resetNameRule(token: string, values: NameRuleRef): Promise
   return res.json()
 }
 
+export async function fetchProducts(token: string): Promise<Product[]> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/products')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/**
+ * Always put this item in this category: applied to the customer's existing rows of it at
+ * once and to every receipt from now on.
+ */
+export async function saveProductRule(
+  token: string,
+  values: { itemKey: string; category: string },
+): Promise<Product[]> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/products/rule', json('PUT', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** Drop the customer's own category: the item goes back to the AI's / the transaction's. */
+export async function resetProductRule(token: string, values: { itemKey: string }): Promise<Product[]> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/products/rule', json('DELETE', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
 /** Change one ledger row's name and/or category — only that row, or always for its payee. */
 export async function editTransaction(
   token: string,
@@ -447,6 +488,7 @@ export const TRANSACTIONS_KEY = ['bookkeeping', 'transactions'] as const
 export const REPORTS_KEY = ['bookkeeping', 'reports'] as const
 export const TAX_KEY = ['bookkeeping', 'tax'] as const
 export const NAMES_KEY = ['bookkeeping', 'names'] as const
+export const PRODUCTS_KEY = ['bookkeeping', 'products'] as const
 export const ACCOUNTS_KEY = ['bookkeeping', 'accounts'] as const
 export const ATTACHMENTS_KEY = ['bookkeeping', 'attachments'] as const
 export const INTAKE_KEY = ['bookkeeping', 'intake'] as const

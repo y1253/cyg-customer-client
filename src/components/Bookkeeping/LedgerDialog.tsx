@@ -30,14 +30,15 @@ export function LedgerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[90vh] flex-col gap-4 p-5 sm:max-w-[min(96vw,90rem)]">
+      <DialogContent className="flex h-[90vh] flex-col gap-4 p-3 sm:max-w-[min(96vw,90rem)] sm:p-5">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-[#0B1C2C]">
             Ledger{account && <span className="font-medium text-muted-foreground"> · {account}</span>}
           </DialogTitle>
           <DialogDescription>Downloads always include every statement.</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-auto">
+        {/* Scrolls DOWN only: the ledger fits the width at every screen size (`LedgerTable`). */}
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <LedgerTable
             transactions={transactions.data ?? []}
             statements={statements}

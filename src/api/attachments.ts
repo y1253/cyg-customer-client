@@ -31,8 +31,8 @@ export type Attachment = {
   total: number | null
   matchNote: string | null
   error: string | null
-  /** UPLOAD (this site) or SMS (texted to one of our numbers). */
-  source: 'UPLOAD' | 'SMS'
+  /** UPLOAD (this site), SMS (texted to one of our numbers) or STATEMENT (a cheque image cut out of a statement). */
+  source: 'UPLOAD' | 'SMS' | 'STATEMENT'
   /** SMS only: who sent it and what they wrote. */
   sourcePhone: string | null
   message: string | null

@@ -18,9 +18,10 @@ import { ReportPeriod } from './ReportPeriod'
 import { ReportSkeleton } from './ReportParts'
 import { StatementsList } from './StatementsList'
 import { Names } from './Names'
+import { Products } from './Products'
 import { UploadDropzone } from './UploadDropzone'
 
-type Tab = 'overview' | 'receipts' | 'accounts' | 'income' | 'balance' | 'names'
+type Tab = 'overview' | 'receipts' | 'accounts' | 'income' | 'balance' | 'names' | 'products'
 
 /**
  * Bookkeeping: upload statements → the AI posts every transaction as a double entry →
@@ -130,6 +131,9 @@ export function BookkeepingPage() {
           <TabsTrigger value="names" className="h-9 flex-none px-4">
             Names
           </TabsTrigger>
+          <TabsTrigger value="products" className="h-9 flex-none px-4">
+            Products
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -195,6 +199,9 @@ export function BookkeepingPage() {
         <TabsContent value="balance">{report((r) => <BalanceSheet reports={r} />)}</TabsContent>
         <TabsContent value="names">
           <Names />
+        </TabsContent>
+        <TabsContent value="products">
+          <Products />
         </TabsContent>
       </Tabs>
 

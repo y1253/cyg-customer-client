@@ -46,8 +46,39 @@ const fmtDate = (iso: string | null) =>
 const toCents = (n: number) => Math.round(n * 100)
 
 /**
- * The ledger in the firm's own columns: pending date, posting date, name, description,
- * amount, debit, credit. The bank account sits on one side of every row and the AI-chosen
+ * Which columns a screen size shows. The table is `table-fixed`, so it is never wider than
+ * the dialog: what does not fit folds into a neighbouring cell instead of scrolling.
+ * - xl+: every column (Date · Name · Description · Amount · Debit · Credit · Statement);
+ * - md–xl: Debit and Credit share one stacked cell, the statement chip and the row's
+ *   buttons sit under the description;
+ * - phone: Date · Name · Amount — the description, accounts and statement under the name.
+ * Every row kind (transaction, tax line, split) and the footer use the same classes.
+ */
+const SHOW = {
+  desc: 'hidden md:table-cell',
+  stacked: 'hidden md:table-cell xl:hidden',
+  wide: 'hidden xl:table-cell',
+}
+
+/** Pending date, with the posting date under it when the bank printed a different one. */
+function DateStack({ t }: { t: LedgerTransaction }) {
+  const pending = fmtDate(t.pendingDate)
+  const posting = fmtDate(t.postingDate)
+  return (
+    <span className="flex flex-col whitespace-normal text-muted-foreground">
+      <span>{pending || posting}</span>
+      {pending && posting && posting !== pending && (
+        <span className="text-[11px] leading-tight text-muted-foreground/80" title="Posting date">
+          posted {posting}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * The ledger in the firm's own columns: date (pending, with the posting date under it), name,
+ * description, amount, debit, credit — never wider than the screen (`SHOW`). The bank account sits on one side of every row and the AI-chosen
  * account on the other (the offset), shown as a chip.
  * A transaction's NAME and its CATEGORY (the offset chip) can be clicked to change them —
  * for that row only, or always for that payee (`NameRuleDialog`).
@@ -178,7 +209,7 @@ export function LedgerTable({
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
-      <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 border-b px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:px-5 sm:py-4">
         <div className="relative w-full shrink-0 sm:w-72">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -212,7 +243,7 @@ export function LedgerTable({
           </button>
         )}
         {done.length > 1 && (
-          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
             {[{ id: 'all' as const, label: 'All statements' }, ...statementLabels(done)].map(
               (opt) => (
                 <button
@@ -223,7 +254,7 @@ export function LedgerTable({
                     setShown(PAGE)
                   }}
                   className={cn(
-                    'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                    'max-w-full truncate rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
                     statementId === opt.id
                       ? 'bg-[#0B1C2C] text-white'
                       : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
@@ -267,17 +298,17 @@ export function LedgerTable({
           </p>
         </div>
       ) : (
-        <Table>
+        <Table className="table-fixed">
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-28 pl-5">Pending date</TableHead>
-              <TableHead className="w-28">Posting date</TableHead>
-              <TableHead className="w-40">Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="w-32 text-right">Amount</TableHead>
-              <TableHead className="w-44">Debit</TableHead>
-              <TableHead className="w-44">Credit</TableHead>
-              <TableHead className="w-44 pr-5">Statement</TableHead>
+              <TableHead className="w-[5.5rem] pl-3 sm:w-28 sm:pl-5">Date</TableHead>
+              <TableHead className="md:w-[18%]">Name</TableHead>
+              <TableHead className={SHOW.desc}>Description</TableHead>
+              <TableHead className="w-[6.5rem] text-right sm:w-28">Amount</TableHead>
+              <TableHead className={cn(SHOW.stacked, 'w-44')}>Debit / Credit</TableHead>
+              <TableHead className={cn(SHOW.wide, 'w-40')}>Debit</TableHead>
+              <TableHead className={cn(SHOW.wide, 'w-40')}>Credit</TableHead>
+              <TableHead className={cn(SHOW.wide, 'w-44 pr-5')}>Statement</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -300,87 +331,108 @@ export function LedgerTable({
               }
               const kids = t.kind ? 0 : (family.get(t.id)?.rows.length ?? 0)
               const open = isOpen(t.id)
+              // Each is placed once per screen size: in its own column when there is room,
+              // else folded under the description (tablet) or the name (phone).
+              const splitChip = kids > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggle(t.id)}
+                  disabled={isAgency}
+                  title={open ? 'Fold its split rows away' : 'Show its split rows'}
+                  className="inline-flex w-fit shrink-0 items-center gap-0.5 rounded-md bg-slate-100 py-0.5 pr-1.5 pl-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-200"
+                >
+                  {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                  {kids} split row{kids === 1 ? '' : 's'}
+                </button>
+              )
+              const description = (
+                <span className="line-clamp-2 text-xs break-words md:text-sm">
+                  {t.kind === 'opening' ? <Badge variant="secondary">{t.description}</Badge> : t.description}
+                </span>
+              )
+              const extras = (
+                <span className="flex max-w-full min-w-0 items-center gap-1.5">
+                  <span
+                    className="min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                    title={t.statementLabel}
+                  >
+                    {t.statementLabel}
+                  </span>
+                  {!t.kind && <AttachButton count={t.attachments?.length ?? 0} onClick={() => setAttaching(t)} />}
+                  {!t.kind && <SplitButton onClick={() => openSplit(t.id)} />}
+                </span>
+              )
               return (
                 <TableRow
                   key={t.key}
                   className={cn('group', t.kind === 'opening' && 'bg-muted/40', joined && 'border-b-0')}
                 >
-                  <TableCell className="pl-5 text-muted-foreground">{fmtDate(t.pendingDate)}</TableCell>
-                  <TableCell className="text-muted-foreground">{fmtDate(t.postingDate)}</TableCell>
-                  <TableCell className="max-w-[10rem] truncate font-medium text-[#0B1C2C]" title={t.name ?? undefined}>
-                    {t.kind ? (
-                      (t.name ?? <span className="text-muted-foreground">—</span>)
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setEditing(t)}
-                        title="Change the name or category"
-                        className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
-                      >
-                        {t.name ?? <span className="text-muted-foreground">Add name</span>}
-                      </button>
-                    )}
+                  <TableCell className="pl-3 align-top sm:pl-5">
+                    <DateStack t={t} />
                   </TableCell>
-                  <TableCell className="max-w-[18rem] text-[#0B1C2C]" title={t.description}>
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      {kids > 0 && (
+                  <TableCell className="align-top font-medium whitespace-normal text-[#0B1C2C]" title={t.name ?? undefined}>
+                    <span className="block truncate">
+                      {t.kind ? (
+                        (t.name ?? <span className="text-muted-foreground">—</span>)
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => toggle(t.id)}
-                          disabled={isAgency}
-                          title={open ? 'Fold its split rows away' : 'Show its split rows'}
-                          className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-slate-100 py-0.5 pr-1.5 pl-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-200"
+                          onClick={() => setEditing(t)}
+                          title="Change the name or category"
+                          className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
                         >
-                          {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                          {kids} split row{kids === 1 ? '' : 's'}
+                          {t.name ?? <span className="text-muted-foreground">Add name</span>}
                         </button>
                       )}
-                      <span className="truncate">
-                        {t.kind === 'opening' ? <Badge variant="secondary">{t.description}</Badge> : t.description}
-                      </span>
+                    </span>
+                    {/* Phone: the description, accounts and statement fold in under the name. */}
+                    <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
+                      {splitChip}
+                      {description}
+                      <AccountStack t={t} onEdit={t.kind ? undefined : () => setEditing(t)} />
+                      {extras}
+                    </span>
+                  </TableCell>
+                  <TableCell className={cn(SHOW.desc, 'align-top whitespace-normal text-[#0B1C2C]')} title={t.description}>
+                    <span className="flex min-w-0 flex-col items-start gap-1">
+                      {splitChip}
+                      {description}
+                      <span className="flex max-w-full min-w-0 xl:hidden">{extras}</span>
                     </span>
                   </TableCell>
                   <TableCell
                     className={cn(
-                      'text-right font-semibold tabular-nums',
+                      'text-right align-top font-semibold tabular-nums',
                       t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
                     )}
                   >
                     {money(shownAmount(t))}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={cn(SHOW.stacked, 'align-top')}>
+                    <AccountStack t={t} onEdit={t.kind ? undefined : () => setEditing(t)} />
+                  </TableCell>
+                  <TableCell className={cn(SHOW.wide, 'align-top')}>
                     <AccountCell
                       name={t.debitAccount}
                       offset={t.debitAccount === t.offsetAccount}
                       onEdit={t.kind ? undefined : () => setEditing(t)}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={cn(SHOW.wide, 'align-top')}>
                     <AccountCell
                       name={t.creditAccount}
                       offset={t.creditAccount === t.offsetAccount}
                       onEdit={t.kind ? undefined : () => setEditing(t)}
                     />
                   </TableCell>
-                  <TableCell className="pr-5">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span
-                        className="inline-flex max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-                        title={t.statementLabel}
-                      >
-                        {t.statementLabel}
-                      </span>
-                      {!t.kind && <AttachButton count={t.attachments?.length ?? 0} onClick={() => setAttaching(t)} />}
-                      {!t.kind && <SplitButton onClick={() => openSplit(t.id)} />}
-                    </span>
-                  </TableCell>
+                  <TableCell className={cn(SHOW.wide, 'pr-5 align-top')}>{extras}</TableCell>
                 </TableRow>
               )
             })}
           </TableBody>
           <TableFooter className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={4} className="pl-5 font-medium">
+              <TableCell colSpan={2} className="pl-3 font-medium whitespace-normal sm:pl-5">
                 {txCount.toLocaleString()} transaction{txCount === 1 ? '' : 's'}
                 {txCount !== allTx && ` of ${allTx.toLocaleString()}`}
                 {splitCount > 0 && (
@@ -396,12 +448,15 @@ export function LedgerTable({
                   </span>
                 )}
               </TableCell>
+              <TableCell className={SHOW.desc} />
               <TableCell
                 className={cn('text-right font-bold tabular-nums', net < 0 ? 'text-red-600' : 'text-emerald-700')}
+                title="Net change"
               >
                 {money(net)}
               </TableCell>
-              <TableCell colSpan={3} className="pr-5 text-sm text-muted-foreground">
+              <TableCell className={cn(SHOW.stacked, 'text-sm text-muted-foreground')}>net change</TableCell>
+              <TableCell colSpan={3} className={cn(SHOW.wide, 'pr-5 text-sm text-muted-foreground')}>
                 net change
               </TableCell>
             </TableRow>
@@ -451,42 +506,55 @@ function statementLabels(list: Statement[]): Array<{ id: number; label: string }
  * the row's, until the customer gives it its own — can be clicked to change it.
  */
 function TaxRow({ t, joined, onRename }: { t: LedgerTransaction; joined: boolean; onRename: () => void }) {
+  const agency = (
+    <span className="w-fit max-w-full shrink-0 truncate rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/20">
+      {t.offsetAccount}
+      {t.taxRate !== undefined && ` · ${t.taxRate.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`}
+    </span>
+  )
   return (
     <TableRow className={cn('bg-slate-50/80 text-slate-500 hover:bg-slate-100/70', joined && 'border-b-0')}>
-      <TableCell className="py-1.5 pl-5 text-xs">{fmtDate(t.pendingDate)}</TableCell>
-      <TableCell className="py-1.5 text-xs">{fmtDate(t.postingDate)}</TableCell>
-      <TableCell className="max-w-[10rem] truncate py-1.5 text-xs" title={t.name ?? undefined}>
-        {t.taxAgencyId !== undefined ? (
-          <button
-            type="button"
-            onClick={onRename}
-            title="Change this tax line's name"
-            className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
-          >
-            {t.name ?? <span className="text-slate-400">Add name</span>}
-          </button>
-        ) : (
-          t.name
-        )}
+      <TableCell className="py-1.5 pl-3 align-top text-xs sm:pl-5">
+        <DateStack t={t} />
       </TableCell>
-      <TableCell className="max-w-[18rem] py-1.5" title={`${t.offsetAccount} on: ${t.description}`}>
+      <TableCell className="py-1.5 align-top text-xs whitespace-normal" title={t.name ?? undefined}>
+        <span className="block truncate">
+          {t.taxAgencyId !== undefined ? (
+            <button
+              type="button"
+              onClick={onRename}
+              title="Change this tax line's name"
+              className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
+            >
+              {t.name ?? <span className="text-slate-400">Add name</span>}
+            </button>
+          ) : (
+            t.name
+          )}
+        </span>
+        <span className="mt-1 flex flex-col gap-1 md:hidden">
+          {agency}
+          <AccountStack t={t} tax />
+        </span>
+      </TableCell>
+      <TableCell className={cn(SHOW.desc, 'py-1.5 align-top')} title={`${t.offsetAccount} on: ${t.description}`}>
         <span className={cn('flex min-w-0 items-center gap-1.5', t.splitOfId ? 'pl-6' : 'pl-2')}>
           <CornerDownRight className="size-3.5 shrink-0 text-slate-400" />
-          <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/20">
-            {t.offsetAccount}
-            {t.taxRate !== undefined && ` · ${t.taxRate.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`}
-          </span>
+          {agency}
           <span className="truncate text-xs">{t.description}</span>
         </span>
       </TableCell>
-      <TableCell className="py-1.5 text-right text-sm font-medium tabular-nums">{money(t.amount)}</TableCell>
-      <TableCell className="py-1.5">
+      <TableCell className="py-1.5 text-right align-top text-sm font-medium tabular-nums">{money(t.amount)}</TableCell>
+      <TableCell className={cn(SHOW.stacked, 'py-1.5 align-top')}>
+        <AccountStack t={t} tax />
+      </TableCell>
+      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
         <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} tax />
       </TableCell>
-      <TableCell className="py-1.5">
+      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
         <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} tax />
       </TableCell>
-      <TableCell className="py-1.5 pr-5" />
+      <TableCell className={cn(SHOW.wide, 'py-1.5 pr-5')} />
     </TableRow>
   )
 }
@@ -506,48 +574,64 @@ function SplitRow({
   onEdit: () => void
   onSplit: () => void
 }) {
+  const item = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Split</span>
+      {t.itemName && <span className="max-w-[50%] shrink-0 truncate text-xs font-medium text-[#0B1C2C]">{t.itemName}</span>}
+      <span className="truncate text-xs text-muted-foreground">{t.description}</span>
+    </span>
+  )
+  const edit = <SplitButton onClick={onSplit} label="Edit splits" />
   return (
     <TableRow className={cn('group bg-brand/[0.03] hover:bg-brand/[0.06]', joined && 'border-b-0')}>
-      <TableCell className="py-1.5 pl-5 text-xs text-muted-foreground">{fmtDate(t.pendingDate)}</TableCell>
-      <TableCell className="py-1.5 text-xs text-muted-foreground">{fmtDate(t.postingDate)}</TableCell>
+      <TableCell className="py-1.5 pl-3 align-top text-xs text-muted-foreground sm:pl-5">
+        <DateStack t={t} />
+      </TableCell>
       <TableCell
-        className="max-w-[10rem] truncate py-1.5 text-sm font-medium text-[#0B1C2C]"
+        className="py-1.5 align-top text-sm font-medium whitespace-normal text-[#0B1C2C]"
         title={t.name ?? undefined}
       >
-        <button
-          type="button"
-          onClick={onEdit}
-          title="Change this split's name or category"
-          className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
-        >
-          {t.name ?? <span className="text-muted-foreground">Add name</span>}
-        </button>
+        <span className="block truncate">
+          <button
+            type="button"
+            onClick={onEdit}
+            title="Change this split's name or category"
+            className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
+          >
+            {t.name ?? <span className="text-muted-foreground">Add name</span>}
+          </button>
+        </span>
+        <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
+          {item}
+          <AccountStack t={t} onEdit={onEdit} />
+          {edit}
+        </span>
       </TableCell>
-      <TableCell className="max-w-[18rem] py-1.5" title={t.description}>
+      <TableCell className={cn(SHOW.desc, 'py-1.5 align-top')} title={t.description}>
         <span className="flex min-w-0 items-center gap-1.5 pl-2">
           <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
-          <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Split</span>
-          {t.itemName && <span className="shrink-0 truncate text-xs font-medium text-[#0B1C2C]">{t.itemName}</span>}
-          <span className="truncate text-xs text-muted-foreground">{t.description}</span>
+          {item}
         </span>
+        <span className="mt-1 flex pl-2 xl:hidden">{edit}</span>
       </TableCell>
       <TableCell
         className={cn(
-          'py-1.5 text-right text-sm font-semibold tabular-nums',
+          'py-1.5 text-right align-top text-sm font-semibold tabular-nums',
           t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
         )}
       >
         {money(t.amount)}
       </TableCell>
-      <TableCell className="py-1.5">
+      <TableCell className={cn(SHOW.stacked, 'py-1.5 align-top')}>
+        <AccountStack t={t} onEdit={onEdit} />
+      </TableCell>
+      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
         <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} onEdit={onEdit} />
       </TableCell>
-      <TableCell className="py-1.5">
+      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
         <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} onEdit={onEdit} />
       </TableCell>
-      <TableCell className="py-1.5 pr-5">
-        <SplitButton onClick={onSplit} label="Edit splits" />
-      </TableCell>
+      <TableCell className={cn(SHOW.wide, 'py-1.5 pr-5 align-top')}>{edit}</TableCell>
     </TableRow>
   )
 }
@@ -566,7 +650,7 @@ function AttachButton({ count, onClick }: { count: number; onClick: () => void }
         'inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 transition-opacity hover:bg-brand/10',
         count
           ? 'text-brand ring-brand/30'
-          : 'text-muted-foreground opacity-0 ring-black/10 group-hover:opacity-100 focus-visible:opacity-100',
+          : 'text-muted-foreground opacity-0 ring-black/10 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100',
       )}
     >
       <Paperclip className="size-3.5" />
@@ -582,11 +666,27 @@ function SplitButton({ onClick, label = 'Split' }: { onClick: () => void; label?
       type="button"
       onClick={onClick}
       title="Split this transaction into parts with their own name and category"
-      className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-brand opacity-0 ring-1 ring-brand/30 transition-opacity group-hover:opacity-100 hover:bg-brand/10 focus-visible:opacity-100"
+      className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-brand opacity-0 ring-1 ring-brand/30 transition-opacity group-hover:opacity-100 hover:bg-brand/10 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
     >
       <Split className="size-3.5" />
       {label}
     </button>
+  )
+}
+
+/** Debit over credit in one cell, for screens too narrow for a column each. */
+function AccountStack({ t, tax, onEdit }: { t: LedgerTransaction; tax?: boolean; onEdit?: () => void }) {
+  const line = (label: string, name: string) => (
+    <span className="flex max-w-full min-w-0 items-center gap-1.5">
+      <span className="w-5 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase">{label}</span>
+      <AccountCell name={name} offset={name === t.offsetAccount} tax={tax} onEdit={onEdit} />
+    </span>
+  )
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5">
+      {line('Dr', t.debitAccount)}
+      {line('Cr', t.creditAccount)}
+    </span>
   )
 }
 
