@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { useLogin } from '@/hooks/useLogin'
 import { AuthLayout, OrDivider, SUBMIT_CLASS } from './AuthLayout'
 import { GoogleButton } from './GoogleButton'
+import { PasswordInput } from './PasswordInput'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -48,9 +49,8 @@ export function LoginPage() {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">Password</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="current-password"
             className="h-11"
             value={password}

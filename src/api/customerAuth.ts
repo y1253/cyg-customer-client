@@ -15,6 +15,8 @@ export type Customer = {
 export type AuthResult = { access_token: string; customer: Customer }
 
 export type SignupValues = { name: string; email: string; password: string }
+export type SignupStarted = { email: string }
+export type VerifySignupValues = { email: string; code: string }
 export type LoginValues = { email: string; password: string }
 export type UpdateMeValues = { name?: string; phone?: string | null }
 
@@ -28,8 +30,17 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return (await res.json()) as T
 }
 
-export function signup(values: SignupValues): Promise<AuthResult> {
+/** Step 1: emails a 6-digit code. The account exists only after `verifySignup`. */
+export function signup(values: SignupValues): Promise<SignupStarted> {
   return postJson('/api/customer-auth/signup', values)
+}
+
+export function verifySignup(values: VerifySignupValues): Promise<AuthResult> {
+  return postJson('/api/customer-auth/signup/verify', values)
+}
+
+export function resendSignupCode(email: string): Promise<SignupStarted> {
+  return postJson('/api/customer-auth/signup/resend', { email })
 }
 
 export function login(values: LoginValues): Promise<AuthResult> {

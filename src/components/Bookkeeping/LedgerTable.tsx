@@ -381,7 +381,7 @@ export function LedgerTable({
                           title="Change the name or category"
                           className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
                         >
-                          {t.name ?? <span className="text-muted-foreground">Add name</span>}
+                          {t.name ?? <Unclarified />}
                         </button>
                       )}
                     </span>
@@ -598,7 +598,7 @@ function SplitRow({
             title="Change this split's name or category"
             className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
           >
-            {t.name ?? <span className="text-muted-foreground">Add name</span>}
+            {t.name ?? <Unclarified />}
           </button>
         </span>
         <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
@@ -735,4 +735,9 @@ function AccountCell({
   ) : (
     <span className="truncate text-sm text-[#0B1C2C]">{name}</span>
   )
+}
+
+/** A row the AI found no payee name for. Nothing is stored — the ledger just says so. */
+function Unclarified() {
+  return <span className="font-normal text-muted-foreground italic">Unclarified name</span>
 }

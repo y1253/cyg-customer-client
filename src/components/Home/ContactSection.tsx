@@ -147,12 +147,14 @@ export function ContactSection() {
                   className="bg-white"
                 />
               </div>
-              {/* Honeypot: off-screen and out of the tab order, so only a bot fills it. */}
+              {/* Honeypot: off-screen and out of the tab order, so only a bot fills it. Its
+                  name/label are deliberately nothing a browser's autofill recognises — a
+                  filled honeypot silently drops a real visitor's message. */}
               <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
-                <label htmlFor="contact-website">Website</label>
+                <label htmlFor="contact-hp">Leave this field empty</label>
                 <input
-                  id="contact-website"
-                  name="website"
+                  id="contact-hp"
+                  name="cyg_hp_field"
                   type="text"
                   tabIndex={-1}
                   autoComplete="off"

@@ -32,11 +32,11 @@ export type NameRuleTarget =
 
 /**
  * Change a name and/or category — for a payee on the Names tab, a group of unrecognised
- * rows, or one ledger row. "Always" saves it to the customer's account (their existing rows
- * and every statement from now on); "One time" changes only what is in the ledger now (one
- * row, from the ledger) and is never applied again. A category can be typed in when nothing
- * in the list fits. Only what was changed is sent. The name offers every name on the Names tab.
- * A hand-made split belongs to its one transaction, so it is only ever changed "Only this row".
+ * rows, or one ledger row. A name has ONE category: picking one moves every transaction of
+ * that name, always. "Always / Only this row" is for the NAME only: every transaction with
+ * this description (and every later statement), or just this one. A name, once there, can
+ * be changed but not cleared; a row the AI could not name may stay "Unclarified name" and
+ * still get its description's category. A hand-made split only ever changes itself.
  */
 export function NameRuleDialog({
   target,
@@ -75,17 +75,27 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
 
   const trimmed = name.trim()
   const nameChanged = trimmed !== '' && trimmed !== initialName
+  // A name is required once there is one: it can be changed, never cleared.
+  const nameMissing = initialName !== '' && trimmed === ''
+  const finalName = trimmed || initialName
+  // "Always / Only this row" is about the NAME on a description's rows — a payee on the
+  // Names tab is always renamed everywhere, and a category is always the name's own.
+  const askScope = nameChanged && target.kind !== 'name' && !isSplit
   const categoryChanged =
     choiceReady(choice) && (choice.category === NEW_CATEGORY || choice.category !== initialCategory)
   const pending = create.isPending || saveRule.isPending || editRow.isPending
-  const canSave = (nameChanged || categoryChanged) && !pending
+  const canSave = (nameChanged || categoryChanged) && !nameMissing && !pending
   const error = create.error ?? saveRule.error ?? editRow.error
 
   const submit = async () => {
     if (!canSave) return
     const chosen = categoryChanged ? await resolveChoice(choice, create) : null
     if (categoryChanged && !chosen) return
-    const values = { name: nameChanged ? trimmed : null, category: chosen, scope }
+    const values = {
+      name: nameChanged ? trimmed : null,
+      category: chosen,
+      scope: target.kind === 'name' ? ('ALWAYS' as const) : scope,
+    }
     if (target.kind === 'transaction') {
       editRow.mutate({ id: target.view.id, ...values }, { onSuccess: onDone })
     } else {
@@ -138,51 +148,26 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         <NamePicker
           id="name-rule-name"
           value={name}
-          placeholder={initialName || 'e.g. BMO, Hydro-Québec, John Smith'}
+          placeholder={initialName || 'Unclarified name'}
           onChange={setName}
         />
+        {nameMissing && <p className="text-xs text-destructive">A name is required.</p>}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label>Category</Label>
-        <CategoryField value={choice} onChange={setChoice} />
-        {otherCategories > 0 && !categoryChanged && (
-          <p className="text-xs text-muted-foreground">
-            Its rows have {otherCategories + 1} different categories. Choose one to put them all in it.
-          </p>
-        )}
-      </div>
-
-      {isSplit ? (
-        <p className="text-xs text-muted-foreground">
-          A split belongs to its one transaction: this changes only this split.
-        </p>
-      ) : (
+      {askScope && (
         <div className="flex flex-col gap-1.5">
-          <Label>Apply</Label>
+          <Label>Use this name for</Label>
           <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
             {(
               [
-                {
-                  id: 'ALWAYS',
-                  label: 'Always',
-                  hint: 'Saved to your account: also every statement you upload from now on.',
-                },
-                {
-                  id: 'ONCE',
-                  label: target.kind === 'transaction' ? 'Only this row' : 'One time',
-                  hint:
-                    target.kind === 'transaction'
-                      ? 'Only this transaction. Nothing is saved for the future.'
-                      : 'Only the rows already in your ledger. Nothing is saved for the future.',
-                },
+                { id: 'ALWAYS', label: 'Always' },
+                { id: 'ONCE', label: target.kind === 'transaction' ? 'Only this row' : 'Only these rows' },
               ] as const
             ).map((o) => (
               <button
                 key={o.id}
                 type="button"
                 onClick={() => setScope(o.id)}
-                title={o.hint}
                 className={cn(
                   'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                   scope === o.id ? 'bg-white text-[#0B1C2C] shadow-sm' : 'text-muted-foreground hover:text-foreground',
@@ -194,13 +179,30 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
           </div>
           <p className="text-xs text-muted-foreground">
             {scope === 'ALWAYS'
-              ? 'Saved to your account — used for this ledger and every statement you upload from now on.'
+              ? 'Every transaction with this description gets this name — in this ledger and every statement you upload from now on.'
               : target.kind === 'transaction'
-                ? 'Changes only this transaction. Nothing is saved for the future.'
-                : 'Changes only the rows already in your ledger. Nothing is saved for the future.'}
+                ? 'Only this transaction gets this name. Nothing is saved for the future.'
+                : 'Only the rows already in your ledger get this name. Nothing is saved for the future.'}
           </p>
         </div>
       )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Category</Label>
+        <CategoryField value={choice} onChange={setChoice} />
+        {otherCategories > 0 && !categoryChanged && (
+          <p className="text-xs text-muted-foreground">
+            Its rows have {otherCategories + 1} different categories. Choose one to put them all in it.
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {isSplit
+            ? 'A split belongs to its one transaction: this changes only this split.'
+            : finalName
+              ? `A name has one category: every transaction named “${finalName}” goes in it.`
+              : 'Every unnamed transaction with this description goes in it.'}
+        </p>
+      </div>
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
