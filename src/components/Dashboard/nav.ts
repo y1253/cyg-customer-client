@@ -1,4 +1,4 @@
-import { BookOpenCheck, FileText, LayoutDashboard, Receipt, UserRound, Wallet } from 'lucide-react'
+import { BookOpenCheck, Building2, FileText, LayoutDashboard, Receipt, UserRound, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type NavItem = {
@@ -14,6 +14,7 @@ export type NavItem = {
 /** The modules a customer can open. Add a module here and give it a route. */
 export const MODULES: NavItem[] = [
   { label: 'Overview', to: '/dashboard', icon: LayoutDashboard, end: true },
+  { label: 'My businesses', to: '/dashboard/register', icon: Building2 },
   { label: 'Bookkeeping', to: '/dashboard/bookkeeping', icon: BookOpenCheck },
   { label: 'Invoices', to: '#', icon: Receipt, soon: true },
   { label: 'Tax filing', to: '#', icon: FileText, soon: true },

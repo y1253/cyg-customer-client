@@ -16,6 +16,8 @@ function greeting(): string {
 }
 
 const MODULE_BLURB: Record<string, string> = {
+  'My businesses':
+    'Register your business with us, or finish an application you started. You get your own phone line.',
   Bookkeeping:
     'Upload your bank statements and get every transaction posted as debits and credits — ready for your accountant.',
   Invoices: 'Create and send invoices, and see who has paid.',

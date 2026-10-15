@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { HERO } from './content'
 import { ctaClass } from './cta'
 
@@ -44,9 +45,10 @@ export function HeroSection() {
           <div className="flex flex-col gap-8">
             <p className="text-lg leading-relaxed text-white/85 sm:text-xl">{HERO.body}</p>
             <div className="flex flex-wrap gap-4">
-              <a href="#what-we-do" className={ctaClass('light')}>
-                About Us
-              </a>
+              {/* Signed-out visitors are sent through /login (CustomerRoute) first. */}
+              <Link to="/dashboard/register" className={ctaClass('light')}>
+                Start your application
+              </Link>
               <a href="#contact" className={ctaClass('brand')}>
                 Talk to an Expert
               </a>

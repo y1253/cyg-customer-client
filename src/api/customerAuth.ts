@@ -7,6 +7,8 @@ export type Customer = {
   name: string
   email: string
   authType: AuthType
+  /** False for an account created through Google that never set a password. */
+  hasPassword: boolean
   avatarUrl: string | null
   phone: string | null
   createdAt: string
@@ -19,6 +21,9 @@ export type SignupStarted = { email: string }
 export type VerifySignupValues = { email: string; code: string }
 export type LoginValues = { email: string; password: string }
 export type UpdateMeValues = { name?: string; phone?: string | null }
+export type ResetPasswordValues = { email: string; code: string; newPassword: string }
+/** `currentPassword` when the account has one; otherwise the emailed `code`. */
+export type ChangePasswordValues = { currentPassword?: string; code?: string; newPassword: string }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await safeFetch(url, {
@@ -41,6 +46,16 @@ export function verifySignup(values: VerifySignupValues): Promise<AuthResult> {
 
 export function resendSignupCode(email: string): Promise<SignupStarted> {
   return postJson('/api/customer-auth/signup/resend', { email })
+}
+
+/** Emails a code if the account exists; answers the same either way. */
+export function forgotPassword(email: string): Promise<SignupStarted> {
+  return postJson('/api/customer-auth/password/forgot', { email })
+}
+
+/** Saves the new password and signs in. */
+export function resetPassword(values: ResetPasswordValues): Promise<AuthResult> {
+  return postJson('/api/customer-auth/password/reset', values)
 }
 
 export function login(values: LoginValues): Promise<AuthResult> {
@@ -69,6 +84,29 @@ export async function updateMe(token: string, values: UpdateMeValues): Promise<C
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(values),
+  })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** Returns a fresh session: every other device is signed out by the change. */
+export async function changePassword(
+  token: string,
+  values: ChangePasswordValues,
+): Promise<AuthResult> {
+  const res = await fetchWithAuth(token, '/api/customer-auth/me/password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(values),
+  })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** For an account with no password yet: emails a code to set one. */
+export async function sendPasswordCode(token: string): Promise<SignupStarted> {
+  const res = await fetchWithAuth(token, '/api/customer-auth/me/password/code', {
+    method: 'POST',
   })
   if (!res.ok) throw await errorFrom(res)
   return res.json()

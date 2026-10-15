@@ -48,7 +48,16 @@ export function LoginPage() {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link
+              to="/forgot-password"
+              state={{ email: email.trim() }}
+              className="text-sm font-medium text-brand-light hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <PasswordInput
             id="password"
             autoComplete="current-password"

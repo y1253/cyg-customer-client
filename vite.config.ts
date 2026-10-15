@@ -15,6 +15,13 @@ export default defineConfig({
       // Forwarded WITHOUT rewriting: the customer API sets setGlobalPrefix('api'),
       // so /api/health really is the server route. Same convention as internal.
       '/api': { target: 'http://localhost:3001', changeOrigin: true, ws: true },
+      // The registration wizard calls the INTERNAL API (:3000). Production builds point
+      // at it directly with VITE_INTERNAL_API_URL; dev goes through this prefix.
+      '/internal-api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/internal-api/, '/api'),
+      },
     },
   },
 })

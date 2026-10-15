@@ -1,18 +1,18 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useCountdown } from '@/hooks/useCountdown'
 import { useResendSignupCode } from '@/hooks/useResendSignupCode'
 import { useSignup } from '@/hooks/useSignup'
 import { useVerifySignup } from '@/hooks/useVerifySignup'
 import { AuthLayout, OrDivider, SUBMIT_CLASS } from './AuthLayout'
+import { CodeInput, ResendButton } from './CodeInput'
 import { GoogleButton } from './GoogleButton'
 import { PasswordInput } from './PasswordInput'
 
 const MIN_PASSWORD = 8
-/** Matches the server's one-code-a-minute limit. */
-const RESEND_SECONDS = 60
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -142,13 +142,7 @@ function VerifyStep({
   const verify = useVerifySignup()
   const resend = useResendSignupCode()
   const [code, setCode] = useState('')
-  const [wait, setWait] = useState(RESEND_SECONDS)
-
-  useEffect(() => {
-    if (wait <= 0) return
-    const t = setTimeout(() => setWait((s) => s - 1), 1000)
-    return () => clearTimeout(t)
-  }, [wait])
+  const countdown = useCountdown()
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -161,7 +155,7 @@ function VerifyStep({
     resend.mutate(email, {
       onSuccess: () => {
         setCode('')
-        setWait(RESEND_SECONDS)
+        countdown.restart()
       },
     })
   }
@@ -186,20 +180,7 @@ function VerifyStep({
         expires in 10 minutes.
       </p>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="signup-code">Verification code</Label>
-          <Input
-            id="signup-code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoFocus
-            maxLength={6}
-            placeholder="123456"
-            className="h-12 text-center text-2xl tracking-[0.5em]"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          />
-        </div>
+        <CodeInput id="signup-code" label="Verification code" value={code} onChange={setCode} />
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
@@ -220,14 +201,7 @@ function VerifyStep({
         <Button variant="link" className="h-auto p-0" onClick={onChangeEmail}>
           Use a different email
         </Button>
-        <Button
-          variant="link"
-          className="h-auto p-0"
-          disabled={wait > 0 || resend.isPending}
-          onClick={onResend}
-        >
-          {resend.isPending ? 'Sending…' : wait > 0 ? `Resend code in ${wait}s` : 'Resend code'}
-        </Button>
+        <ResendButton wait={countdown.left} pending={resend.isPending} onClick={onResend} />
       </div>
     </AuthLayout>
   )
