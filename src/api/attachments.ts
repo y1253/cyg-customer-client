@@ -16,6 +16,8 @@ export type AttachmentReading = {
   checkNumber: string | null
   payee: string | null
   memo: string | null
+  /** A cheque: the category assumed from its payee and memo (used when the payee is a new name). */
+  category?: string | null
   transcript?: string
 }
 

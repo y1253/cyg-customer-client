@@ -116,6 +116,12 @@ export function ReadingSummary({ a }: { a: Attachment }) {
     <div className="flex flex-col gap-2 text-sm">
       {texted}
       {facts.length > 0 && <p className="font-medium text-[#0B1C2C]">{facts.join(' · ')}</p>}
+      {r.kind === 'CHECK' && r.payee && (
+        <p className="text-muted-foreground">
+          Pay to <span className="font-medium text-[#0B1C2C]">{r.payee}</span>
+          {r.category && <> · assumed category {r.category}</>}
+        </p>
+      )}
       {r.memo && <p className="text-muted-foreground">Memo: {r.memo}</p>}
       {r.items.length > 0 && (
         <ul className="divide-y rounded-lg bg-muted/40 px-3 text-xs">

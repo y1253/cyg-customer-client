@@ -1,4 +1,5 @@
 import type { Statement } from '@/api/bookkeeping'
+import type { SortState } from '@/lib/table-sort'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useTransactions } from '@/hooks/useTransactions'
 import { LedgerTable } from './LedgerTable'
@@ -15,6 +16,9 @@ export function LedgerDialog({
   onAccountChange,
   focusId = null,
   onFocusChange,
+  name = null,
+  onNameChange,
+  defaultSort = null,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -25,6 +29,11 @@ export function LedgerDialog({
   /** Show one transaction only (from "View transaction" on an attachment). */
   focusId?: number | null
   onFocusChange?: (id: number | null) => void
+  /** Pre-filter to one payee (from the Names tab / the income statement). */
+  name?: string | null
+  onNameChange?: (name: string | null) => void
+  /** The order it opens in; null = newest first. */
+  defaultSort?: SortState | null
 }) {
   const transactions = useTransactions({ enabled: open })
 
@@ -34,12 +43,15 @@ export function LedgerDialog({
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-[#0B1C2C]">
             Ledger{account && <span className="font-medium text-muted-foreground"> · {account}</span>}
+            {name && <span className="font-medium text-muted-foreground"> · {name}</span>}
           </DialogTitle>
           <DialogDescription>Downloads always include every statement.</DialogDescription>
         </DialogHeader>
         {/* Scrolls DOWN only: the ledger fits the width at every screen size (`LedgerTable`). */}
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <LedgerTable
+            // A new drill-down starts from its own default order, with no column filters.
+            key={`${open}|${account ?? ''}|${name ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}`}
             transactions={transactions.data ?? []}
             statements={statements}
             loading={transactions.isLoading}
@@ -47,6 +59,9 @@ export function LedgerDialog({
             onClearAccount={() => onAccountChange(null)}
             focusId={focusId}
             onClearFocus={() => onFocusChange?.(null)}
+            name={name}
+            onClearName={() => onNameChange?.(null)}
+            defaultSort={defaultSort}
           />
           {transactions.error && <p className="mt-2 text-sm text-destructive">{transactions.error.message}</p>}
         </div>

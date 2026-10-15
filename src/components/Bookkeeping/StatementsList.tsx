@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock, ExternalLink, FileClock, FileText, Loader2, RotateCcw, Trash2 } from 'lucide-react'
-import { isBusy, openOriginal, type Statement } from '@/api/bookkeeping'
+import { isBusy, openOriginal, unreadable, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -81,9 +81,23 @@ function subtitle(s: Statement): string {
   }
 }
 
-/** Every uploaded statement with its status, newest first. */
+
+type Filter = 'all' | 'done' | 'unread' | 'waiting'
+const FILTERS: Array<{ id: Filter; label: string; test: (s: Statement) => boolean }> = [
+  { id: 'all', label: 'All', test: () => true },
+  { id: 'done', label: 'Done', test: (s) => s.status === 'DONE' },
+  { id: 'unread', label: "Couldn't read", test: unreadable },
+  { id: 'waiting', label: 'Waiting', test: (s) => s.status === 'UPLOADED' || isBusy(s) },
+]
+
+/**
+ * Every uploaded statement with its status, newest first. The chips narrow it down —
+ * "Couldn't read" lists the ones that failed or need review, each with its reason, the
+ * original PDF, Try again and Delete.
+ */
 export function StatementsList({ statements, loading }: { statements: Statement[]; loading: boolean }) {
   const { token } = useAuth()
+  const [filter, setFilter] = useState<Filter>('all')
   const remove = useDeleteStatement()
   const retry = useRetryStatement()
   const [confirm, setConfirm] = useState<Statement | null>(null)
@@ -109,10 +123,41 @@ export function StatementsList({ statements, loading }: { statements: Statement[
     )
   }
 
+  const test = FILTERS.find((f) => f.id === filter)!.test
+  const shown = statements.filter(test)
+
   return (
     <>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {FILTERS.map((f) => {
+          const n = statements.filter(f.test).length
+          if (f.id !== 'all' && !n && filter !== f.id) return null
+          return (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors',
+                filter === f.id
+                  ? 'bg-[#0B1C2C] text-white'
+                  : f.id === 'unread'
+                    ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+              )}
+            >
+              {f.label} · {n}
+            </button>
+          )
+        })}
+      </div>
+      {!shown.length && (
+        <p className="rounded-xl bg-white px-4 py-6 text-center text-sm text-muted-foreground ring-1 ring-black/5">
+          Nothing here.
+        </p>
+      )}
       <ul className="flex max-h-[26rem] flex-col gap-2 overflow-y-auto pr-1">
-        {statements.map((s) => (
+        {shown.map((s) => (
           <li
             key={s.id}
             className={cn(
@@ -133,8 +178,12 @@ export function StatementsList({ statements, loading }: { statements: Statement[
               <p
                 className={cn(
                   'text-xs',
-                  // The needs-review reason is the customer's only explanation — never cut it off.
-                  s.status === 'NEEDS_REVIEW' ? 'mt-0.5 text-amber-800' : 'truncate text-muted-foreground',
+                  // The reason is the customer's only explanation — never cut it off.
+                  s.status === 'NEEDS_REVIEW'
+                    ? 'mt-0.5 text-amber-800'
+                    : s.status === 'FAILED'
+                      ? 'mt-0.5 text-red-700'
+                      : 'truncate text-muted-foreground',
                 )}
                 title={subtitle(s)}
               >

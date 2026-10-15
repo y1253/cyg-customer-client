@@ -9,7 +9,7 @@ import {
   Search,
   Split,
 } from 'lucide-react'
-import type { LedgerTransaction, Statement } from '@/api/bookkeeping'
+import { UNCLARIFIED_NAME, type LedgerTransaction, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,19 +19,21 @@ import {
   TableBody,
   TableCell,
   TableFooter,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
 import { money } from '@/lib/money'
+import { applyTable, useTableControls, type ColumnDef, type SortState } from '@/lib/table-sort'
 import { cn } from '@/lib/utils'
+import { ColumnHeader } from './ColumnHeader'
 import { NameRuleDialog } from './NameRuleDialog'
 import { SplitDialog, type SplitTarget } from './SplitDialog'
 import { TaxLineNameDialog } from './TaxLineNameDialog'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 
-/** Rows rendered at once. A year of statements is thousands of rows; more load on demand. */
-const PAGE = 200
+/** A row's payee as the Name column shows it; a starting balance has none. */
+const nameOf = (t: LedgerTransaction): string | null =>
+  t.kind === 'opening' ? null : (t.name ?? UNCLARIFIED_NAME)
 
 /** Date-only ISO → "Sep 2, 2026", parsed as LOCAL midnight so it never slips a day. */
 const fmtDate = (iso: string | null) =>
@@ -94,7 +96,11 @@ function DateStack({ t }: { t: LedgerTransaction }) {
  * downloads always include them). The net change is the same either way.
  * A tax line's and a split's name can be clicked to change it.
  * The paperclip on a transaction opens its receipts, cheques and voice notes; `focusId`
- * shows one transaction only (from "View transaction" on an attachment).
+ * shows one transaction only (from "View transaction" on an attachment); `name` the rows of
+ * one payee (from the Names tab or the income statement).
+ * Every row is listed — no paging. Each column header sorts and filters its own column
+ * (`ColumnHeader`); a transaction moves together with its tax lines and splits, judged by
+ * the transaction itself.
  */
 export function LedgerTable({
   transactions,
@@ -104,6 +110,9 @@ export function LedgerTable({
   onClearAccount,
   focusId,
   onClearFocus,
+  name,
+  onClearName,
+  defaultSort = null,
 }: {
   transactions: LedgerTransaction[]
   statements: Statement[]
@@ -112,10 +121,15 @@ export function LedgerTable({
   onClearAccount?: () => void
   focusId?: number | null
   onClearFocus?: () => void
+  /** Only this payee's transactions ("Unclarified name" = the rows with none). */
+  name?: string | null
+  onClearName?: () => void
+  /** The order it opens in (e.g. by name, from the income statement); null = newest first. */
+  defaultSort?: SortState | null
 }) {
   const [query, setQuery] = useState('')
   const [statementId, setStatementId] = useState<number | 'all'>('all')
-  const [shown, setShown] = useState(PAGE)
+  const controls = useTableControls(defaultSort)
   // The transactions whose split rows are folded away.
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set())
   const [editing, setEditing] = useState<LedgerTransaction | null>(null)
@@ -182,9 +196,25 @@ export function LedgerTable({
     })
   }
 
+  const columns = useMemo<ColumnDef<LedgerTransaction>[]>(
+    () => [
+      { key: 'date', kind: 'date', value: (t) => t.pendingDate ?? t.postingDate },
+      { key: 'name', kind: 'text', value: nameOf },
+      { key: 'description', kind: 'text', value: (t) => [t.description, t.itemName ?? null] },
+      { key: 'amount', kind: 'number', value: (t) => shownAmount(t) },
+      { key: 'drcr', kind: 'text', value: (t) => [t.debitAccount, t.creditAccount] },
+      { key: 'debit', kind: 'text', value: (t) => t.debitAccount },
+      { key: 'credit', kind: 'text', value: (t) => t.creditAccount },
+      { key: 'statement', kind: 'text', value: (t) => t.statementLabel },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [family, collapsed, isAgency],
+  )
+
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return transactions.filter(
+    const wanted = name?.trim().toLowerCase()
+    const kept = transactions.filter(
       (t) =>
         (isAgency || (t.kind !== 'tax' && t.kind !== 'split') || !collapsed.has(t.splitOfId ?? t.id)) &&
         (focusId == null || t.id === focusId || t.splitOfId === focusId) &&
@@ -197,8 +227,48 @@ export function LedgerTable({
           t.debitAccount.toLowerCase().includes(q) ||
           t.creditAccount.toLowerCase().includes(q)),
     )
-  }, [transactions, query, statementId, account, collapsed, isAgency, focusId])
+    // A transaction and the tax lines / splits under it move as one family.
+    const groups: LedgerTransaction[][] = []
+    const at = new Map<number, LedgerTransaction[]>()
+    for (const t of kept) {
+      const top = t.kind === 'tax' || t.kind === 'split' ? (t.splitOfId ?? t.id) : null
+      const g = top !== null ? at.get(top) : undefined
+      if (g) {
+        g.push(t)
+        continue
+      }
+      const fresh = [t]
+      groups.push(fresh)
+      if (!t.kind || t.kind === 'tax' || t.kind === 'split') at.set(top ?? t.id, fresh)
+    }
+    const named = wanted
+      ? groups.filter((g) => g.some((t) => nameOf(t)?.toLowerCase() === wanted))
+      : groups
+    const heads = named.map((g) => ({ head: g.find((t) => !t.kind) ?? g[0], g }))
+    const byHead = new Map(heads.map((h) => [h.head, h.g]))
+    return applyTable(
+      heads.map((h) => h.head),
+      columns,
+      controls.filters,
+      controls.sort,
+    ).flatMap((head) => byHead.get(head) ?? [head])
+  }, [transactions, query, statementId, account, collapsed, isAgency, focusId, name, columns, controls.filters, controls.sort])
   const net = rows.reduce((cents, t) => cents + toCents(shownAmount(t)), 0) / 100
+  // With foreign statements, the net change in the home currency too (rows converted, plus
+  // the revaluations). Home-currency rows count as they are.
+  const foreign = rows.some((t) => t.currency)
+  const homeNet = foreign
+    ? rows.reduce(
+        (cents, t) =>
+          cents +
+          (t.kind === 'fx'
+            ? toCents(t.homeAmount ?? 0)
+            : t.currency && t.fxRate != null
+              ? Math.round(toCents(shownAmount(t)) * t.fxRate)
+              : toCents(shownAmount(t))),
+        0,
+      ) / 100
+    : null
   const taxCount = rows.filter((t) => t.kind === 'tax').length
   const splitCount = rows.filter((t) => t.kind === 'split').length
   const txCount = rows.length - taxCount - splitCount
@@ -214,10 +284,7 @@ export function LedgerTable({
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setShown(PAGE)
-            }}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, description or account"
             className="h-10 pl-9"
           />
@@ -230,6 +297,31 @@ export function LedgerTable({
             title="Show every account"
           >
             {account} ✕
+          </button>
+        )}
+        {name && (
+          <button
+            type="button"
+            onClick={onClearName}
+            className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
+            title="Show every name"
+          >
+            {name} ✕
+          </button>
+        )}
+        {(controls.activeCount > 0 || controls.sort?.key !== defaultSort?.key || controls.sort?.dir !== defaultSort?.dir) && (
+          <button
+            type="button"
+            onClick={() => {
+              controls.clearFilters()
+              controls.setSort(defaultSort)
+            }}
+            className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+            title="Back to every row, in the usual order"
+          >
+            {controls.activeCount > 0
+              ? `Clear ${controls.activeCount} column filter${controls.activeCount === 1 ? '' : 's'} ✕`
+              : 'Reset order ✕'}
           </button>
         )}
         {focusId != null && (
@@ -249,10 +341,7 @@ export function LedgerTable({
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => {
-                    setStatementId(opt.id)
-                    setShown(PAGE)
-                  }}
+                  onClick={() => setStatementId(opt.id)}
                   className={cn(
                     'max-w-full truncate rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
                     statementId === opt.id
@@ -301,18 +390,31 @@ export function LedgerTable({
         <Table className="table-fixed">
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[5.5rem] pl-3 sm:w-28 sm:pl-5">Date</TableHead>
-              <TableHead className="md:w-[18%]">Name</TableHead>
-              <TableHead className={SHOW.desc}>Description</TableHead>
-              <TableHead className="w-[6.5rem] text-right sm:w-28">Amount</TableHead>
-              <TableHead className={cn(SHOW.stacked, 'w-44')}>Debit / Credit</TableHead>
-              <TableHead className={cn(SHOW.wide, 'w-40')}>Debit</TableHead>
-              <TableHead className={cn(SHOW.wide, 'w-40')}>Credit</TableHead>
-              <TableHead className={cn(SHOW.wide, 'w-44 pr-5')}>Statement</TableHead>
+              <ColumnHeader column="date" label="Date" kind="date" controls={controls} className="w-[5.5rem] pl-3 sm:w-28 sm:pl-5" />
+              <ColumnHeader column="name" label="Name" kind="text" controls={controls} className="md:w-[18%]" />
+              <ColumnHeader column="description" label="Description" kind="text" controls={controls} className={SHOW.desc} />
+              <ColumnHeader
+                column="amount"
+                label="Amount"
+                kind="number"
+                align="end"
+                controls={controls}
+                className="w-[6.5rem] text-right sm:w-28"
+              />
+              <ColumnHeader column="drcr" label="Debit / Credit" kind="text" controls={controls} className={cn(SHOW.stacked, 'w-44')} />
+              <ColumnHeader column="debit" label="Debit" kind="text" controls={controls} className={cn(SHOW.wide, 'w-40')} />
+              <ColumnHeader column="credit" label="Credit" kind="text" controls={controls} className={cn(SHOW.wide, 'w-40')} />
+              <ColumnHeader
+                column="statement"
+                label="Statement"
+                kind="text"
+                controls={controls}
+                className={cn(SHOW.wide, 'w-44 pr-5')}
+              />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.slice(0, shown).map((t, i, page) => {
+            {rows.map((t, i, page) => {
               // Joined to its split rows: no divider between them.
               const joined = page[i + 1]?.kind === 'tax' || page[i + 1]?.kind === 'split'
               if (t.kind === 'tax') {
@@ -347,7 +449,16 @@ export function LedgerTable({
               )
               const description = (
                 <span className="line-clamp-2 text-xs break-words md:text-sm">
-                  {t.kind === 'opening' ? <Badge variant="secondary">{t.description}</Badge> : t.description}
+                  {t.kind === 'opening' ? (
+                    <Badge variant="secondary">{t.description}</Badge>
+                  ) : t.kind === 'fx' ? (
+                    <span className="flex flex-col items-start gap-0.5">
+                      <Badge variant="secondary">Exchange gain or loss</Badge>
+                      <span className="text-muted-foreground">{t.description}</span>
+                    </span>
+                  ) : (
+                    t.description
+                  )}
                 </span>
               )
               const extras = (
@@ -365,7 +476,7 @@ export function LedgerTable({
               return (
                 <TableRow
                   key={t.key}
-                  className={cn('group', t.kind === 'opening' && 'bg-muted/40', joined && 'border-b-0')}
+                  className={cn('group', (t.kind === 'opening' || t.kind === 'fx') && 'bg-muted/40', joined && 'border-b-0')}
                 >
                   <TableCell className="pl-3 align-top sm:pl-5">
                     <DateStack t={t} />
@@ -406,7 +517,8 @@ export function LedgerTable({
                       t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
                     )}
                   >
-                    {money(shownAmount(t))}
+                    {t.kind === 'fx' ? '—' : money(shownAmount(t))}
+                    <FxNote t={t} amount={shownAmount(t)} />
                   </TableCell>
                   <TableCell className={cn(SHOW.stacked, 'align-top')}>
                     <AccountStack t={t} onEdit={t.kind ? undefined : () => setEditing(t)} />
@@ -454,6 +566,11 @@ export function LedgerTable({
                 title="Net change"
               >
                 {money(net)}
+                {homeNet !== null && (
+                  <span className="block text-[11px] font-medium text-muted-foreground" title="In your home currency">
+                    = {money(homeNet)}
+                  </span>
+                )}
               </TableCell>
               <TableCell className={cn(SHOW.stacked, 'text-sm text-muted-foreground')}>net change</TableCell>
               <TableCell colSpan={3} className={cn(SHOW.wide, 'pr-5 text-sm text-muted-foreground')}>
@@ -472,17 +589,6 @@ export function LedgerTable({
       <SplitDialog target={splitting} onOpenChange={(o) => !o && setSplitting(null)} />
       <TransactionAttachmentsDialog transaction={attaching} onOpenChange={(o) => !o && setAttaching(null)} />
 
-      {rows.length > shown && (
-        <div className="border-t p-3 text-center">
-          <button
-            type="button"
-            onClick={() => setShown((n) => n + PAGE)}
-            className="text-sm font-medium text-brand hover:underline"
-          >
-            Show {Math.min(PAGE, rows.length - shown)} more
-          </button>
-        </div>
-      )}
     </div>
   )
 }
@@ -544,7 +650,10 @@ function TaxRow({ t, joined, onRename }: { t: LedgerTransaction; joined: boolean
           <span className="truncate text-xs">{t.description}</span>
         </span>
       </TableCell>
-      <TableCell className="py-1.5 text-right align-top text-sm font-medium tabular-nums">{money(t.amount)}</TableCell>
+      <TableCell className="py-1.5 text-right align-top text-sm font-medium tabular-nums">
+        {money(t.amount)}
+        <FxNote t={t} amount={t.amount} />
+      </TableCell>
       <TableCell className={cn(SHOW.stacked, 'py-1.5 align-top')}>
         <AccountStack t={t} tax />
       </TableCell>
@@ -621,6 +730,7 @@ function SplitRow({
         )}
       >
         {money(t.amount)}
+        <FxNote t={t} amount={t.amount} />
       </TableCell>
       <TableCell className={cn(SHOW.stacked, 'py-1.5 align-top')}>
         <AccountStack t={t} onEdit={onEdit} />
@@ -737,7 +847,30 @@ function AccountCell({
   )
 }
 
+/**
+ * A foreign-currency row: its currency, and under it the amount in the home currency at the
+ * day's rate (a folded transaction converts its full amount at the same rate). A
+ * revaluation row (`fx`) shows only its home-currency difference.
+ */
+function FxNote({ t, amount }: { t: LedgerTransaction; amount: number }) {
+  if (!t.currency) return null
+  const rate = t.fxRate
+  const home = t.kind === 'fx' ? (t.homeAmount ?? 0) : rate != null ? Math.round(amount * 100 * rate) / 100 : null
+  return (
+    <span className="mt-0.5 block text-[11px] leading-tight font-normal text-muted-foreground">
+      {t.kind !== 'fx' && <span className="mr-1">{t.currency}</span>}
+      {home === null ? (
+        <span title="No exchange rate known for this day yet">no rate yet</span>
+      ) : (
+        <span title={rate != null ? `Rate ${rate.toFixed(4)}` : undefined}>
+          = <span className={cn('font-medium', home < 0 ? 'text-red-600' : 'text-emerald-700')}>{money(home)}</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
 /** A row the AI found no payee name for. Nothing is stored — the ledger just says so. */
 function Unclarified() {
-  return <span className="font-normal text-muted-foreground italic">Unclarified name</span>
+  return <span className="font-normal text-muted-foreground italic">{UNCLARIFIED_NAME}</span>
 }

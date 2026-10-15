@@ -10,6 +10,10 @@ export type Statement = {
   status: StatementStatus
   error: string | null
   accountName: string | null
+  /** BANK | CREDIT_CARD (null = read before it was recorded). */
+  accountKind?: string | null
+  /** ISO code of its amounts; null = not printed (the home currency). */
+  currency?: string | null
   bankName: string | null
   /** "Chase 4362 · Sep 2026" — the same label every ledger row of it shows. */
   label: string
@@ -48,7 +52,15 @@ export type LedgerTransaction = {
    * `split`: a part the customer split off the transaction above by hand, with its own name, category and
    * taxes; the transaction shows what is left of it.
    */
-  kind?: 'opening' | 'tax' | 'split'
+  kind?: 'opening' | 'tax' | 'split' | 'fx'
+  /**
+   * A row of a statement in another currency than the home one: its currency, the rate of its day (null = not
+   * known yet) and the amount converted. An `fx` row is the revaluation at a foreign statement's end: 0 in its
+   * currency, the home-currency difference to Exchange Gain or Loss.
+   */
+  currency?: string
+  fxRate?: number | null
+  homeAmount?: number
   /** On a tax row: the agency's rate, a percent. */
   taxRate?: number
   /** On a tax row: the agency — the key for renaming the line. */
@@ -86,7 +98,14 @@ export type AccountBalance = {
   count: number
 }
 
-export type ReportLine = { name: string; amount: number }
+export type ReportLine = {
+  name: string
+  amount: number
+  /** A statement account (bank / card) itself. */
+  bank?: boolean
+  /** Income statement only: the account's total per payee, largest first. */
+  byName?: ReportLine[]
+}
 
 /** `GET /api/bookkeeping/reports` — chart of accounts + income statement for the period, balance sheet as of its end. */
 export type Reports = {
@@ -112,6 +131,8 @@ export type Reports = {
     balanced: boolean
   }
   uncategorized: { count: number; amount: number }
+  /** Accounts the customer moved to another section (they can be put back). */
+  moved?: string[]
 }
 
 /** A report period as YYYY-MM-DD; null on either side = open-ended. */
@@ -121,6 +142,12 @@ export type Period = { from: string | null; to: string | null }
 export const MAX_STATEMENT_BYTES = 50 * 1024 * 1024
 /** Files per request. The client sends batches, so a customer can upload any number. */
 export const UPLOAD_BATCH = 10
+
+/** Statements we could not read: failed outright, or read but not adding up (needs review). */
+export const unreadable = (s: Statement): boolean => s.status === 'FAILED' || s.status === 'NEEDS_REVIEW'
+
+/** How a row with no payee is listed (never stored — the DB keeps null). */
+export const UNCLARIFIED_NAME = 'Unclarified name'
 
 export function isBusy(s: Statement): boolean {
   return s.status === 'PENDING' || s.status === 'PROCESSING'
@@ -253,11 +280,8 @@ export type TaxAgency = {
 
 export type TaxAgencyInput = Omit<TaxAgency, 'id'>
 
+/** The customer's tax agencies. Which ones tax a row is decided per NAME (Names tab). */
 export type TaxSettings = {
-  enabled: boolean
-  /** Agencies or the switch changed since the last tax run — Generate applies them. */
-  stale: boolean
-  running: boolean
   agencies: TaxAgency[]
 }
 
@@ -278,14 +302,19 @@ export type LedgerName = {
   otherCategories: number
   type: NameType
   rows: number
-  /** Its tax lines are left out of the ledger, reports and downloads. */
-  taxExempt: boolean
+  /** The agencies that tax this name's rows — none = not taxed (the default). */
+  agencyIds: number[]
   /** The descriptions the AI put under this name. */
   descriptions: NameDescription[]
   /** What an edit of this name saves under (a NAME rule with this key). */
   ruleKey: string
   /** The customer's own change behind this row — what "Reset to default" removes. */
   rule: NameRuleRef | null
+  /**
+   * The rows with NO payee name, listed as one name ("Unclarified name", Uncategorized). Nothing is stored;
+   * each of its descriptions is assigned from `NamesData.unrecognized`.
+   */
+  unclarified?: true
 }
 
 export type NameRuleMatch = 'NAME' | 'DESCRIPTION'
@@ -339,7 +368,7 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 })
 
-/** Reads every not-yet-read statement and re-applies changed tax settings. */
+/** Reads every not-yet-read statement. */
 export async function generate(token: string): Promise<{ queued: number; taxing: boolean }> {
   const res = await fetchWithAuth(token, '/api/bookkeeping/generate', { method: 'POST' })
   if (!res.ok) throw await errorFrom(res)
@@ -352,8 +381,17 @@ export async function fetchTax(token: string): Promise<TaxSettings> {
   return res.json()
 }
 
-export async function updateTax(token: string, enabled: boolean): Promise<TaxSettings> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/tax', json('PATCH', { enabled }))
+/** The home currency the books are kept in, and the ones there are daily rates for. */
+export type CurrencySettings = { home: string; currencies: string[] }
+
+export async function fetchCurrency(token: string): Promise<CurrencySettings> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/currency')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function updateCurrency(token: string, home: string): Promise<CurrencySettings> {
+  const res = await fetchWithAuth(token, '/api/bookkeeping/currency', json('PUT', { home }))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -383,11 +421,12 @@ export async function fetchNames(token: string): Promise<NamesData> {
   return res.json()
 }
 
-export async function updateName(
+/** Which agencies tax one name — the whole set; [] = not taxed. Applies at once (on read). */
+export async function setNameAgencies(
   token: string,
-  values: { name: string; taxExempt: boolean },
+  values: { name: string; agencyIds: number[] },
 ): Promise<NamesData> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/names', json('PATCH', values))
+  const res = await fetchWithAuth(token, '/api/bookkeeping/names/agencies', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -474,6 +513,21 @@ export async function createAccount(
   return res.json()
 }
 
+/** Move an account to another section of the chart / balance sheet; `type: null` puts it back. */
+export async function setAccountType(
+  token: string,
+  values: { account: string; type: AccountType | null },
+): Promise<void> {
+  const res = await fetchWithAuth(
+    token,
+    '/api/bookkeeping/accounts/type',
+    values.type
+      ? json('PUT', values)
+      : json('DELETE', { account: values.account }),
+  )
+  if (!res.ok) throw await errorFrom(res)
+}
+
 /** The fixed chart of accounts plus the customer's own — the categories a name can be given. */
 export async function fetchAccounts(token: string): Promise<ChartAccount[]> {
   const res = await fetchWithAuth(token, '/api/bookkeeping/accounts')
@@ -487,6 +541,7 @@ export const TRANSACTIONS_KEY = ['bookkeeping', 'transactions'] as const
 /** Prefix — the hook appends the period. */
 export const REPORTS_KEY = ['bookkeeping', 'reports'] as const
 export const TAX_KEY = ['bookkeeping', 'tax'] as const
+export const CURRENCY_KEY = ['bookkeeping', 'currency'] as const
 export const NAMES_KEY = ['bookkeeping', 'names'] as const
 export const PRODUCTS_KEY = ['bookkeeping', 'products'] as const
 export const ACCOUNTS_KEY = ['bookkeeping', 'accounts'] as const
