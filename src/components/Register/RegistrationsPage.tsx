@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, ChevronRight, Phone, Plus, Trash2 } from 'lucide-react'
+import { Building2, ChevronRight, MessagesSquare, Phone, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,7 +23,8 @@ import {
 
 /**
  * `/dashboard/register` — the customer's businesses: applications in progress (Continue)
- * and submitted ones with their phone number. "Register a business" starts a new draft.
+ * and submitted ones with their phone number ("Messages & links" opens the read-only
+ * portal). "Register a business" starts a new draft.
  */
 export function RegistrationsPage() {
   const navigate = useNavigate()
@@ -97,6 +98,16 @@ export function RegistrationsPage() {
                     )}
                   </p>
                 </div>
+                {!r.isDraft && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => navigate(`/dashboard/businesses/${r.id}`)}
+                  >
+                    <MessagesSquare size={14} /> Messages &amp; links <ChevronRight size={14} />
+                  </Button>
+                )}
                 {r.isDraft && (
                   <div className="flex gap-2">
                     <Button

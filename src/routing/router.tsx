@@ -8,6 +8,7 @@ import { ConnectResultPage } from '@/components/Connect/ConnectResultPage'
 import { DashboardHome } from '@/components/Dashboard/DashboardHome'
 import { DashboardLayout } from '@/components/Dashboard/DashboardLayout'
 import { HomePage } from '@/components/Home/HomePage'
+import { CompanyPortalPage } from '@/components/Portal/CompanyPortalPage'
 import { RegistrationsPage } from '@/components/Register/RegistrationsPage'
 import { RegisterWizardPage } from '@/components/Register/RegisterWizard'
 import { CustomerRoute, GuestRoute } from './CustomerRoute'
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
           { path: 'account', element: <AccountPage /> },
           { path: 'register', element: <RegistrationsPage /> },
           { path: 'register/:id', element: <RegisterWizardPage /> },
+          { path: 'businesses/:id', element: <CompanyPortalPage /> },
         ],
       },
     ],
