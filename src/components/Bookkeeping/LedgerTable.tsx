@@ -5,6 +5,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CornerDownRight,
+  Folder,
   Paperclip,
   Search,
   Split,
@@ -30,6 +31,7 @@ import { NameRuleDialog } from './NameRuleDialog'
 import { SplitDialog, type SplitTarget } from './SplitDialog'
 import { TaxLineNameDialog } from './TaxLineNameDialog'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
+import { groupByAccount } from './statement-folders'
 
 /** A row's payee as the Name column shows it; a starting balance has none. */
 const nameOf = (t: LedgerTransaction): string | null =>
@@ -148,6 +150,8 @@ export function LedgerTable({
     return !!day && (!from || day >= from) && (!to || day <= to)
   }
   const [statementId, setStatementId] = useState<number | 'all'>('all')
+  // The account folder picked above the ledger; its statements' chips show under it.
+  const [folderName, setFolderName] = useState<string | 'all'>('all')
   const controls = useTableControls(defaultSort)
   // The transactions whose split rows are folded away.
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set())
@@ -157,6 +161,11 @@ export function LedgerTable({
   const [attaching, setAttaching] = useState<LedgerTransaction | null>(null)
 
   const done = statements.filter((s) => s.status === 'DONE')
+  const folders = useMemo(() => groupByAccount(statements.filter((s) => s.status === 'DONE')), [statements])
+  const folder = folderName === 'all' ? null : (folders.find((f) => f.account === folderName) ?? null)
+  const folderIds = useMemo(() => (folder ? new Set(folder.statements.map((s) => s.id)) : null), [folder])
+  // One account: its statements are the chips, as before. Several: pick an account first.
+  const statementChips = folders.length > 1 ? (folder?.statements ?? []) : done
   // An agency's own ledger is nothing but tax lines: never fold them there.
   const isAgency = useMemo(
     () => !!account && transactions.some((t) => t.kind === 'tax' && t.offsetAccount === account),
@@ -237,6 +246,7 @@ export function LedgerTable({
       (t) =>
         (isAgency || (t.kind !== 'tax' && t.kind !== 'split') || !collapsed.has(t.splitOfId ?? t.id)) &&
         (focusId == null || t.id === focusId || t.splitOfId === focusId) &&
+        (!folderIds || folderIds.has(t.statementId)) &&
         (statementId === 'all' || t.statementId === statementId) &&
         inRange(t) &&
         (!account || t.debitAccount === account || t.creditAccount === account) &&
@@ -273,7 +283,7 @@ export function LedgerTable({
       controls.sort,
     ).flatMap((head) => byHead.get(head) ?? [head])
     // eslint-disable-next-line react-hooks/exhaustive-deps -- inRange reads from, to, periodEnd
-  }, [transactions, query, statementId, account, collapsed, isAgency, focusId, name, from, to, periodEnd, columns, controls.filters, controls.sort])
+  }, [transactions, query, statementId, folderIds, account, collapsed, isAgency, focusId, name, from, to, periodEnd, columns, controls.filters, controls.sort])
   const net = rows.reduce((cents, t) => cents + toCents(shownAmount(t)), 0) / 100
   // With foreign statements, the net change in the home currency too (rows converted, plus
   // the revaluations). Home-currency rows count as they are.
@@ -365,9 +375,37 @@ export function LedgerTable({
             One transaction ✕
           </button>
         )}
-        {done.length > 1 && (
-          <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-            {[{ id: 'all' as const, label: 'All statements' }, ...statementLabels(done)].map(
+        {(folders.length > 1 || statementChips.length > 1) && (
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            {folders.length > 1 && (
+              <div className="flex flex-wrap gap-1.5">
+                {[{ id: 'all', label: 'All accounts' }, ...folders.map((f) => ({ id: f.account!, label: f.account! }))].map(
+                  (opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setFolderName(opt.id)
+                        setStatementId('all')
+                      }}
+                      className={cn(
+                        'inline-flex max-w-full items-center gap-1 truncate rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                        // A folder emptied by a move falls back to All accounts.
+                        (folder?.account ?? 'all') === opt.id
+                          ? 'bg-[#0B1C2C] text-white'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                      )}
+                    >
+                      {opt.id !== 'all' && <Folder className="size-3.5 shrink-0" />}
+                      {opt.label}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+            {statementChips.length > 1 && (
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {[{ id: 'all' as const, label: 'All statements' }, ...statementLabels(statementChips)].map(
               (opt) => (
                 <button
                   key={opt.id}
@@ -383,6 +421,8 @@ export function LedgerTable({
                   {opt.label}
                 </button>
               ),
+            )}
+          </div>
             )}
           </div>
         )}

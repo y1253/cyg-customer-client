@@ -22,6 +22,8 @@ export type Statement = {
   transactionCount: number
   createdAt: string
   processedAt: string | null
+  /** The customer filed it under this account themselves (a Retry keeps it there). */
+  movedByCustomer?: boolean
 }
 
 export type LedgerTransaction = {
@@ -227,6 +229,13 @@ export async function retryStatement(token: string, id: number): Promise<Stateme
   const res = await fetchWithAuth(token, `/api/bookkeeping/statements/${id}/retry`, {
     method: 'POST',
   })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** File a statement under another account (the folder it was dragged into). */
+export async function moveStatement(token: string, id: number, accountName: string): Promise<Statement> {
+  const res = await fetchWithAuth(token, `/api/bookkeeping/statements/${id}/account`, json('PATCH', { accountName }))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }

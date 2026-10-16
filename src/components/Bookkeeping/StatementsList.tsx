@@ -1,5 +1,22 @@
-import { useState } from 'react'
-import { AlertCircle, AlertTriangle, CheckCircle2, Clock, ExternalLink, FileClock, FileText, Loader2, RotateCcw, Trash2 } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  ExternalLink,
+  FileClock,
+  FileText,
+  Folder as Folder2,
+  FolderInput,
+  FolderOpen,
+  FolderPlus,
+  Loader2,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react'
 import { isBusy, openOriginal, unreadable, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,11 +29,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/context/AuthContext'
 import { useDeleteStatement } from '@/hooks/useDeleteStatement'
+import { useMoveStatement } from '@/hooks/useMoveStatement'
 import { useRetryStatement } from '@/hooks/useRetryStatement'
 import { cn } from '@/lib/utils'
+import { statementDragProps, useFolderDrop } from './statement-drag'
+import { folderOf, groupByAccount, isFiled, type StatementFolder } from './statement-folders'
 
 // The check against the bank's own totals happens on the server and is kept there; the
 // customer only sees the outcome — Done, or Needs review with the reason.
@@ -90,18 +120,33 @@ const FILTERS: Array<{ id: Filter; label: string; test: (s: Statement) => boolea
   { id: 'waiting', label: 'Waiting', test: (s) => s.status === 'UPLOADED' || isBusy(s) },
 ]
 
+const day = (iso: string) =>
+  new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+
+function folderRange(f: StatementFolder): string | null {
+  if (!f.from && !f.to) return null
+  const a = f.from ? day(f.from) : null
+  const b = f.to ? day(f.to) : null
+  return a && b && a !== b ? `${a} – ${b}` : (b ?? a)
+}
+
 /**
- * Every uploaded statement with its status, newest first. The chips narrow it down —
- * "Couldn't read" lists the ones that failed or need review, each with its reason, the
- * original PDF, Try again and Delete.
+ * Every uploaded statement, filed in one folder per bank / card account. When a statement
+ * landed in the wrong account, drag it onto the right folder (or use its Move menu) and it
+ * is that account's statement from then on — its rows, balances and reports follow, and
+ * Try again keeps it there. The chips narrow the statements down by status.
  */
 export function StatementsList({ statements, loading }: { statements: Statement[]; loading: boolean }) {
   const { token } = useAuth()
   const [filter, setFilter] = useState<Filter>('all')
   const remove = useDeleteStatement()
   const retry = useRetryStatement()
+  const move = useMoveStatement()
   const [confirm, setConfirm] = useState<Statement | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
+  const [closed, setClosed] = useState<Set<string>>(new Set())
+  const [newFor, setNewFor] = useState<Statement | null>(null)
+  const [newName, setNewName] = useState('')
 
   if (loading) {
     return (
@@ -124,7 +169,23 @@ export function StatementsList({ statements, loading }: { statements: Statement[
   }
 
   const test = FILTERS.find((f) => f.id === filter)!.test
-  const shown = statements.filter(test)
+  const folders = groupByAccount(statements.filter(test))
+  const accounts = groupByAccount(statements)
+    .map((f) => f.account)
+    .filter((a): a is string => a !== null)
+
+  const moveTo = (id: number, accountName: string) => {
+    const s = statements.find((x) => x.id === id)
+    if (!s || !isFiled(s) || folderOf(s) === accountName) return
+    move.mutate({ id, accountName })
+  }
+  const toggle = (key: string) =>
+    setClosed((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   return (
     <>
@@ -151,82 +212,173 @@ export function StatementsList({ statements, loading }: { statements: Statement[
           )
         })}
       </div>
-      {!shown.length && (
+      {accounts.length > 1 && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          A statement in the wrong account? Drag it onto the right folder, or use its{' '}
+          <FolderInput className="inline size-3.5" /> menu.
+        </p>
+      )}
+      {move.error && <p className="mb-2 text-sm text-destructive">{move.error.message}</p>}
+      {!folders.length && (
         <p className="rounded-xl bg-white px-4 py-6 text-center text-sm text-muted-foreground ring-1 ring-black/5">
           Nothing here.
         </p>
       )}
-      <ul className="flex max-h-[26rem] flex-col gap-2 overflow-y-auto pr-1">
-        {shown.map((s) => (
-          <li
-            key={s.id}
-            className={cn(
-              'flex items-center gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-black/5',
-              isBusy(s) && 'ring-brand/20',
-            )}
-          >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
-              <FileText className="size-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-[#0B1C2C]" title={s.filename}>
-                  {s.label}
-                </p>
-                <StatusBadge s={s} />
-              </div>
-              <p
-                className={cn(
-                  'text-xs',
-                  // The reason is the customer's only explanation — never cut it off.
-                  s.status === 'NEEDS_REVIEW'
-                    ? 'mt-0.5 text-amber-800'
-                    : s.status === 'FAILED'
-                      ? 'mt-0.5 text-red-700'
-                      : 'truncate text-muted-foreground',
-                )}
-                title={subtitle(s)}
-              >
-                {subtitle(s)}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-0.5">
-              {(s.status === 'FAILED' || s.status === 'NEEDS_REVIEW') && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Try again"
-                  disabled={retry.isPending}
-                  onClick={() => retry.mutate(s.id)}
+      <div className="flex max-h-[34rem] flex-col gap-3 overflow-y-auto pr-1">
+        {folders.map((f) => {
+          const key = f.account ?? '\u0000unsorted'
+          return (
+            <Folder
+              key={key}
+              folder={f}
+              open={!closed.has(key)}
+              onToggle={() => toggle(key)}
+              onDrop={f.account ? (id) => moveTo(id, f.account!) : undefined}
+            >
+              {f.statements.map((s) => (
+                <li
+                  key={s.id}
+                  {...(isFiled(s) ? statementDragProps(s.id) : {})}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-black/5',
+                    isBusy(s) && 'ring-brand/20',
+                    isFiled(s) && 'cursor-grab active:cursor-grabbing',
+                    move.isPending && move.variables?.id === s.id && 'opacity-50',
+                  )}
                 >
-                  <RotateCcw />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                title="View original PDF"
-                onClick={() => {
-                  setOpenError(null)
-                  openOriginal(token!, s.id).catch((e: Error) => setOpenError(e.message))
-                }}
-              >
-                <ExternalLink />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                title="Delete statement"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() => setConfirm(s)}
-              >
-                <Trash2 />
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                    <FileText className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-[#0B1C2C]" title={s.filename}>
+                        {s.label}
+                      </p>
+                      <StatusBadge s={s} />
+                    </div>
+                    <p
+                      className={cn(
+                        'text-xs',
+                        // The reason is the customer's only explanation — never cut it off.
+                        s.status === 'NEEDS_REVIEW'
+                          ? 'mt-0.5 text-amber-800'
+                          : s.status === 'FAILED'
+                            ? 'mt-0.5 text-red-700'
+                            : 'truncate text-muted-foreground',
+                      )}
+                      title={subtitle(s)}
+                    >
+                      {subtitle(s)}
+                      {s.movedByCustomer && ' · moved by you'}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {isFiled(s) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          title="Move to another account"
+                          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-black/5 hover:text-foreground"
+                        >
+                          <FolderInput className="size-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          {/* base-ui throws when a GroupLabel is not inside a Group. */}
+                          <DropdownMenuGroup>
+                            <DropdownMenuLabel>Move to account</DropdownMenuLabel>
+                            {accounts
+                              .filter((a) => a !== folderOf(s))
+                              .map((a) => (
+                                <DropdownMenuItem key={a} onClick={() => moveTo(s.id, a)}>
+                                  <Folder2 className="size-4" /> {a}
+                                </DropdownMenuItem>
+                              ))}
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setNewName('')
+                              setNewFor(s)
+                            }}
+                          >
+                            <FolderPlus className="size-4" /> New account…
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {(s.status === 'FAILED' || s.status === 'NEEDS_REVIEW') && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Try again"
+                        disabled={retry.isPending}
+                        onClick={() => retry.mutate(s.id)}
+                      >
+                        <RotateCcw />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="View original PDF"
+                      onClick={() => {
+                        setOpenError(null)
+                        openOriginal(token!, s.id).catch((e: Error) => setOpenError(e.message))
+                      }}
+                    >
+                      <ExternalLink />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Delete statement"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setConfirm(s)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </Folder>
+          )
+        })}
+      </div>
       {openError && <p className="mt-2 text-sm text-destructive">{openError}</p>}
+
+      <Dialog open={!!newFor} onOpenChange={(open) => !open && setNewFor(null)}>
+        <DialogContent>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const name = newName.trim()
+              if (!newFor || !name) return
+              move.mutate({ id: newFor.id, accountName: name }, { onSuccess: () => setNewFor(null) })
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Move to a new account</DialogTitle>
+              <DialogDescription>
+                {newFor?.label} gets its own folder. Name it the way you know the account, e.g. “TD
+                Chequing 5234”.
+              </DialogDescription>
+            </DialogHeader>
+            <Input
+              autoFocus
+              value={newName}
+              maxLength={191}
+              placeholder="Account name"
+              onChange={(e) => setNewName(e.target.value)}
+            />
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline" type="button" />}>Cancel</DialogClose>
+              <Button type="submit" disabled={!newName.trim() || move.isPending}>
+                {move.isPending ? 'Moving…' : 'Move'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>
@@ -252,5 +404,61 @@ export function StatementsList({ statements, loading }: { statements: Statement[
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/** One account's folder: a header that collapses it, and a drop target for statements. */
+function Folder({
+  folder,
+  open,
+  onToggle,
+  onDrop,
+  children,
+}: {
+  folder: StatementFolder
+  open: boolean
+  onToggle: () => void
+  /** Undefined for the "Not sorted yet" folder — nothing can be dropped there. */
+  onDrop?: (statementId: number) => void
+  children: ReactNode
+}) {
+  const drop = useFolderDrop(onDrop)
+  const range = folderRange(folder)
+  return (
+    <section
+      {...drop.props}
+      className={cn(
+        'rounded-2xl bg-muted/40 p-2 ring-1 ring-black/5 transition-colors',
+        drop.over && 'bg-brand/5 ring-2 ring-brand/40',
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-black/5"
+      >
+        <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+        {folder.account ? (
+          open ? (
+            <FolderOpen className="size-4 shrink-0 text-brand" />
+          ) : (
+            <Folder2 className="size-4 shrink-0 text-brand" />
+          )
+        ) : (
+          <FileClock className="size-4 shrink-0 text-muted-foreground" />
+        )}
+        <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
+        {folder.card && (
+          <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
+            <CreditCard className="size-3" /> Card
+          </Badge>
+        )}
+        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+          {range && <span className="hidden sm:inline">{range} · </span>}
+          {folder.statements.length} statement{folder.statements.length === 1 ? '' : 's'}
+        </span>
+      </button>
+      {open && <ul className="mt-1 flex flex-col gap-2">{children}</ul>}
+    </section>
   )
 }
