@@ -113,6 +113,9 @@ export function LedgerTable({
   name,
   onClearName,
   defaultSort = null,
+  from = null,
+  to = null,
+  onClearRange,
 }: {
   transactions: LedgerTransaction[]
   statements: Statement[]
@@ -126,8 +129,24 @@ export function LedgerTable({
   onClearName?: () => void
   /** The order it opens in (e.g. by name, from the income statement); null = newest first. */
   defaultSort?: SortState | null
+  /** Only rows dated in this period (date-only ISO, either end open) — a report drill-down. */
+  from?: string | null
+  to?: string | null
+  onClearRange?: () => void
 }) {
   const [query, setQuery] = useState('')
+  const ranged = !!(from || to)
+  // A row's date as the reports count it: posted, else pending, else its statement's end.
+  // Undated rows fall outside any range, as they do in the reports.
+  const periodEnd = useMemo(
+    () => new Map(statements.map((s) => [s.id, s.periodEnd?.slice(0, 10) ?? null])),
+    [statements],
+  )
+  const inRange = (t: LedgerTransaction) => {
+    if (!ranged) return true
+    const day = (t.postingDate ?? t.pendingDate)?.slice(0, 10) ?? periodEnd.get(t.statementId) ?? null
+    return !!day && (!from || day >= from) && (!to || day <= to)
+  }
   const [statementId, setStatementId] = useState<number | 'all'>('all')
   const controls = useTableControls(defaultSort)
   // The transactions whose split rows are folded away.
@@ -219,6 +238,7 @@ export function LedgerTable({
         (isAgency || (t.kind !== 'tax' && t.kind !== 'split') || !collapsed.has(t.splitOfId ?? t.id)) &&
         (focusId == null || t.id === focusId || t.splitOfId === focusId) &&
         (statementId === 'all' || t.statementId === statementId) &&
+        inRange(t) &&
         (!account || t.debitAccount === account || t.creditAccount === account) &&
         (!q ||
           t.description.toLowerCase().includes(q) ||
@@ -252,7 +272,8 @@ export function LedgerTable({
       controls.filters,
       controls.sort,
     ).flatMap((head) => byHead.get(head) ?? [head])
-  }, [transactions, query, statementId, account, collapsed, isAgency, focusId, name, columns, controls.filters, controls.sort])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inRange reads from, to, periodEnd
+  }, [transactions, query, statementId, account, collapsed, isAgency, focusId, name, from, to, periodEnd, columns, controls.filters, controls.sort])
   const net = rows.reduce((cents, t) => cents + toCents(shownAmount(t)), 0) / 100
   // With foreign statements, the net change in the home currency too (rows converted, plus
   // the revaluations). Home-currency rows count as they are.
@@ -307,6 +328,16 @@ export function LedgerTable({
             title="Show every name"
           >
             {name} ✕
+          </button>
+        )}
+        {ranged && (
+          <button
+            type="button"
+            onClick={onClearRange}
+            className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
+            title="Show every date"
+          >
+            {from && to ? `${fmtDate(from)} – ${fmtDate(to)}` : from ? `From ${fmtDate(from)}` : `Up to ${fmtDate(to)}`} ✕
           </button>
         )}
         {(controls.activeCount > 0 || controls.sort?.key !== defaultSort?.key || controls.sort?.dir !== defaultSort?.dir) && (

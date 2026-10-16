@@ -1,8 +1,10 @@
-import type { Statement } from '@/api/bookkeeping'
+import type { Period, Statement } from '@/api/bookkeeping'
 import type { SortState } from '@/lib/table-sort'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useTransactions } from '@/hooks/useTransactions'
 import { LedgerTable } from './LedgerTable'
+
+const NO_RANGE: Period = { from: null, to: null }
 
 /**
  * The full ledger in a popup. Its rows are fetched only while it is open, so the page
@@ -19,6 +21,8 @@ export function LedgerDialog({
   name = null,
   onNameChange,
   defaultSort = null,
+  range = NO_RANGE,
+  onRangeChange,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -34,6 +38,9 @@ export function LedgerDialog({
   onNameChange?: (name: string | null) => void
   /** The order it opens in; null = newest first. */
   defaultSort?: SortState | null
+  /** Only rows dated in this period (a report drill-down opens with the report's). */
+  range?: Period
+  onRangeChange?: (range: Period) => void
 }) {
   const transactions = useTransactions({ enabled: open })
 
@@ -51,7 +58,7 @@ export function LedgerDialog({
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <LedgerTable
             // A new drill-down starts from its own default order, with no column filters.
-            key={`${open}|${account ?? ''}|${name ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}`}
+            key={`${open}|${account ?? ''}|${name ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}|${range.from ?? ''}|${range.to ?? ''}`}
             transactions={transactions.data ?? []}
             statements={statements}
             loading={transactions.isLoading}
@@ -62,6 +69,9 @@ export function LedgerDialog({
             name={name}
             onClearName={() => onNameChange?.(null)}
             defaultSort={defaultSort}
+            from={range.from}
+            to={range.to}
+            onClearRange={() => onRangeChange?.(NO_RANGE)}
           />
           {transactions.error && <p className="mt-2 text-sm text-destructive">{transactions.error.message}</p>}
         </div>

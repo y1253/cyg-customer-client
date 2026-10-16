@@ -4,6 +4,7 @@ import type { AccountType } from '@/api/bookkeeping'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -65,12 +66,15 @@ export function MoveMenu({
         <ArrowRightLeft className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuLabel>Move “{account}” to</DropdownMenuLabel>
-        {targets.map((t) => (
-          <DropdownMenuItem key={t} onClick={() => onMove(account, t)}>
-            {SECTION_LABEL[t]}
-          </DropdownMenuItem>
-        ))}
+        {/* base-ui throws when a GroupLabel (DropdownMenuLabel) is not inside a Group. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Move “{account}” to</DropdownMenuLabel>
+          {targets.map((t) => (
+            <DropdownMenuItem key={t} onClick={() => onMove(account, t)}>
+              {SECTION_LABEL[t]}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
         {moved && (
           <>
             <DropdownMenuSeparator />

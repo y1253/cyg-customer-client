@@ -42,6 +42,7 @@ export function BookkeepingPage() {
   const [ledgerName, setLedgerName] = useState<string | null>(null)
   const [ledgerSort, setLedgerSort] = useState<SortState | null>(null)
   const [ledgerFocus, setLedgerFocus] = useState<number | null>(null)
+  const [ledgerRange, setLedgerRange] = useState<Period>({ from: null, to: null })
   // The Ledger tab's rows are fetched only while it is the open tab.
   const ledger = useTransactions({ enabled: tab === 'ledger' })
 
@@ -62,13 +63,17 @@ export function BookkeepingPage() {
     setLedgerName(scope.name ?? null)
     setLedgerSort(scope.sort ?? null)
     setLedgerFocus(null)
+    setLedgerRange({ from: scope.from ?? null, to: scope.to ?? null })
     setLedgerOpen(true)
   }
-  const openAccount = (account: string) => openLedger({ account })
+  // A report row opens its account for the period the report shows.
+  const openReportLedger = (scope: LedgerScope) => openLedger({ ...scope, from: period.from, to: period.to })
+  const openAccount = (account: string) => openReportLedger({ account })
   const openTransaction = (id: number) => {
     setLedgerAccount(null)
     setLedgerName(null)
     setLedgerSort(null)
+    setLedgerRange({ from: null, to: null })
     setLedgerFocus(id)
     setLedgerOpen(true)
   }
@@ -205,7 +210,7 @@ export function BookkeepingPage() {
           {report((r) => <ChartOfAccounts reports={r} onOpenAccount={openAccount} />)}
         </TabsContent>
         <TabsContent value="income">
-          {report((r) => <IncomeStatement reports={r} onOpen={openLedger} />)}
+          {report((r) => <IncomeStatement reports={r} onOpen={openReportLedger} />)}
         </TabsContent>
         <TabsContent value="balance">
           {report((r) => <BalanceSheet reports={r} onOpenAccount={openAccount} />)}
@@ -229,6 +234,8 @@ export function BookkeepingPage() {
         name={ledgerName}
         onNameChange={setLedgerName}
         defaultSort={ledgerSort}
+        range={ledgerRange}
+        onRangeChange={setLedgerRange}
       />
     </>
   )

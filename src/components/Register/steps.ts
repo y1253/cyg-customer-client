@@ -80,7 +80,7 @@ export function isStepValid(key: StepKey, f: FormData, ctx: StepContext): boolea
         f.reconciliationAccounts.every((a) => filled(a.name) && a.type !== '' && a.startDate !== '')
       )
     case 'payables':
-      if (f.apManageBills === null || f.trackOpenBills === null) return false
+      if (f.apManageBills === null) return false
       return !(f.apManageBills === true && f.apStartDate === '')
     case 'receivables':
       return (
@@ -160,7 +160,6 @@ export function stepPayload(key: SavedStepKey, f: FormData): Record<string, unkn
       return {
         apManageBills: f.apManageBills,
         ...schedule(f, 'ap', f.apManageBills),
-        trackOpenBills: f.trackOpenBills,
       }
     case 'receivables':
       return {

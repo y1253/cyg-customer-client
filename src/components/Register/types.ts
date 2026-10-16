@@ -50,7 +50,6 @@ export interface FormData {
   apCycleDay: number | null
   apCycleNth: number | null
   apNote: string
-  trackOpenBills: boolean | null
   arInvoicingEnabled: boolean | null
   arInvoicingStartDate: string
   arInvoicingCycleType: string
@@ -152,7 +151,6 @@ export const EMPTY_FORM: FormData = {
   reconciliationAccounts: [{ name: '', type: '', startDate: '', note: '' }],
   apManageBills: null,
   ...schedule('ap'),
-  trackOpenBills: null,
   arInvoicingEnabled: null,
   ...schedule('arInvoicing'),
   arStatementsEnabled: null,

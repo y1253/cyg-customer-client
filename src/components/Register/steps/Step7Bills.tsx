@@ -24,10 +24,15 @@ export function Step7Bills({ data, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Yes / No question */}
+      {/* Yes / No question — the answer also sets "track open bills" (one question, not two) */}
       <div>
-        <p className="mb-3 text-sm font-medium text-foreground">
+        <p className="mb-1 text-sm font-medium text-foreground">
           Should we enter your bills?
+        </p>
+        <p className="mb-3 text-xs text-muted-foreground">
+          When a bill has nothing written on it saying it was paid, we will treat it as{' '}
+          <span className="font-medium text-foreground">open (unpaid)</span> until you tell us
+          otherwise.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
@@ -251,36 +256,6 @@ export function Step7Bills({ data, onChange }: Props) {
           </div>
         </div>
       )}
-
-      {/* Open bills — answered here, editable by staff on the company's Details tab */}
-      <div className="border-t pt-6">
-        <p className="mb-1 text-sm font-medium text-foreground">
-          Should we track open (unpaid) bills?
-        </p>
-        <p className="mb-3 text-xs text-muted-foreground">
-          When a bill has nothing written on it saying it was paid, we will treat it as{' '}
-          <span className="font-medium text-foreground">open (unpaid)</span> until you tell us
-          otherwise.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {([true, false] as const).map((v) => (
-            <button
-              key={String(v)}
-              type="button"
-              onClick={() => onChange({ trackOpenBills: v })}
-              className={cn(
-                "flex flex-col items-center gap-2 rounded-xl border-2 p-5 text-sm font-medium transition-all",
-                data.trackOpenBills === v
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted/30",
-              )}
-            >
-              <span className="text-2xl">{v ? '✓' : '✕'}</span>
-              {v ? 'Yes' : 'No'}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
