@@ -3,6 +3,7 @@ import { forgotPassword } from '@/api/customerAuth'
 
 export function useForgotPassword() {
   return useMutation({
-    mutationFn: (email: string) => forgotPassword(email),
+    mutationFn: ({ email, turnstileToken }: { email: string; turnstileToken?: string }) =>
+      forgotPassword(email, turnstileToken),
   })
 }

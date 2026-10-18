@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCountdown } from '@/hooks/useCountdown'
+import { useTurnstile } from '@/hooks/useTurnstile'
 import { useForgotPassword } from '@/hooks/useForgotPassword'
 import { useResetPassword } from '@/hooks/useResetPassword'
 import { AuthLayout, SUBMIT_CLASS } from './AuthLayout'
@@ -25,6 +26,7 @@ export function ForgotPasswordPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const forgot = useForgotPassword()
+  const human = useTurnstile()
   // The login page hands over whatever was typed in its email field.
   const [email, setEmail] = useState(
     () => (location.state as { email?: string } | null)?.email ?? '',
@@ -35,8 +37,12 @@ export function ForgotPasswordPage() {
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setFormError('Enter a valid email address')
+    if (human.required && !human.token) return setFormError(human.pendingMessage)
     setFormError(null)
-    forgot.mutate(email.trim(), { onSuccess: (out) => setSentTo(out.email) })
+    forgot.mutate(
+      { email: email.trim(), turnstileToken: human.token },
+      { onSuccess: (out) => setSentTo(out.email), onSettled: human.consume },
+    )
   }
 
   if (sentTo) {
@@ -73,6 +79,7 @@ export function ForgotPasswordPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
+        {human.widget}
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
@@ -98,6 +105,8 @@ function ResetStep({
 }) {
   const reset = useResetPassword()
   const resend = useForgotPassword()
+  // "Resend" asks forgot-password again, so it needs a fresh token of its own.
+  const human = useTurnstile()
   const countdown = useCountdown()
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
@@ -115,12 +124,18 @@ function ResetStep({
 
   function onResend() {
     reset.reset()
-    resend.mutate(email, {
-      onSuccess: () => {
-        setCode('')
-        countdown.restart()
+    if (human.required && !human.token) return setFormError(human.pendingMessage)
+    setFormError(null)
+    resend.mutate(
+      { email, turnstileToken: human.token },
+      {
+        onSuccess: () => {
+          setCode('')
+          countdown.restart()
+        },
+        onSettled: human.consume,
       },
-    })
+    )
   }
 
   const error = formError ?? reset.error?.message ?? resend.error?.message
@@ -151,6 +166,7 @@ function ResetStep({
         {resend.isSuccess && !error && (
           <p className="text-sm text-muted-foreground">A new code is on its way.</p>
         )}
+        {human.widget}
         <Button type="submit" disabled={reset.isPending} className={SUBMIT_CLASS}>
           {reset.isPending ? 'Saving…' : 'Save new password'}
         </Button>

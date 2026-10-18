@@ -16,7 +16,13 @@ export type Customer = {
 
 export type AuthResult = { access_token: string; customer: Customer }
 
-export type SignupValues = { name: string; email: string; password: string }
+export type SignupValues = {
+  name: string
+  email: string
+  password: string
+  /** Cloudflare Turnstile token, when the server has the check on. */
+  turnstileToken?: string
+}
 export type SignupStarted = { email: string }
 export type VerifySignupValues = { email: string; code: string }
 export type LoginValues = { email: string; password: string }
@@ -49,8 +55,8 @@ export function resendSignupCode(email: string): Promise<SignupStarted> {
 }
 
 /** Emails a code if the account exists; answers the same either way. */
-export function forgotPassword(email: string): Promise<SignupStarted> {
-  return postJson('/api/customer-auth/password/forgot', { email })
+export function forgotPassword(email: string, turnstileToken?: string): Promise<SignupStarted> {
+  return postJson('/api/customer-auth/password/forgot', { email, turnstileToken })
 }
 
 /** Saves the new password and signs in. */
@@ -67,7 +73,13 @@ export function googleLogin(credential: string): Promise<AuthResult> {
   return postJson('/api/customer-auth/google', { credential })
 }
 
-export async function fetchAuthConfig(): Promise<{ googleClientId: string | null }> {
+export type AuthConfig = {
+  googleClientId: string | null
+  /** Null = the server does not ask for the "are you human" check. */
+  turnstileSiteKey: string | null
+}
+
+export async function fetchAuthConfig(): Promise<AuthConfig> {
   const res = await safeFetch('/api/customer-auth/config')
   if (!res.ok) throw await errorFrom(res)
   return res.json()

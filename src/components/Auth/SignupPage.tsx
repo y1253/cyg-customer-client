@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCountdown } from '@/hooks/useCountdown'
+import { useTurnstile } from '@/hooks/useTurnstile'
 import { useResendSignupCode } from '@/hooks/useResendSignupCode'
 import { useSignup } from '@/hooks/useSignup'
 import { useVerifySignup } from '@/hooks/useVerifySignup'
@@ -17,6 +18,7 @@ const MIN_PASSWORD = 8
 export function SignupPage() {
   const navigate = useNavigate()
   const signup = useSignup()
+  const human = useTurnstile()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,8 +37,12 @@ export function SignupPage() {
       return setFormError(`Password must be at least ${MIN_PASSWORD} characters`)
     }
     if (confirm !== password) return setFormError('Passwords do not match')
+    if (human.required && !human.token) return setFormError(human.pendingMessage)
     setFormError(null)
-    signup.mutate({ name, email, password }, { onSuccess: (out) => setSentTo(out.email) })
+    signup.mutate(
+      { name, email, password, turnstileToken: human.token },
+      { onSuccess: (out) => setSentTo(out.email), onSettled: human.consume },
+    )
   }
 
   if (sentTo) {
@@ -116,6 +122,7 @@ export function SignupPage() {
             <p className="text-xs text-destructive">Passwords do not match.</p>
           )}
         </div>
+        {human.widget}
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
