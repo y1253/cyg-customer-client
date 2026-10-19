@@ -1,11 +1,11 @@
 import { useMutation } from '@tanstack/react-query'
 import { downloadLedger, type ExportFormat } from '@/api/bookkeeping'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from './useBook'
 
 /** Downloads the whole ledger — always every statement combined — as Excel or PDF. */
 export function useExportLedger() {
-  const { token } = useAuth()
+  const book = useBook()
   return useMutation({
-    mutationFn: (format: ExportFormat) => downloadLedger(token!, format),
+    mutationFn: (format: ExportFormat) => downloadLedger(book.auth, format),
   })
 }

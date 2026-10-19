@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { PRODUCTS_KEY, resetProductRule, saveProductRule } from '@/api/bookkeeping'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
 /**
@@ -8,24 +8,24 @@ import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
  * so the ledger, reports and products all refetch.
  */
 export function useSaveProductRule() {
-  const { token } = useAuth()
+  const book = useBook()
   const queryClient = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (values: { itemKey: string; category: string }) => saveProductRule(token!, values),
-    onSuccess: (data) => queryClient.setQueryData(PRODUCTS_KEY, data),
+    mutationFn: (values: { itemKey: string; category: string }) => saveProductRule(book.auth, values),
+    onSuccess: (data) => queryClient.setQueryData(book.key(PRODUCTS_KEY), data),
     onSettled: invalidate,
   })
 }
 
 /** Back to the default: removes the customer's own category for an item. */
 export function useResetProductRule() {
-  const { token } = useAuth()
+  const book = useBook()
   const queryClient = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (values: { itemKey: string }) => resetProductRule(token!, values),
-    onSuccess: (data) => queryClient.setQueryData(PRODUCTS_KEY, data),
+    mutationFn: (values: { itemKey: string }) => resetProductRule(book.auth, values),
+    onSuccess: (data) => queryClient.setQueryData(book.key(PRODUCTS_KEY), data),
     onSettled: invalidate,
   })
 }

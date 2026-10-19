@@ -10,6 +10,7 @@ import {
   getPortalOverview,
   getPortalPhoneTimeline,
   getPortalSmsThread,
+  getPortalTasks,
   getPortalWhatsAppThread,
   getPortalWhatsAppTimeline,
   listPortalCompanies,
@@ -65,6 +66,16 @@ export function usePortalOverview(id: number) {
   return useQuery({
     queryKey: ['portal', id, 'overview'],
     queryFn: () => run((t, u) => getPortalOverview(t, u, id)),
+    enabled: ready,
+    retry,
+  })
+}
+
+export function usePortalTasks(id: number) {
+  const { ready, run } = usePortalAccess()
+  return useQuery({
+    queryKey: ['portal', id, 'tasks'],
+    queryFn: () => run((t, u) => getPortalTasks(t, u, id)),
     enabled: ready,
     retry,
   })

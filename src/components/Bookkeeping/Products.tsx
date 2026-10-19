@@ -117,7 +117,7 @@ export function Products() {
           <p className="mt-1 text-sm text-muted-foreground">
             {q || filter !== 'ALL'
               ? 'Try another search or filter.'
-              : 'Products appear here once a receipt’s items are split onto its transaction (Receipts tab).'}
+              : 'Products appear here once a receipt’s items are split onto its transaction (Attachments tab).'}
           </p>
         </div>
       ) : (

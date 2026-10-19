@@ -1,4 +1,5 @@
 import { errorFrom, fetchWithAuth } from './client'
+import { bookFetch, type BookAuth } from './bookkeeping'
 
 /** The admin's Generate price and Stripe's publishable key. `priceCents` 0 = Generate is free. */
 export type BillingConfig = {
@@ -63,15 +64,16 @@ export async function removeCard(token: string, id: string): Promise<void> {
   if (!res.ok) throw await errorFrom(res)
 }
 
+/** Pays for (and runs) a Generate of ONE book — the general one or a business's. */
 export async function checkout(
-  token: string,
+  auth: BookAuth,
   body: { promoCode?: string; paymentMethodId?: string },
 ): Promise<CheckoutResult> {
-  return ok(await fetchWithAuth(token, '/api/billing/checkout', json('POST', body)))
+  return ok(await bookFetch(auth, '/api/billing/checkout', json('POST', body)))
 }
 
-export async function completePayment(token: string, paymentIntentId: string): Promise<GenerateResult> {
-  return ok(await fetchWithAuth(token, '/api/billing/complete', json('POST', { paymentIntentId })))
+export async function completePayment(auth: BookAuth, paymentIntentId: string): Promise<GenerateResult> {
+  return ok(await bookFetch(auth, '/api/billing/complete', json('POST', { paymentIntentId })))
 }
 
 /** "$12.50" in the price's own currency. */

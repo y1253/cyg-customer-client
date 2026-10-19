@@ -6,7 +6,7 @@ import {
   type EditScope,
   type NameRuleRef,
 } from '@/api/bookkeeping'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
 /**
@@ -14,26 +14,26 @@ import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
  * the ledger, reports and names all refetch.
  */
 export function useSaveNameRule() {
-  const { token } = useAuth()
+  const book = useBook()
   const queryClient = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
     mutationFn: (
       values: NameRuleRef & { name: string | null; category: string | null; scope: EditScope },
-    ) => saveNameRule(token!, values),
-    onSuccess: (data) => queryClient.setQueryData(NAMES_KEY, data),
+    ) => saveNameRule(book.auth, values),
+    onSuccess: (data) => queryClient.setQueryData(book.key(NAMES_KEY), data),
     onSettled: invalidate,
   })
 }
 
 /** Back to the default: removes the customer's own change. */
 export function useResetNameRule() {
-  const { token } = useAuth()
+  const book = useBook()
   const queryClient = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (values: NameRuleRef) => resetNameRule(token!, values),
-    onSuccess: (data) => queryClient.setQueryData(NAMES_KEY, data),
+    mutationFn: (values: NameRuleRef) => resetNameRule(book.auth, values),
+    onSuccess: (data) => queryClient.setQueryData(book.key(NAMES_KEY), data),
     onSettled: invalidate,
   })
 }

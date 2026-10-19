@@ -2,7 +2,7 @@ import { errorFrom, fetchWithAuth } from './client'
 import { INTERNAL_API } from './registrations'
 
 /**
- * The read-only Communications + Links view of a customer's business. Served by the
+ * The read-only Communications, Tasks + Links view of a customer's business. Served by the
  * INTERNAL API (where the mailbox, phone and WhatsApp logic live), like the registration
  * wizard. Every data call carries two tokens: the customer's login (Bearer) and the
  * unlock token from the emailed code (`X-Portal-Token`).
@@ -58,6 +58,40 @@ const qs = (params: Record<string, string | number | undefined | null>) => {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type PortalCompany = { id: number; businessName: string }
+
+/** Computed by the server, mirroring the staff Tasks tab. */
+export type PortalTodoStatus = 'COMPLETED' | 'SNOOZED' | 'OVERDUE' | 'DUE_TODAY' | 'UPCOMING'
+
+export type PortalTodo = {
+  id: number
+  title: string
+  status: PortalTodoStatus
+  /** YYYY-MM-DD */
+  dueDate: string | null
+  /** ISO moment, set once completed. */
+  resolvedAt: string | null
+  snoozedUntil: string | null
+  recurring: boolean
+  adminNote: string | null
+  teamNote: string | null
+}
+
+export type PortalSchedule = {
+  id: number
+  title: string
+  cycleType: string
+  cycle: number
+  cycleDay: number | null
+  cycleNth: number | null
+  /** YYYY-MM-DD */
+  startDate: string | null
+  /** YYYY-MM-DD */
+  nextDue: string | null
+  adminNote: string | null
+  teamNote: string | null
+}
+
+export type PortalTasks = { schedules: PortalSchedule[]; todos: PortalTodo[] }
 
 export type PortalOverview = {
   businessName: string
@@ -262,6 +296,9 @@ export const getPortalOverview = (token: string, unlock: string, id: number) =>
 
 export const getPortalLinks = (token: string, unlock: string, id: number) =>
   call<PortalLink[]>(token, `${co(id)}/links`, unlock)
+
+export const getPortalTasks = (token: string, unlock: string, id: number) =>
+  call<PortalTasks>(token, `${co(id)}/tasks`, unlock)
 
 export const getPortalEmails = (
   token: string,

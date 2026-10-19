@@ -1,19 +1,24 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Link2, Lock, MessagesSquare } from 'lucide-react'
+import { ArrowLeft, BookOpen, Link2, ListChecks, Lock, MessagesSquare } from 'lucide-react'
+import { BookkeepingPage } from '@/components/Bookkeeping/BookkeepingPage'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { BookScopeProvider } from '@/context/BookScopeContext'
 import { PortalUnlockProvider, usePortalUnlock } from '@/context/PortalUnlockContext'
 import { usePortalCompanies, usePortalOverview } from '@/hooks/usePortal'
+import { cn } from '@/lib/utils'
 import { CommunicationsView } from './CommunicationsView'
 import { LinksView } from './LinksView'
+import { TasksView } from './TasksView'
 import { UnlockGate } from './UnlockGate'
 
 /**
- * `/dashboard/businesses/:id` — a submitted business's Communications and Links, behind
- * the emailed code. The unlock lives in memory for as long as the customer stays on
+ * `/dashboard/businesses/:id` — a submitted business's Communications, Tasks, Bookkeeping and
+ * Links, behind the emailed code. Bookkeeping is the full tool, kept as this business's OWN
+ * books (`BookScopeProvider`), separate from the customer's general ones. The unlock lives in memory for as long as the customer stays on
  * these pages, so moving between their businesses does not ask again.
  */
 export function CompanyPortalPage() {
@@ -24,11 +29,14 @@ export function CompanyPortalPage() {
   )
 }
 
+/** The tabs a `?tab=` may name; anything else lands on Communications. */
+const PORTAL_TABS = ['communications', 'tasks', 'bookkeeping', 'links'] as const
+
 function PortalPage() {
   const id = Number(useParams().id)
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'links' ? 'links' : 'communications'
+  const tab = PORTAL_TABS.find((t) => t === params.get('tab')) ?? 'communications'
   const companies = usePortalCompanies()
   const { unlockToken, lock } = usePortalUnlock()
   const overview = usePortalOverview(id)
@@ -38,7 +46,8 @@ function PortalPage() {
   const list = companies.data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    // The books need the room the ledger and reports have on their own page.
+    <div className={cn('mx-auto w-full', tab === 'bookkeeping' ? 'max-w-7xl' : 'max-w-4xl')}>
       <Link
         to="/dashboard/register"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -80,9 +89,15 @@ function PortalPage() {
         <UnlockGate />
       ) : (
         <Tabs value={tab} onValueChange={(v) => setParams({ tab: String(v) }, { replace: true })} className="gap-6">
-          <TabsList>
+          <TabsList className="h-auto! flex-wrap justify-start">
             <TabsTrigger value="communications" className="px-4">
               <MessagesSquare /> Communications
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="px-4">
+              <ListChecks /> Tasks
+            </TabsTrigger>
+            <TabsTrigger value="bookkeeping" className="px-4">
+              <BookOpen /> Bookkeeping
             </TabsTrigger>
             <TabsTrigger value="links" className="px-4">
               <Link2 /> Links
@@ -96,6 +111,16 @@ function PortalPage() {
             ) : (
               <CommunicationsView key={id} companyId={id} overview={overview.data} />
             )}
+          </TabsContent>
+          <TabsContent value="tasks">
+            <TasksView companyId={id} />
+          </TabsContent>
+          <TabsContent value="bookkeeping">
+            {/* Keyed by business: switching businesses must not carry one book's tab or
+                open dialog over to the other's. */}
+            <BookScopeProvider key={id} companyId={id}>
+              <BookkeepingPage embedded />
+            </BookScopeProvider>
           </TabsContent>
           <TabsContent value="links">
             <LinksView companyId={id} />

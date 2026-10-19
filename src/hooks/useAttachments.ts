@@ -11,7 +11,7 @@ import {
   uploadAttachments,
 } from '@/api/attachments'
 import { ATTACHMENTS_KEY, TRANSACTIONS_KEY } from '@/api/bookkeeping'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
 /** Files per request — the server's limit. */
@@ -22,20 +22,20 @@ const UPLOAD_BATCH = 20
  * finishes, the ledger refetches too (a receipt may have split a transaction).
  */
 export function useAttachments({ enabled = true }: { enabled?: boolean } = {}) {
-  const { token } = useAuth()
+  const book = useBook()
   const queryClient = useQueryClient()
   return useQuery({
-    queryKey: ATTACHMENTS_KEY,
+    queryKey: book.key(ATTACHMENTS_KEY),
     queryFn: async () => {
-      const before = queryClient.getQueryData<{ status: string }[]>(ATTACHMENTS_KEY)
-      const list = await fetchAttachments(token!)
+      const before = queryClient.getQueryData<{ status: string }[]>(book.key(ATTACHMENTS_KEY))
+      const list = await fetchAttachments(book.auth)
       const wasBusy = before?.some((a) => a.status === 'PENDING' || a.status === 'PROCESSING')
       if (wasBusy && !list.some(isBusyAttachment)) {
         void queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY })
       }
       return list
     },
-    enabled: !!token && enabled,
+    enabled: !!book.token && enabled,
     refetchInterval: (q) => (q.state.data?.some(isBusyAttachment) ? 4000 : false),
     refetchIntervalInBackground: true,
   })
@@ -43,7 +43,7 @@ export function useAttachments({ enabled = true }: { enabled?: boolean } = {}) {
 
 /** Upload files (to one transaction, or to be matched), reporting overall progress 0..1. */
 export function useUploadAttachments() {
-  const { token } = useAuth()
+  const book = useBook()
   const invalidate = useInvalidateBookkeeping()
   const [progress, setProgress] = useState(0)
   const mutation = useMutation({
@@ -54,7 +54,7 @@ export function useUploadAttachments() {
       for (let i = 0; i < files.length; i += UPLOAD_BATCH) {
         const batch = files.slice(i, i + UPLOAD_BATCH)
         const size = batch.reduce((s, f) => s + f.size, 0)
-        await uploadAttachments(token!, batch, transactionId, (f) => setProgress((done + f * size) / total))
+        await uploadAttachments(book.auth, batch, transactionId, (f) => setProgress((done + f * size) / total))
         done += size
       }
       setProgress(1)
@@ -66,23 +66,23 @@ export function useUploadAttachments() {
 
 /** Attach / detach, use the receipt's items, read again, delete. */
 export function useAttachmentActions() {
-  const { token } = useAuth()
+  const book = useBook()
   const invalidate = useInvalidateBookkeeping()
   const attach = useMutation({
     mutationFn: ({ id, transactionId }: { id: number; transactionId: number | null }) =>
-      setAttachmentTransaction(token!, id, transactionId),
+      setAttachmentTransaction(book.auth, id, transactionId),
     onSettled: invalidate,
   })
   const applyItems = useMutation({
-    mutationFn: (id: number) => applyAttachmentItems(token!, id),
+    mutationFn: (id: number) => applyAttachmentItems(book.auth, id),
     onSettled: invalidate,
   })
   const retry = useMutation({
-    mutationFn: (id: number) => retryAttachment(token!, id),
+    mutationFn: (id: number) => retryAttachment(book.auth, id),
     onSettled: invalidate,
   })
   const remove = useMutation({
-    mutationFn: (id: number) => deleteAttachment(token!, id),
+    mutationFn: (id: number) => deleteAttachment(book.auth, id),
     onSettled: invalidate,
   })
   return { attach, applyItems, retry, remove }
@@ -90,13 +90,13 @@ export function useAttachmentActions() {
 
 /** The protected file as an object URL while mounted; revoked on unmount or change. */
 export function useAttachmentUrl(id: number | null) {
-  const { token } = useAuth()
+  const { token, companyId } = useBook()
   const [state, setState] = useState<{ id: number; url: string | null; error: string | null } | null>(null)
   useEffect(() => {
     if (id == null || !token) return
     let url: string | null = null
     let alive = true
-    attachmentObjectUrl(token, id).then(
+    attachmentObjectUrl({ token, companyId }, id).then(
       (u) => {
         url = u
         if (alive) setState({ id, url: u, error: null })
@@ -108,6 +108,6 @@ export function useAttachmentUrl(id: number | null) {
       alive = false
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, token])
+  }, [id, token, companyId])
   return state && state.id === id ? state : { id, url: null, error: null }
 }

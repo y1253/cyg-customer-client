@@ -1,5 +1,5 @@
-import type { AttachmentKind } from './bookkeeping'
-import { errorFrom, fetchWithAuth, handleUnauthorized } from './client'
+import { bookFetch, bookUrl, type AttachmentKind, type BookAuth } from './bookkeeping'
+import { errorFrom, handleUnauthorized } from './client'
 
 /** PENDING/PROCESSING = being read; UNMATCHED = read, the customer picks the transaction. */
 export type AttachmentStatus = 'PENDING' | 'PROCESSING' | 'MATCHED' | 'UNMATCHED' | 'FAILED'
@@ -38,6 +38,11 @@ export type Attachment = {
   /** SMS only: who sent it and what they wrote. */
   sourcePhone: string | null
   message: string | null
+  /**
+   * The bank / card account it is filed under on the Attachments tab: the account of the
+   * statement its transaction came from. null = not matched yet ("Not filed yet").
+   */
+  folder: string | null
   transaction: {
     id: number
     name: string | null
@@ -67,8 +72,8 @@ export type Intake = {
   phoneSaved: boolean
 }
 
-export async function fetchIntake(token: string): Promise<Intake> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/intake')
+export async function fetchIntake(auth: BookAuth): Promise<Intake> {
+  const res = await bookFetch(auth, '/api/bookkeeping/intake')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -84,7 +89,7 @@ const json = (method: string, body?: unknown): RequestInit => ({
  * XHR rather than fetch so the upload reports progress.
  */
 export function uploadAttachments(
-  token: string,
+  auth: BookAuth,
   files: File[],
   transactionId: number | null,
   onProgress: (fraction: number) => void,
@@ -94,8 +99,8 @@ export function uploadAttachments(
     if (transactionId != null) form.append('transactionId', String(transactionId))
     files.forEach((f) => form.append('files', f, f.name))
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/bookkeeping/attachments')
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.open('POST', bookUrl(auth, '/api/bookkeeping/attachments'))
+    xhr.setRequestHeader('Authorization', `Bearer ${auth.token}`)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total)
     }
@@ -125,44 +130,44 @@ export function uploadAttachments(
   })
 }
 
-export async function fetchAttachments(token: string): Promise<Attachment[]> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/attachments')
+export async function fetchAttachments(auth: BookAuth): Promise<Attachment[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/attachments')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 /** Attach to a transaction (its items become splits when it has none), or `null` to detach. */
 export async function setAttachmentTransaction(
-  token: string,
+  auth: BookAuth,
   id: number,
   transactionId: number | null,
 ): Promise<Attachment> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/attachments/${id}`, json('PATCH', { transactionId }))
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}`, json('PATCH', { transactionId }))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 /** Replace the transaction's splits with the receipt's items. */
-export async function applyAttachmentItems(token: string, id: number): Promise<Attachment> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/attachments/${id}/apply-items`, json('POST'))
+export async function applyAttachmentItems(auth: BookAuth, id: number): Promise<Attachment> {
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/apply-items`, json('POST'))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
-export async function retryAttachment(token: string, id: number): Promise<Attachment> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/attachments/${id}/retry`, json('POST'))
+export async function retryAttachment(auth: BookAuth, id: number): Promise<Attachment> {
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/retry`, json('POST'))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
-export async function deleteAttachment(token: string, id: number): Promise<void> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/attachments/${id}`, { method: 'DELETE' })
+export async function deleteAttachment(auth: BookAuth, id: number): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}`, { method: 'DELETE' })
   if (!res.ok) throw await errorFrom(res)
 }
 
 /** The file as an object URL (the route needs the Bearer token, so no plain link). Revoke it when done. */
-export async function attachmentObjectUrl(token: string, id: number): Promise<string> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/attachments/${id}/file`)
+export async function attachmentObjectUrl(auth: BookAuth, id: number): Promise<string> {
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/file`)
   if (!res.ok) throw await errorFrom(res)
   return URL.createObjectURL(await res.blob())
 }

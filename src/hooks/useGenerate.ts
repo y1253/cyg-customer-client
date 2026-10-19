@@ -1,14 +1,14 @@
 import { useMutation } from '@tanstack/react-query'
 import { generate } from '@/api/bookkeeping'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
 /** Generate: read every uploaded statement and apply changed tax settings. */
 export function useGenerate() {
-  const { token } = useAuth()
+  const book = useBook()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: () => generate(token!),
+    mutationFn: () => generate(book.auth),
     onSettled: invalidate,
   })
 }

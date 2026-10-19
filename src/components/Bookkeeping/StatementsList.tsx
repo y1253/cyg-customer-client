@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from '@/hooks/useBook'
 import { useDeleteStatement } from '@/hooks/useDeleteStatement'
 import { useMoveStatement } from '@/hooks/useMoveStatement'
 import { useRetryStatement } from '@/hooks/useRetryStatement'
@@ -146,7 +146,7 @@ function folderRange(f: StatementFolder): string | null {
  * Try again keeps it there. The chips narrow the statements down by status.
  */
 export function StatementsList({ statements, loading }: { statements: Statement[]; loading: boolean }) {
-  const { token } = useAuth()
+  const { auth } = useBook()
   const [filter, setFilter] = useState<Filter>('all')
   const remove = useDeleteStatement()
   const retry = useRetryStatement()
@@ -332,7 +332,7 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                       title="View original PDF"
                       onClick={() => {
                         setOpenError(null)
-                        openOriginal(token!, s.id).catch((e: Error) => setOpenError(e.message))
+                        openOriginal(auth, s.id).catch((e: Error) => setOpenError(e.message))
                       }}
                     >
                       <ExternalLink />

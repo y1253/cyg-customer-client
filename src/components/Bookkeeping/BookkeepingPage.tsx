@@ -25,14 +25,18 @@ import { Names } from './Names'
 import { Products } from './Products'
 import { UploadDropzone } from './UploadDropzone'
 
-type Tab = 'statements' | 'ledger' | 'receipts' | 'accounts' | 'income' | 'balance' | 'names' | 'products'
+type Tab = 'statements' | 'ledger' | 'attachments' | 'accounts' | 'income' | 'balance' | 'names' | 'products'
 
 /**
  * Bookkeeping: upload statements → the AI posts every transaction as a double entry →
  * view the ledger, the chart of accounts, income statement and balance sheet, and
  * download the whole ledger (all statements combined) as Excel or PDF.
+ *
+ * It works on whichever book `BookScopeProvider` names: the general one at
+ * `/dashboard/bookkeeping`, or one business's inside "My businesses" (`embedded`: that
+ * page has its own header, so this one shows only its download buttons).
  */
-export function BookkeepingPage() {
+export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
   const statements = useStatements()
   const exporter = useExportLedger()
   const [tab, setTab] = useState<Tab>('statements')
@@ -115,16 +119,23 @@ export function BookkeepingPage() {
 
   return (
     <>
-      <PageHeader
-        title="Bookkeeping"
-        description="Upload your bank statements — we post every transaction as a debit and a credit."
-        actions={
-          <>
-            {exportButton('xlsx', 'Download Excel', FileSpreadsheet)}
-            {exportButton('pdf', 'Download PDF', FileText)}
-          </>
-        }
-      />
+      {embedded ? (
+        <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
+          {exportButton('xlsx', 'Download Excel', FileSpreadsheet)}
+          {exportButton('pdf', 'Download PDF', FileText)}
+        </div>
+      ) : (
+        <PageHeader
+          title="Bookkeeping"
+          description="Upload your bank statements — we post every transaction as a debit and a credit."
+          actions={
+            <>
+              {exportButton('xlsx', 'Download Excel', FileSpreadsheet)}
+              {exportButton('pdf', 'Download PDF', FileText)}
+            </>
+          }
+        />
+      )}
       {exporter.error && (
         <p role="alert" className="-mt-4 mb-6 text-sm text-destructive">
           {exporter.error.message}
@@ -147,8 +158,8 @@ export function BookkeepingPage() {
           <TabsTrigger value="ledger" className="h-9 flex-none px-4">
             Ledger
           </TabsTrigger>
-          <TabsTrigger value="receipts" className="h-9 flex-none px-4">
-            Receipts
+          <TabsTrigger value="attachments" className="h-9 flex-none px-4">
+            Attachments
           </TabsTrigger>
           <TabsTrigger value="accounts" className="h-9 flex-none px-4">
             Chart of accounts
@@ -200,8 +211,8 @@ export function BookkeepingPage() {
           {ledger.error && <p className="mt-2 text-sm text-destructive">{ledger.error.message}</p>}
         </TabsContent>
 
-        <TabsContent value="receipts">
-          <AttachmentsPanel onViewTransaction={openTransaction} />
+        <TabsContent value="attachments">
+          <AttachmentsPanel statements={list} onViewTransaction={openTransaction} />
         </TabsContent>
 
         {reportsTab && <ReportPeriod value={period} onChange={setPeriod} />}

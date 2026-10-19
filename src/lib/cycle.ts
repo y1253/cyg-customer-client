@@ -79,3 +79,37 @@ export function monthDayLabel(value: number | string): string {
   if (n === LAST_DAY_OF_MONTH) return "the last day";
   return `the ${n}${ordinalSuffix(n)}`;
 }
+
+export type CycleFields = {
+  cycleType: string;
+  cycle: number;
+  cycleDay: number | null;
+  cycleNth: number | null;
+};
+
+/**
+ * One sentence for how often a schedule repeats ("Monthly on the 15th", "Every Monday").
+ * Mirrors the meaning of each `CycleType` in the root CLAUDE.md; for YEARLY, `cycleNth`
+ * is the MONTH (1-12), not an ordinal.
+ */
+export function cycleLabel({ cycleType, cycle, cycleDay, cycleNth }: CycleFields): string {
+  const day = cycleDay ?? 1;
+  switch (cycleType) {
+    case "MONTHLY_DATE":
+      return `Monthly on ${monthDayLabel(day)}`;
+    case "QUARTERLY":
+      return `Quarterly on ${monthDayLabel(day)}`;
+    case "WEEKLY_DAY":
+      return `Every ${WEEKDAYS[day] ?? "week"}`;
+    case "MONTHLY_WEEKDAY":
+      return `The ${ORDINALS[(cycleNth ?? 1) - 1] ?? "1st"} ${WEEKDAYS[day] ?? "day"} of each month`;
+    case "YEARLY": {
+      const month = MONTHS[(cycleNth ?? 1) - 1] ?? "January";
+      return day === LAST_DAY_OF_MONTH
+        ? `Yearly on the last day of ${month}`
+        : `Yearly on ${month} ${day}`;
+    }
+    default:
+      return cycle === 1 ? "Every day" : `Every ${cycle} days`;
+  }
+}

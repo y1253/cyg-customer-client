@@ -1,13 +1,13 @@
 import { useMutation } from '@tanstack/react-query'
 import { deleteAgency } from '@/api/bookkeeping'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
 export function useDeleteAgency() {
-  const { token } = useAuth()
+  const book = useBook()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (id: number) => deleteAgency(token!, id),
+    mutationFn: (id: number) => deleteAgency(book.auth, id),
     onSettled: invalidate,
   })
 }

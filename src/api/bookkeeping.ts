@@ -1,5 +1,27 @@
 import { errorFrom, fetchWithAuth, handleUnauthorized } from './client'
 
+/**
+ * A bookkeeping call's credentials AND its book (step8): the general book (`companyId:
+ * null`) or one business's. Every `/api/bookkeeping` call goes through `bookFetch`, which
+ * adds `?companyId=` — the server's `BookScopeGuard` resolves (and checks) it.
+ */
+export type BookAuth = { token: string; companyId: number | null }
+
+/** The URL with the book's `companyId` added (nothing for the general book). */
+export function bookUrl(auth: BookAuth, url: string): string {
+  if (auth.companyId === null) return url
+  return `${url}${url.includes('?') ? '&' : '?'}companyId=${auth.companyId}`
+}
+
+export function bookFetch(auth: BookAuth, url: string, options: RequestInit = {}): Promise<Response> {
+  return fetchWithAuth(auth.token, bookUrl(auth, url), options)
+}
+
+/** A bookkeeping query key scoped to one book, so two books never share a cache entry. */
+export function bookKey<K extends readonly unknown[]>(key: K, companyId: number | null) {
+  return [...key, companyId ?? 'general'] as const
+}
+
 /** UPLOADED = not read yet; reading starts when the customer clicks Generate. */
 export type StatementStatus = 'UPLOADED' | 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'NEEDS_REVIEW'
 
@@ -164,23 +186,23 @@ export function isBusy(s: Statement): boolean {
   return s.status === 'PENDING' || s.status === 'PROCESSING'
 }
 
-export async function fetchStatements(token: string): Promise<Statement[]> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/statements')
+export async function fetchStatements(auth: BookAuth): Promise<Statement[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/statements')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
-export async function fetchTransactions(token: string): Promise<LedgerTransaction[]> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/transactions')
+export async function fetchTransactions(auth: BookAuth): Promise<LedgerTransaction[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/transactions')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
-export async function fetchReports(token: string, period: Period): Promise<Reports> {
+export async function fetchReports(auth: BookAuth, period: Period): Promise<Reports> {
   const qs = new URLSearchParams()
   if (period.from) qs.set('from', period.from)
   if (period.to) qs.set('to', period.to)
-  const res = await fetchWithAuth(token, `/api/bookkeeping/reports${qs.size ? `?${qs}` : ''}`)
+  const res = await bookFetch(auth, `/api/bookkeeping/reports${qs.size ? `?${qs}` : ''}`)
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -190,7 +212,7 @@ export async function fetchReports(token: string, period: Period): Promise<Repor
  * scanned statements can be tens of megabytes.
  */
 export function uploadStatements(
-  token: string,
+  auth: BookAuth,
   files: File[],
   onProgress: (fraction: number) => void,
 ): Promise<Statement[]> {
@@ -198,8 +220,8 @@ export function uploadStatements(
     const form = new FormData()
     files.forEach((f) => form.append('files', f, f.name))
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/bookkeeping/statements')
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.open('POST', bookUrl(auth, '/api/bookkeeping/statements'))
+    xhr.setRequestHeader('Authorization', `Bearer ${auth.token}`)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total)
     }
@@ -229,13 +251,13 @@ export function uploadStatements(
   })
 }
 
-export async function deleteStatement(token: string, id: number): Promise<void> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/statements/${id}`, { method: 'DELETE' })
+export async function deleteStatement(auth: BookAuth, id: number): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/statements/${id}`, { method: 'DELETE' })
   if (!res.ok) throw await errorFrom(res)
 }
 
-export async function retryStatement(token: string, id: number): Promise<Statement> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/statements/${id}/retry`, {
+export async function retryStatement(auth: BookAuth, id: number): Promise<Statement> {
+  const res = await bookFetch(auth, `/api/bookkeeping/statements/${id}/retry`, {
     method: 'POST',
   })
   if (!res.ok) throw await errorFrom(res)
@@ -243,8 +265,8 @@ export async function retryStatement(token: string, id: number): Promise<Stateme
 }
 
 /** File a statement under another account (the folder it was dragged into). */
-export async function moveStatement(token: string, id: number, accountName: string): Promise<Statement> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/statements/${id}/account`, json('PATCH', { accountName }))
+export async function moveStatement(auth: BookAuth, id: number, accountName: string): Promise<Statement> {
+  const res = await bookFetch(auth, `/api/bookkeeping/statements/${id}/account`, json('PATCH', { accountName }))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -265,17 +287,17 @@ async function saveBlob(res: Response, fallbackName: string): Promise<void> {
 }
 
 /** The whole ledger — every statement combined — as Excel or PDF. */
-export async function downloadLedger(token: string, format: ExportFormat): Promise<void> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/export?format=${format}`)
+export async function downloadLedger(auth: BookAuth, format: ExportFormat): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/export?format=${format}`)
   if (!res.ok) throw await errorFrom(res)
   await saveBlob(res, `ledger.${format}`)
 }
 
 /** Opens the original uploaded PDF in a new tab (the route needs the Bearer token, so no plain link). */
-export async function openOriginal(token: string, id: number): Promise<void> {
+export async function openOriginal(auth: BookAuth, id: number): Promise<void> {
   // Open the tab synchronously, inside the click, or popup blockers eat it.
   const tab = window.open('', '_blank')
-  const res = await fetchWithAuth(token, `/api/bookkeeping/statements/${id}/file`)
+  const res = await bookFetch(auth, `/api/bookkeeping/statements/${id}/file`)
   if (!res.ok) {
     tab?.close()
     throw await errorFrom(res)
@@ -387,14 +409,14 @@ const json = (method: string, body: unknown): RequestInit => ({
 })
 
 /** Reads every not-yet-read statement. */
-export async function generate(token: string): Promise<{ queued: number; taxing: boolean }> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/generate', { method: 'POST' })
+export async function generate(auth: BookAuth): Promise<{ queued: number; taxing: boolean }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/generate', { method: 'POST' })
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
-export async function fetchTax(token: string): Promise<TaxSettings> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/tax')
+export async function fetchTax(auth: BookAuth): Promise<TaxSettings> {
+  const res = await bookFetch(auth, '/api/bookkeeping/tax')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -402,25 +424,25 @@ export async function fetchTax(token: string): Promise<TaxSettings> {
 /** The home currency the books are kept in, and the ones there are daily rates for. */
 export type CurrencySettings = { home: string; currencies: string[] }
 
-export async function fetchCurrency(token: string): Promise<CurrencySettings> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/currency')
+export async function fetchCurrency(auth: BookAuth): Promise<CurrencySettings> {
+  const res = await bookFetch(auth, '/api/bookkeeping/currency')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
-export async function updateCurrency(token: string, home: string): Promise<CurrencySettings> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/currency', json('PUT', { home }))
+export async function updateCurrency(auth: BookAuth, home: string): Promise<CurrencySettings> {
+  const res = await bookFetch(auth, '/api/bookkeeping/currency', json('PUT', { home }))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 export async function saveAgency(
-  token: string,
+  auth: BookAuth,
   values: Partial<TaxAgencyInput> & { id?: number },
 ): Promise<TaxAgency> {
   const { id, ...body } = values
-  const res = await fetchWithAuth(
-    token,
+  const res = await bookFetch(
+    auth,
     id ? `/api/bookkeeping/agencies/${id}` : '/api/bookkeeping/agencies',
     json(id ? 'PATCH' : 'POST', body),
   )
@@ -428,23 +450,23 @@ export async function saveAgency(
   return res.json()
 }
 
-export async function deleteAgency(token: string, id: number): Promise<void> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/agencies/${id}`, { method: 'DELETE' })
+export async function deleteAgency(auth: BookAuth, id: number): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/agencies/${id}`, { method: 'DELETE' })
   if (!res.ok) throw await errorFrom(res)
 }
 
-export async function fetchNames(token: string): Promise<NamesData> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/names')
+export async function fetchNames(auth: BookAuth): Promise<NamesData> {
+  const res = await bookFetch(auth, '/api/bookkeeping/names')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 /** Which agencies tax one name — the whole set; [] = not taxed. Applies at once (on read). */
 export async function setNameAgencies(
-  token: string,
+  auth: BookAuth,
   values: { name: string; agencyIds: number[] },
 ): Promise<NamesData> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/names/agencies', json('PUT', values))
+  const res = await bookFetch(auth, '/api/bookkeeping/names/agencies', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -454,23 +476,23 @@ export async function setNameAgencies(
  * once and to every statement they upload from now on; null leaves that value as it is.
  */
 export async function saveNameRule(
-  token: string,
+  auth: BookAuth,
   values: NameRuleRef & { name: string | null; category: string | null; scope: EditScope },
 ): Promise<NamesData> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/names/rule', json('PUT', values))
+  const res = await bookFetch(auth, '/api/bookkeeping/names/rule', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 /** Drop the customer's own change: the rows go back to the default. */
-export async function resetNameRule(token: string, values: NameRuleRef): Promise<NamesData> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/names/rule', json('DELETE', values))
+export async function resetNameRule(auth: BookAuth, values: NameRuleRef): Promise<NamesData> {
+  const res = await bookFetch(auth, '/api/bookkeeping/names/rule', json('DELETE', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
-export async function fetchProducts(token: string): Promise<Product[]> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/products')
+export async function fetchProducts(auth: BookAuth): Promise<Product[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/products')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -480,41 +502,41 @@ export async function fetchProducts(token: string): Promise<Product[]> {
  * once and to every receipt from now on.
  */
 export async function saveProductRule(
-  token: string,
+  auth: BookAuth,
   values: { itemKey: string; category: string },
 ): Promise<Product[]> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/products/rule', json('PUT', values))
+  const res = await bookFetch(auth, '/api/bookkeeping/products/rule', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 /** Drop the customer's own category: the item goes back to the AI's / the transaction's. */
-export async function resetProductRule(token: string, values: { itemKey: string }): Promise<Product[]> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/products/rule', json('DELETE', values))
+export async function resetProductRule(auth: BookAuth, values: { itemKey: string }): Promise<Product[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/products/rule', json('DELETE', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 /** Change one ledger row's name and/or category — only that row, or always for its payee. */
 export async function editTransaction(
-  token: string,
+  auth: BookAuth,
   id: number,
   values: { name: string | null; category: string | null; scope: EditScope },
 ): Promise<void> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/transactions/${id}`, json('PATCH', values))
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}`, json('PATCH', values))
   if (!res.ok) throw await errorFrom(res)
 }
 
 /** A transaction's whole set of splits: listed ones kept or made, the rest removed (empty = un-split). */
-export async function saveSplits(token: string, id: number, splits: SplitInput[]): Promise<void> {
-  const res = await fetchWithAuth(token, `/api/bookkeeping/transactions/${id}/splits`, json('PUT', { splits }))
+export async function saveSplits(auth: BookAuth, id: number, splits: SplitInput[]): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/splits`, json('PUT', { splits }))
   if (!res.ok) throw await errorFrom(res)
 }
 
 /** Name one tax line (an agency's tax on a row); null puts the row's own name back. */
-export async function renameTaxLine(token: string, id: number, agencyId: number, name: string | null): Promise<void> {
-  const res = await fetchWithAuth(
-    token,
+export async function renameTaxLine(auth: BookAuth, id: number, agencyId: number, name: string | null): Promise<void> {
+  const res = await bookFetch(
+    auth,
     `/api/bookkeeping/transactions/${id}/taxes/${agencyId}`,
     json('PATCH', { name }),
   )
@@ -523,21 +545,21 @@ export async function renameTaxLine(token: string, id: number, agencyId: number,
 
 /** A category of the customer's own, for when nothing in the list fits. */
 export async function createAccount(
-  token: string,
+  auth: BookAuth,
   values: { name: string; type: AccountType },
 ): Promise<ChartAccount> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/accounts', json('POST', values))
+  const res = await bookFetch(auth, '/api/bookkeeping/accounts', json('POST', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
 
 /** Move an account to another section of the chart / balance sheet; `type: null` puts it back. */
 export async function setAccountType(
-  token: string,
+  auth: BookAuth,
   values: { account: string; type: AccountType | null },
 ): Promise<void> {
-  const res = await fetchWithAuth(
-    token,
+  const res = await bookFetch(
+    auth,
     '/api/bookkeeping/accounts/type',
     values.type
       ? json('PUT', values)
@@ -548,11 +570,11 @@ export async function setAccountType(
 
 /** Set the currency a statement account's statements are converted from; `currency: null` = what each statement says. */
 export async function setAccountCurrency(
-  token: string,
+  auth: BookAuth,
   values: { account: string; currency: string | null },
 ): Promise<void> {
-  const res = await fetchWithAuth(
-    token,
+  const res = await bookFetch(
+    auth,
     '/api/bookkeeping/accounts/currency',
     values.currency ? json('PUT', values) : json('DELETE', { account: values.account }),
   )
@@ -560,8 +582,8 @@ export async function setAccountCurrency(
 }
 
 /** The fixed chart of accounts plus the customer's own — the categories a name can be given. */
-export async function fetchAccounts(token: string): Promise<ChartAccount[]> {
-  const res = await fetchWithAuth(token, '/api/bookkeeping/accounts')
+export async function fetchAccounts(auth: BookAuth): Promise<ChartAccount[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/accounts')
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }

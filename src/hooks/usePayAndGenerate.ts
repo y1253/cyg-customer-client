@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CARDS_KEY, checkout, completePayment, type GenerateResult } from '@/api/billing'
-import { useAuth } from '@/context/AuthContext'
+import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
 export type PayInput = {
@@ -18,17 +18,17 @@ export type PayInput = {
  * A $0 total (free promo) is `done` straight from checkout — no card is touched.
  */
 export function usePayAndGenerate() {
-  const { token } = useAuth()
+  const book = useBook()
   const qc = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
     mutationFn: async ({ promoCode, paymentMethodId, prepare, confirm }: PayInput): Promise<GenerateResult> => {
       // Stripe wants the Payment Element validated before the intent exists.
       if (!paymentMethodId) await prepare?.()
-      const res = await checkout(token!, { promoCode, paymentMethodId })
+      const res = await checkout(book.auth, { promoCode, paymentMethodId })
       if (res.done) return res.result
       await confirm(res.clientSecret, !!paymentMethodId)
-      return completePayment(token!, res.paymentIntentId)
+      return completePayment(book.auth, res.paymentIntentId)
     },
     onSettled: async () => {
       await Promise.all([invalidate(), qc.invalidateQueries({ queryKey: CARDS_KEY })])
