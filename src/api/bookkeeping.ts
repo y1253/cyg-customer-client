@@ -12,8 +12,10 @@ export type Statement = {
   accountName: string | null
   /** BANK | CREDIT_CARD (null = read before it was recorded). */
   accountKind?: string | null
-  /** ISO code of its amounts; null = not printed (the home currency). */
+  /** ISO code of its amounts as read; null = not printed (the home currency). */
   currency?: string | null
+  /** What it is converted from: the currency set for its account, else `currency`. */
+  accountCurrency?: string | null
   bankName: string | null
   /** "Chase 4362 · Sep 2026" — the same label every ledger row of it shows. */
   label: string
@@ -98,6 +100,10 @@ export type AccountBalance = {
   /** On the account's normal side: $50 of office supplies is +50, a refund lowers it. */
   balance: number
   count: number
+  /** A statement account's currency (absent when its statements disagree). */
+  currency?: string
+  /** A foreign statement account's balance before conversion (`balance` is converted). */
+  foreignBalance?: number
 }
 
 export type ReportLine = {
@@ -107,6 +113,9 @@ export type ReportLine = {
   bank?: boolean
   /** Income statement only: the account's total per payee, largest first. */
   byName?: ReportLine[]
+  /** A foreign statement account: its currency and `amount` before conversion. */
+  currency?: string
+  foreignAmount?: number
 }
 
 /** `GET /api/bookkeeping/reports` — chart of accounts + income statement for the period, balance sheet as of its end. */
@@ -533,6 +542,19 @@ export async function setAccountType(
     values.type
       ? json('PUT', values)
       : json('DELETE', { account: values.account }),
+  )
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** Set the currency a statement account's statements are converted from; `currency: null` = what each statement says. */
+export async function setAccountCurrency(
+  token: string,
+  values: { account: string; currency: string | null },
+): Promise<void> {
+  const res = await fetchWithAuth(
+    token,
+    '/api/bookkeeping/accounts/currency',
+    values.currency ? json('PUT', values) : json('DELETE', { account: values.account }),
   )
   if (!res.ok) throw await errorFrom(res)
 }

@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { isBusy, openOriginal, unreadable, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
+import { useCurrency } from '@/hooks/useCurrency'
+import { AccountCurrency } from './AccountCurrency'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -94,14 +96,21 @@ function StatusBadge({ s }: { s: Statement }) {
 }
 
 /** The second line under a statement: what it is, or what is happening to it. */
-function subtitle(s: Statement): string {
+function subtitle(s: Statement, home?: string): string {
   switch (s.status) {
     case 'FAILED':
       return s.error ?? 'We could not read this statement.'
     case 'NEEDS_REVIEW':
       return s.error ?? "This statement doesn't match the bank's totals."
     case 'DONE':
-      return [`${s.transactionCount} transactions`, s.filename].join(' · ')
+      return [
+        `${s.transactionCount} transactions`,
+        // A foreign statement says which currency its amounts are in.
+        home && s.accountCurrency && s.accountCurrency !== home ? `in ${s.accountCurrency}` : null,
+        s.filename,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     case 'PROCESSING':
       return 'Reading every transaction…'
     case 'UPLOADED':
@@ -147,6 +156,7 @@ export function StatementsList({ statements, loading }: { statements: Statement[
   const [closed, setClosed] = useState<Set<string>>(new Set())
   const [newFor, setNewFor] = useState<Statement | null>(null)
   const [newName, setNewName] = useState('')
+  const home = useCurrency().data?.home
 
   if (loading) {
     return (
@@ -266,9 +276,9 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                             ? 'mt-0.5 text-red-700'
                             : 'truncate text-muted-foreground',
                       )}
-                      title={subtitle(s)}
+                      title={subtitle(s, home)}
                     >
-                      {subtitle(s)}
+                      {subtitle(s, home)}
                       {s.movedByCustomer && ' · moved by you'}
                     </p>
                   </div>
@@ -424,6 +434,9 @@ function Folder({
 }) {
   const drop = useFolderDrop(onDrop)
   const range = folderRange(folder)
+  // One currency for the account only when every read statement in it agrees.
+  const currencies = new Set(folder.statements.filter((s) => s.status === 'DONE').map((s) => s.accountCurrency ?? null))
+  const currency = currencies.size === 1 ? [...currencies][0] : undefined
   return (
     <section
       {...drop.props}
@@ -432,32 +445,35 @@ function Folder({
         drop.over && 'bg-brand/5 ring-2 ring-brand/40',
       )}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-black/5"
-      >
-        <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
-        {folder.account ? (
-          open ? (
-            <FolderOpen className="size-4 shrink-0 text-brand" />
+      <div className="flex items-center gap-1 rounded-lg pr-2 hover:bg-black/5">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left"
+        >
+          <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+          {folder.account ? (
+            open ? (
+              <FolderOpen className="size-4 shrink-0 text-brand" />
+            ) : (
+              <Folder2 className="size-4 shrink-0 text-brand" />
+            )
           ) : (
-            <Folder2 className="size-4 shrink-0 text-brand" />
-          )
-        ) : (
-          <FileClock className="size-4 shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
-        {folder.card && (
-          <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
-            <CreditCard className="size-3" /> Card
-          </Badge>
-        )}
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-          {range && <span className="hidden sm:inline">{range} · </span>}
-          {folder.statements.length} statement{folder.statements.length === 1 ? '' : 's'}
-        </span>
-      </button>
+            <FileClock className="size-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
+          {folder.card && (
+            <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
+              <CreditCard className="size-3" /> Card
+            </Badge>
+          )}
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+            {range && <span className="hidden sm:inline">{range} · </span>}
+            {folder.statements.length} statement{folder.statements.length === 1 ? '' : 's'}
+          </span>
+        </button>
+        {folder.account && currencies.size > 0 && <AccountCurrency account={folder.account} currency={currency} />}
+      </div>
       {open && <ul className="mt-1 flex flex-col gap-2">{children}</ul>}
     </section>
   )

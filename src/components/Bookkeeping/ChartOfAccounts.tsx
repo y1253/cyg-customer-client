@@ -4,6 +4,7 @@ import { useMoveAccount } from '@/hooks/useMoveAccount'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { periodLabel } from '@/lib/period'
+import { AccountCurrency, ForeignAmount } from './AccountCurrency'
 import { MoveMenu } from './AccountMove'
 import { dragProps, SECTION_LABEL, useDropTarget } from './account-move'
 import { ReportCard, UncategorizedNote } from './ReportParts'
@@ -47,7 +48,8 @@ export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; 
       {move.error && <p className="mt-4 text-sm text-destructive">{move.error.message}</p>}
       <p className="mt-6 text-xs text-muted-foreground">
         Bank accounts show the net money in and out for the period; a credit card what was charged on it. Click an
-        account to see its transactions, or drag it to another section to move it.
+        account to see its transactions, or drag it to another section to move it. Click a bank account's currency
+        to change it; a foreign account shows its balance before conversion underneath.
       </p>
     </ReportCard>
   )
@@ -120,6 +122,7 @@ function AccountRow({
               {a.type === 'LIABILITY' ? 'Card' : 'Bank'}
             </span>
           )}
+          {a.bank && <AccountCurrency account={a.name} currency={a.currency} />}
           {moved && <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Moved</span>}
           <MoveMenu account={a.name} current={a.type} bank={a.bank} moved={moved} onMove={onMove} />
         </span>
@@ -127,6 +130,7 @@ function AccountRow({
       <TableCell className="text-right tabular-nums">{a.count || '—'}</TableCell>
       <TableCell className={cn('pr-5 text-right tabular-nums', active && 'font-semibold', a.balance < 0 && 'text-red-600')}>
         {active ? money(a.balance) : '—'}
+        {active && <ForeignAmount currency={a.currency} amount={a.foreignBalance} />}
       </TableCell>
     </TableRow>
   )

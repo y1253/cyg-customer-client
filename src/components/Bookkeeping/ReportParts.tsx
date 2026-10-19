@@ -4,6 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { ForeignAmount } from './AccountCurrency'
 import { DropSection, MoveMenu } from './AccountMove'
 import { dragProps } from './account-move'
 
@@ -63,6 +64,7 @@ export function ReportSection({
                 key={l.name}
                 label={l.name}
                 amount={l.amount}
+                foreign={l.currency !== undefined && l.foreignAmount !== undefined ? { currency: l.currency, amount: l.foreignAmount } : undefined}
                 byName={l.byName}
                 onClick={account && onOpen ? () => onOpen(l) : undefined}
                 drag={account && type && onMove ? dragProps(l.name, !!l.bank) : undefined}
@@ -117,9 +119,12 @@ export function ReportRow({
   byName,
   drag,
   action,
+  foreign,
 }: {
   label: string
   amount: number
+  /** A foreign statement account: the amount before conversion, shown small underneath. */
+  foreign?: { currency: string; amount: number }
   strong?: boolean
   className?: string
   /** Opens the account's ledger. */
@@ -133,7 +138,10 @@ export function ReportRow({
   const body = (
     <>
       <span className="min-w-0 truncate">{label}</span>
-      <span className={cn('ml-auto shrink-0 tabular-nums', amount < 0 && 'text-red-600')}>{money(amount)}</span>
+      <span className={cn('ml-auto shrink-0 text-right tabular-nums', amount < 0 && 'text-red-600')}>
+        {money(amount)}
+        <ForeignAmount currency={foreign?.currency} amount={foreign?.amount} />
+      </span>
     </>
   )
   const rowClass = cn(
