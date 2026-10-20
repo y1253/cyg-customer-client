@@ -48,6 +48,11 @@ export type Statement = {
   processedAt: string | null
   /** The customer filed it under this account themselves (a Retry keeps it there). */
   movedByCustomer?: boolean
+  /**
+   * Set when this statement STARTS its account's books — a "Starting balance" row in the
+   * ledger. Only the statements list carries it.
+   */
+  startingBalance?: { date: string | null; amount: number } | null
 }
 
 export type LedgerTransaction = {
@@ -138,6 +143,8 @@ export type ReportLine = {
   /** A foreign statement account: its currency and `amount` before conversion. */
   currency?: string
   foreignAmount?: number
+  /** Balance sheet, statement accounts: the dates its books start. More than one = a break. */
+  starts?: Array<{ date: string | null }>
 }
 
 /** `GET /api/bookkeeping/reports` — chart of accounts + income statement for the period, balance sheet as of its end. */

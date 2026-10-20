@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Clock,
   CreditCard,
   ExternalLink,
@@ -48,7 +50,8 @@ import { useMoveStatement } from '@/hooks/useMoveStatement'
 import { useRetryStatement } from '@/hooks/useRetryStatement'
 import { cn } from '@/lib/utils'
 import { statementDragProps, useFolderDrop } from './statement-drag'
-import { folderOf, groupByAccount, isFiled, type StatementFolder } from './statement-folders'
+import { folderKey, folderOf, groupByAccount, isFiled, startsByFolder, type StatementFolder } from './statement-folders'
+import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
 
 // The check against the bank's own totals happens on the server and is kept there; the
 // customer only sees the outcome — Done, or Needs review with the reason.
@@ -183,6 +186,8 @@ export function StatementsList({ statements, loading }: { statements: Statement[
   const accounts = groupByAccount(statements)
     .map((f) => f.account)
     .filter((a): a is string => a !== null)
+  const starts = startsByFolder(statements)
+  const anyOpen = folders.some((f) => !closed.has(folderKey(f)))
 
   const moveTo = (id: number, accountName: string) => {
     const s = statements.find((x) => x.id === id)
@@ -199,7 +204,7 @@ export function StatementsList({ statements, loading }: { statements: Statement[
 
   return (
     <>
-      <div className="mb-2 flex flex-wrap gap-1.5">
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
         {FILTERS.map((f) => {
           const n = statements.filter(f.test).length
           if (f.id !== 'all' && !n && filter !== f.id) return null
@@ -221,6 +226,17 @@ export function StatementsList({ statements, loading }: { statements: Statement[
             </button>
           )
         })}
+        {folders.length > 1 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto h-7 gap-1.5"
+            onClick={() => setClosed(anyOpen ? new Set(folders.map(folderKey)) : new Set())}
+          >
+            {anyOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
+            {anyOpen ? 'Collapse all' : 'Expand all'}
+          </Button>
+        )}
       </div>
       {accounts.length > 1 && (
         <p className="mb-2 text-xs text-muted-foreground">
@@ -236,11 +252,12 @@ export function StatementsList({ statements, loading }: { statements: Statement[
       )}
       <div className="flex max-h-[34rem] flex-col gap-3 overflow-y-auto pr-1">
         {folders.map((f) => {
-          const key = f.account ?? '\u0000unsorted'
+          const key = folderKey(f)
           return (
             <Folder
               key={key}
               folder={f}
+              starts={f.account ? starts.get(f.account) : undefined}
               open={!closed.has(key)}
               onToggle={() => toggle(key)}
               onDrop={f.account ? (id) => moveTo(id, f.account!) : undefined}
@@ -420,12 +437,15 @@ export function StatementsList({ statements, loading }: { statements: Statement[
 /** One account's folder: a header that collapses it, and a drop target for statements. */
 function Folder({
   folder,
+  starts,
   open,
   onToggle,
   onDrop,
   children,
 }: {
   folder: StatementFolder
+  /** Where the account's books start (its Starting balance rows); two or more = a break. */
+  starts?: Array<{ date: string | null }>
   open: boolean
   onToggle: () => void
   /** Undefined for the "Not sorted yet" folder — nothing can be dropped there. */
@@ -434,6 +454,7 @@ function Folder({
 }) {
   const drop = useFolderDrop(onDrop)
   const range = folderRange(folder)
+  const note = starts ? startingNote(starts) : null
   // One currency for the account only when every read statement in it agrees.
   const currencies = new Set(folder.statements.filter((s) => s.status === 'DONE').map((s) => s.accountCurrency ?? null))
   const currency = currencies.size === 1 ? [...currencies][0] : undefined
@@ -461,7 +482,20 @@ function Folder({
           ) : (
             <FileClock className="size-4 shrink-0 text-muted-foreground" />
           )}
-          <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
+          <span className="flex min-w-0 flex-col">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
+              {note?.warn && <span className="size-2 shrink-0 rounded-full bg-red-500" title={STARTS_WARNING} />}
+            </span>
+            {note && (
+              <span
+                className={cn('truncate text-xs', note.warn ? 'font-medium text-red-600' : 'text-muted-foreground')}
+                title={note.warn ? STARTS_WARNING : undefined}
+              >
+                {note.text}
+              </span>
+            )}
+          </span>
           {folder.card && (
             <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
               <CreditCard className="size-3" /> Card

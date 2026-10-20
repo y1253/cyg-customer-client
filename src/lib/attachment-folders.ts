@@ -113,3 +113,54 @@ export function fileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
+
+/** The "By name" view's folder for a matched row whose transaction has no payee. */
+export const UNCLARIFIED_FOLDER = 'name:unclarified'
+
+/**
+ * Who an attachment was paid to, for the "By name" view: the matched transaction's name
+ * (it already follows the customer's renames), else what the AI read off the file.
+ */
+export function payeeOf(a: Attachment): string | null {
+  const name = a.transaction?.name ?? a.reading?.vendor ?? a.reading?.payee ?? null
+  return name?.trim() || null
+}
+
+/**
+ * The "By name" view: one folder per payee (every Walmart receipt in "Walmart"), matched
+ * case-insensitively and shown in its most common spelling, A→Z. A matched row with no
+ * payee goes to "Unclarified name"; an attachment we know nothing about yet to "Not filed
+ * yet" (last). Statements have no payee, so they live in the account view only.
+ */
+export function fileFoldersByName(attachments: Attachment[], unclarified: string): FileFolder[] {
+  const groups = new Map<string, { spellings: Map<string, number>; attachments: Attachment[] }>()
+  const add = (key: string, spelling: string | null, a: Attachment) => {
+    let g = groups.get(key)
+    if (!g) {
+      g = { spellings: new Map(), attachments: [] }
+      groups.set(key, g)
+    }
+    if (spelling) g.spellings.set(spelling, (g.spellings.get(spelling) ?? 0) + 1)
+    g.attachments.push(a)
+  }
+  for (const a of attachments) {
+    const payee = payeeOf(a)
+    if (payee) add(`name:${payee.toLowerCase()}`, payee, a)
+    else if (a.transaction) add(UNCLARIFIED_FOLDER, null, a)
+    else add(UNFILED, null, a)
+  }
+  const folders = [...groups.entries()].map(([key, g]): FileFolder => {
+    const name =
+      key === UNFILED
+        ? null
+        : key === UNCLARIFIED_FOLDER
+          ? unclarified
+          : [...g.spellings.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))[0][0]
+    return { key, name, card: false, statements: [], attachments: g.attachments }
+  })
+  return folders.sort((a, b) => {
+    if (a.name === null) return 1
+    if (b.name === null) return -1
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  })
+}

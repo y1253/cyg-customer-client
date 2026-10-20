@@ -4,6 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
 import { ForeignAmount } from './AccountCurrency'
 import { DropSection, MoveMenu } from './AccountMove'
 import { dragProps } from './account-move'
@@ -66,6 +67,7 @@ export function ReportSection({
                 amount={l.amount}
                 foreign={l.currency !== undefined && l.foreignAmount !== undefined ? { currency: l.currency, amount: l.foreignAmount } : undefined}
                 byName={l.byName}
+                note={l.starts ? (startingNote(l.starts) ?? undefined) : undefined}
                 onClick={account && onOpen ? () => onOpen(l) : undefined}
                 drag={account && type && onMove ? dragProps(l.name, !!l.bank) : undefined}
                 action={
@@ -120,9 +122,12 @@ export function ReportRow({
   drag,
   action,
   foreign,
+  note,
 }: {
   label: string
   amount: number
+  /** A small line under the label (a statement account's start dates); `warn` = red. */
+  note?: { text: string; warn: boolean }
   /** A foreign statement account: the amount before conversion, shown small underneath. */
   foreign?: { currency: string; amount: number }
   strong?: boolean
@@ -137,7 +142,19 @@ export function ReportRow({
 }) {
   const body = (
     <>
-      <span className="min-w-0 truncate">{label}</span>
+      {note ? (
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate">{label}</span>
+          <span
+            className={cn('truncate text-xs font-normal', note.warn ? 'text-red-600' : 'text-muted-foreground')}
+            title={note.warn ? STARTS_WARNING : undefined}
+          >
+            {note.text}
+          </span>
+        </span>
+      ) : (
+        <span className="min-w-0 truncate">{label}</span>
+      )}
       <span className={cn('ml-auto shrink-0 text-right tabular-nums', amount < 0 && 'text-red-600')}>
         {money(amount)}
         <ForeignAmount currency={foreign?.currency} amount={foreign?.amount} />

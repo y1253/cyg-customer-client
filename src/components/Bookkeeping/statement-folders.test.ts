@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Statement } from '@/api/bookkeeping'
-import { folderOf, groupByAccount } from './statement-folders'
+import { folderOf, groupByAccount, startsByFolder } from './statement-folders'
 
 const s = (id: number, extra: Partial<Statement>): Statement => ({
   id,
@@ -37,5 +37,18 @@ describe('groupByAccount', () => {
   it('files a read statement with no account under the ledger default', () => {
     expect(folderOf(s(1, {}))).toBe('Bank account')
     expect(folderOf(s(1, { status: 'PENDING' }))).toBeNull()
+  })
+})
+
+describe('startsByFolder', () => {
+  it('collects every starting balance per account, filtered or not', () => {
+    const starts = startsByFolder([
+      s(1, { accountName: 'TD 5234', startingBalance: { date: '2023-12-29', amount: 3392.74 } }),
+      s(2, { accountName: 'TD 5234', startingBalance: null }),
+      s(3, { accountName: 'TD 5234', startingBalance: { date: '2024-10-31', amount: 3849.57 } }),
+      s(4, { accountName: 'BMO 2304' }),
+    ])
+    expect(starts.get('TD 5234')).toEqual([{ date: '2023-12-29' }, { date: '2024-10-31' }])
+    expect(starts.has('BMO 2304')).toBe(false)
   })
 })

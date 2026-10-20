@@ -33,9 +33,9 @@ export type Attachment = {
   total: number | null
   matchNote: string | null
   error: string | null
-  /** UPLOAD (this site), SMS (texted to one of our numbers) or STATEMENT (a cheque image cut out of a statement). */
-  source: 'UPLOAD' | 'SMS' | 'STATEMENT'
-  /** SMS only: who sent it and what they wrote. */
+  /** UPLOAD (this site), SMS / WHATSAPP (sent to one of our receipt numbers) or STATEMENT (a cheque image cut out of a statement). */
+  source: 'UPLOAD' | 'SMS' | 'WHATSAPP' | 'STATEMENT'
+  /** SMS / WHATSAPP only: who sent it and what they wrote. */
   sourcePhone: string | null
   message: string | null
   /**
@@ -66,6 +66,8 @@ export const isBusyAttachment = (a: Attachment) => a.status === 'PENDING' || a.s
 export type Intake = {
   /** E.164; empty when the firm has connected none. */
   numbers: string[]
+  /** The ones that also take WhatsApp (they still take texts too). */
+  whatsapp: string[]
   /** The customer's phone as texts are matched (E.164); null = none usable. */
   phone: string | null
   /** A phone is saved but cannot be read as a number. */

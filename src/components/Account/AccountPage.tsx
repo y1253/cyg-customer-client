@@ -11,6 +11,8 @@ import type { Customer } from '@/api/customerAuth'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/hooks/useMe'
 import { useUpdateMe } from '@/hooks/useUpdateMe'
+import { useIntake } from '@/hooks/useIntake'
+import { sendVerb } from '@/lib/intake'
 
 const METHOD_LABEL = { PASSWORD: 'Email & password', GOOGLE: 'Google' } as const
 
@@ -63,6 +65,7 @@ export function AccountPage() {
 }
 
 function ProfileForm({ customer }: { customer: Customer }) {
+  const intake = useIntake()
   const update = useUpdateMe()
   const [name, setName] = useState(customer.name)
   const [phone, setPhone] = useState(customer.phone ?? '')
@@ -101,7 +104,7 @@ function ProfileForm({ customer }: { customer: Customer }) {
           onChange={(e) => setPhone(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          Receipts you text us from this number go straight into your bookkeeping.
+          Receipts you {sendVerb(intake.data)} us from this number go straight into your bookkeeping.
         </p>
       </div>
       {update.error && (

@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest'
 import type { Attachment } from '@/api/attachments'
 import type { Statement } from '@/api/bookkeeping'
 import { applyTable } from './table-sort'
-import { FILE_COLUMNS, fileFolders, fileSize, folderItems, itemAmount, itemDate, itemName, UNFILED } from './attachment-folders'
+import {
+  FILE_COLUMNS,
+  fileFolders,
+  fileFoldersByName,
+  fileSize,
+  folderItems,
+  itemAmount,
+  itemDate,
+  itemName,
+  UNCLARIFIED_FOLDER,
+  UNFILED,
+} from './attachment-folders'
 
 const s = (id: number, extra: Partial<Statement>): Statement => ({
   id,
@@ -92,5 +103,40 @@ describe('file rows', () => {
     expect(fileSize(500)).toBe('500 B')
     expect(fileSize(2048)).toBe('2 KB')
     expect(fileSize(3 * 1024 * 1024)).toBe('3.0 MB')
+  })
+})
+
+describe('fileFoldersByName', () => {
+  const tx = (name: string | null) =>
+    ({ id: 1, name, description: 'POS', amount: -10, date: null, statementId: 1, statementLabel: '', splitCount: 0 }) as Attachment['transaction']
+  const read = (vendor: string) => ({ vendor }) as Attachment['reading']
+
+  it('puts every receipt of one payee in one folder, whatever the case', () => {
+    const folders = fileFoldersByName(
+      [
+        a(1, { transaction: tx('Walmart') }),
+        a(2, { reading: read('WALMART'), status: 'UNMATCHED' }),
+        a(3, { transaction: tx('Walmart') }),
+        a(4, { transaction: tx('Home Depot') }),
+      ],
+      'Unclarified name',
+    )
+    expect(folders.map((f) => [f.name, f.attachments.map((x) => x.id)])).toEqual([
+      ['Home Depot', [4]],
+      ['Walmart', [1, 2, 3]],
+    ])
+  })
+
+  it("prefers the transaction's name (after renames) over what was read", () => {
+    const [f] = fileFoldersByName([a(1, { transaction: tx('Costco'), reading: read('COSTCO WHOLESALE #12') })], 'U')
+    expect(f.name).toBe('Costco')
+  })
+
+  it('files a nameless match under Unclarified and the unknown last', () => {
+    const folders = fileFoldersByName([a(1, { transaction: null }), a(2, { transaction: tx(null) })], 'Unclarified name')
+    expect(folders.map((f) => [f.key, f.name])).toEqual([
+      [UNCLARIFIED_FOLDER, 'Unclarified name'],
+      [UNFILED, null],
+    ])
   })
 })

@@ -56,3 +56,20 @@ export function groupByAccount(statements: Statement[]): StatementFolder[] {
     return a.account.localeCompare(b.account, undefined, { sensitivity: 'base' })
   })
 }
+
+/** A folder's identity for its open/closed state ("Not sorted yet" has no account). */
+export const folderKey = (f: StatementFolder): string => f.account ?? '\u0000unsorted'
+
+/**
+ * Each account's starting balances, from every statement (not just the filtered ones), so
+ * a folder's "Starts …" line never changes with the status chips.
+ */
+export function startsByFolder(statements: Statement[]): Map<string, Array<{ date: string | null }>> {
+  const out = new Map<string, Array<{ date: string | null }>>()
+  for (const s of statements) {
+    const account = folderOf(s)
+    if (!s.startingBalance || account === null) continue
+    out.set(account, [...(out.get(account) ?? []), { date: s.startingBalance.date }])
+  }
+  return out
+}

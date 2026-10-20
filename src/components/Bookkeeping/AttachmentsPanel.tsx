@@ -12,6 +12,7 @@ import {
   Paperclip,
   RotateCw,
   Search,
+  Store,
   Trash2,
 } from 'lucide-react'
 import {
@@ -20,7 +21,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   type Attachment,
 } from '@/api/attachments'
-import { openOriginal, type Statement } from '@/api/bookkeeping'
+import { openOriginal, UNCLARIFIED_NAME, type Statement } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,6 +32,7 @@ import { useBook } from '@/hooks/useBook'
 import {
   FILE_COLUMNS,
   fileFolders,
+  fileFoldersByName,
   fileSize,
   folderItems,
   itemAmount,
@@ -49,9 +51,21 @@ import { ColumnHeader } from './ColumnHeader'
 import { TextReceiptsCard } from './TextReceiptsCard'
 import { TransactionPicker } from './TransactionPicker'
 
+type Grouping = 'account' | 'name'
+const GROUPING_KEY = 'attachments-group'
+
+function readGrouping(): Grouping {
+  try {
+    return localStorage.getItem(GROUPING_KEY) === 'name' ? 'name' : 'account'
+  } catch {
+    return 'account'
+  }
+}
+
 /**
  * Everything filed for this book (step8): bank statements, receipts, cheque photos and voice
- * notes, in ONE folder per bank / card account, plus "Not filed yet". The AI reads each
+ * notes, in ONE folder per bank / card account, plus "Not filed yet". The "By name" view
+ * (step9) files the attachments by payee instead — every Walmart receipt in "Walmart". The AI reads each
  * attachment, finds the bank transaction it belongs to and attaches it — so it lands in that
  * account's folder; a receipt's lines become that transaction's splits. When it cannot tell,
  * the customer chooses the transaction. Inside a folder every column sorts and filters.
@@ -70,7 +84,22 @@ export function AttachmentsPanel({
   const generalBook = useBookScope() === null
   const [picking, setPicking] = useState<Attachment | null>(null)
   const list = attachments.data
-  const folders = useMemo(() => fileFolders(statements, list ?? []), [statements, list])
+  const [grouping, setGroupingState] = useState<Grouping>(readGrouping)
+  const setGrouping = (g: Grouping) => {
+    setGroupingState(g)
+    try {
+      localStorage.setItem(GROUPING_KEY, g)
+    } catch {
+      // A private window: the choice just is not remembered.
+    }
+  }
+  const folders = useMemo(
+    () =>
+      grouping === 'name'
+        ? fileFoldersByName(list ?? [], UNCLARIFIED_NAME)
+        : fileFolders(statements, list ?? []),
+    [grouping, statements, list],
+  )
   const [chosen, setChosen] = useState<string | null>(null)
   // The chosen folder, else the first — a folder that emptied falls back by itself.
   const folder = folders.find((f) => f.key === chosen) ?? folders[0] ?? null
@@ -83,16 +112,40 @@ export function AttachmentsPanel({
           <AttachmentDropzone />
           <p className="mt-3 text-sm text-muted-foreground">
             Photos of receipts or cheques, PDFs, or a voice note (“paid Home Depot $45 for lumber yesterday”). We find the
-            transaction it belongs to and file it in that bank account’s folder — upload the bank statement first.
+            transaction it belongs to and file it in that bank account’s folder (or, by name, under who you paid) —
+            upload the bank statement first.
           </p>
         </section>
         {generalBook && <TextReceiptsCard className="lg:col-span-2 lg:mt-8" />}
       </div>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-          Folders {folders.length > 0 && <span className="text-foreground">· {folders.length}</span>}
-        </h2>
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+            Folders {folders.length > 0 && <span className="text-foreground">· {folders.length}</span>}
+          </h2>
+          <div role="group" aria-label="Group files" className="ml-auto inline-flex rounded-lg bg-muted p-0.5 text-xs font-medium">
+            {(
+              [
+                ['account', 'By account'],
+                ['name', 'By name'],
+              ] as const
+            ).map(([g, label]) => (
+              <button
+                key={g}
+                type="button"
+                aria-pressed={grouping === g}
+                onClick={() => setGrouping(g)}
+                className={cn(
+                  'rounded-md px-3 py-1 transition-colors',
+                  grouping === g ? 'bg-white text-[#0B1C2C] shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         {attachments.error && <p className="mb-2 text-sm text-destructive">{attachments.error.message}</p>}
         {attachments.isLoading ? (
           <div className="flex flex-col gap-2">
@@ -104,7 +157,9 @@ export function AttachmentsPanel({
           <div className="rounded-2xl bg-white px-6 py-12 text-center ring-1 ring-black/5">
             <p className="font-medium text-[#0B1C2C]">Nothing filed yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Upload a bank statement or add a receipt — each bank account gets its own folder.
+              {grouping === 'name'
+                ? 'Add a receipt — each payee gets its own folder.'
+                : 'Upload a bank statement or add a receipt — each bank account gets its own folder.'}
             </p>
           </div>
         ) : (
@@ -113,7 +168,16 @@ export function AttachmentsPanel({
               {folders.map((f) => {
                 const active = f.key === folder.key
                 const count = f.statements.length + f.attachments.length
-                const Icon = f.name === null ? Inbox : f.card ? CreditCard : active ? FolderOpen : Folder
+                const Icon =
+                  f.name === null
+                    ? Inbox
+                    : grouping === 'name'
+                      ? Store
+                      : f.card
+                        ? CreditCard
+                        : active
+                          ? FolderOpen
+                          : Folder
                 return (
                   <button
                     key={f.key}
@@ -247,6 +311,11 @@ function FolderTable({
                       {a?.source === 'SMS' && (
                         <span className="hidden shrink-0 rounded-md bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-sky-600/20 sm:inline">
                           via text
+                        </span>
+                      )}
+                      {a?.source === 'WHATSAPP' && (
+                        <span className="hidden shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-600/20 sm:inline">
+                          via WhatsApp
                         </span>
                       )}
                       {a?.source === 'STATEMENT' && (
