@@ -9,6 +9,8 @@ import { ConnectResultPage } from '@/components/Connect/ConnectResultPage'
 import { DashboardHome } from '@/components/Dashboard/DashboardHome'
 import { DashboardLayout } from '@/components/Dashboard/DashboardLayout'
 import { HomePage } from '@/components/Home/HomePage'
+import { PrivacyPage } from '@/components/Legal/PrivacyPage'
+import { SecurityPolicyPage } from '@/components/Legal/SecurityPolicyPage'
 import { CompanyPortalPage } from '@/components/Portal/CompanyPortalPage'
 import { RegistrationsPage } from '@/components/Register/RegistrationsPage'
 import { RegisterWizardPage } from '@/components/Register/RegisterWizard'
@@ -16,6 +18,8 @@ import { CustomerRoute, GuestRoute } from './CustomerRoute'
 
 export const router = createBrowserRouter([
   { path: '/', element: <HomePage /> },
+  { path: '/privacy', element: <PrivacyPage /> },
+  { path: '/security-policy', element: <SecurityPolicyPage /> },
   // Where the internal API's Gmail / Outlook OAuth callback sends the registration
   // wizard's popup. Outside the guards: it only posts a message to its opener and closes.
   { path: '/connect/:provider/:result', element: <ConnectResultPage /> },

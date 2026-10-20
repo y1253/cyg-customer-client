@@ -32,6 +32,8 @@ export function SiteFooter() {
             <a href="#top" className={LINK}>Home</a>
             <a href="#what-we-do" className={LINK}>About Us</a>
             <a href="#contact" className={LINK}>Contact</a>
+            <a href="/privacy" className={LINK}>Privacy Policy</a>
+            <a href="/security-policy" className={LINK}>Security Policy</a>
           </div>
           <div>
             <div className={TITLE}>Site Map</div>
