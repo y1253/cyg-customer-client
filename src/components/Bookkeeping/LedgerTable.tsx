@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useIncrementalRows } from '@/hooks/useIncrementalRows'
 import { money } from '@/lib/money'
 import { applyTable, useTableControls, type ColumnDef, type SortState } from '@/lib/table-sort'
 import { cn } from '@/lib/utils'
@@ -100,7 +101,9 @@ function DateStack({ t }: { t: LedgerTransaction }) {
  * The paperclip on a transaction opens its receipts, cheques and voice notes; `focusId`
  * shows one transaction only (from "View transaction" on an attachment); `name` the rows of
  * one payee (from the Names tab or the income statement).
- * Every row is listed — no paging. Each column header sorts and filters its own column
+ * One fetch, rendered while scrolling (`useIncrementalRows`, step12): 100 rows, then 100
+ * more as the end comes into view — filters, sort and the footer totals still cover every
+ * row. Each column header sorts and filters its own column
  * (`ColumnHeader`); a transaction moves together with its tax lines and splits, judged by
  * the transaction itself.
  */
@@ -300,6 +303,12 @@ export function LedgerTable({
         0,
       ) / 100
     : null
+  // Rendered while scrolling; a new filter or sort starts from the top again.
+  const { shown, hasMore, sentinelRef } = useIncrementalRows(
+    rows,
+    JSON.stringify([query, statementId, folderName, account, focusId, name, from, to, controls.filters, controls.sort]),
+    (t) => t.kind === 'tax' || t.kind === 'split',
+  )
   const taxCount = rows.filter((t) => t.kind === 'tax').length
   const splitCount = rows.filter((t) => t.kind === 'split').length
   const txCount = rows.length - taxCount - splitCount
@@ -485,7 +494,7 @@ export function LedgerTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((t, i, page) => {
+            {shown.map((t, i, page) => {
               // Joined to its split rows: no divider between them.
               const joined = page[i + 1]?.kind === 'tax' || page[i + 1]?.kind === 'split'
               if (t.kind === 'tax') {
@@ -612,6 +621,13 @@ export function LedgerTable({
                 </TableRow>
               )
             })}
+            {hasMore && (
+              <TableRow key={`more-${shown.length}`} ref={sentinelRef} className="hover:bg-transparent">
+                <TableCell colSpan={8} className="py-4 text-center text-xs text-muted-foreground">
+                  Showing {shown.length.toLocaleString()} of {rows.length.toLocaleString()} rows — loading more…
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
           <TableFooter className="bg-muted/40">
             <TableRow className="hover:bg-transparent">

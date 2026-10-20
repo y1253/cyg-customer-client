@@ -7,6 +7,8 @@ export function channelLabel(channel: AssistantChannel): string {
       return 'Text'
     case 'WHATSAPP':
       return 'WhatsApp'
+    case 'EMAIL':
+      return 'Email'
     default:
       return 'Web'
   }

@@ -13,6 +13,7 @@ import { useTransactions } from '@/hooks/useTransactions'
 import type { SortState } from '@/lib/table-sort'
 import { AttachmentsPanel } from './AttachmentsPanel'
 import { BalanceSheet } from './BalanceSheet'
+import { CommunicationPanel } from './Communication/CommunicationPanel'
 import { ChartOfAccounts } from './ChartOfAccounts'
 import { DebitCreditGuide } from './DebitCreditGuide'
 import { GenerateBar } from './GenerateBar'
@@ -52,6 +53,8 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
   const assistant = useAssistantEnabled()
   const exporter = useExportLedger()
   const [tab, setTab] = useState<Tab>('statements')
+  // Attachments has two sub-tabs (step12): the files, and every conversation with us.
+  const [attachView, setAttachView] = useState<'files' | 'communication'>('files')
   const [period, setPeriod] = useState<Period>({ from: null, to: null })
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [ledgerAccount, setLedgerAccount] = useState<string | null>(null)
@@ -229,7 +232,22 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
         </TabsContent>
 
         <TabsContent value="attachments">
-          <AttachmentsPanel statements={list} onViewTransaction={openTransaction} />
+          <Tabs value={attachView} onValueChange={(v) => setAttachView(v as 'files' | 'communication')} className="gap-4">
+            <TabsList className="h-10 w-fit">
+              <TabsTrigger value="files" className="h-8 px-4">
+                Attachments
+              </TabsTrigger>
+              <TabsTrigger value="communication" className="h-8 px-4">
+                Communication
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="files">
+              <AttachmentsPanel statements={list} onViewTransaction={openTransaction} />
+            </TabsContent>
+            <TabsContent value="communication">
+              <CommunicationPanel onOpenAssistant={assistant ? () => setTab('assistant') : undefined} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         {reportsTab && <ReportPeriod value={period} onChange={setPeriod} />}

@@ -11,7 +11,16 @@ export type Customer = {
   hasPassword: boolean
   avatarUrl: string | null
   phone: string | null
+  /** How they prefer to be contacted; null = not chosen. Absent on a profile cached before step12. */
+  preferredContact?: ContactMethod | null
   createdAt: string
+}
+
+export type ContactMethod = 'EMAIL' | 'WHATSAPP' | 'SMS'
+export const CONTACT_METHOD_LABEL: Record<ContactMethod, string> = {
+  EMAIL: 'Email',
+  WHATSAPP: 'WhatsApp',
+  SMS: 'Text message',
 }
 
 export type AuthResult = { access_token: string; customer: Customer }
@@ -26,7 +35,7 @@ export type SignupValues = {
 export type SignupStarted = { email: string }
 export type VerifySignupValues = { email: string; code: string }
 export type LoginValues = { email: string; password: string }
-export type UpdateMeValues = { name?: string; phone?: string | null }
+export type UpdateMeValues = { name?: string; phone?: string | null; preferredContact?: ContactMethod | null }
 export type ResetPasswordValues = { email: string; code: string; newPassword: string }
 /** `currentPassword` when the account has one; otherwise the emailed `code`. */
 export type ChangePasswordValues = { currentPassword?: string; code?: string; newPassword: string }

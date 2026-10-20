@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SUBMIT_CLASS } from '@/components/Auth/AuthLayout'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
-import type { Customer } from '@/api/customerAuth'
+import { CONTACT_METHOD_LABEL, type ContactMethod, type Customer } from '@/api/customerAuth'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/hooks/useMe'
 import { useUpdateMe } from '@/hooks/useUpdateMe'
@@ -69,12 +70,16 @@ function ProfileForm({ customer }: { customer: Customer }) {
   const update = useUpdateMe()
   const [name, setName] = useState(customer.name)
   const [phone, setPhone] = useState(customer.phone ?? '')
+  const [contact, setContact] = useState<ContactMethod | null>(customer.preferredContact ?? null)
   const [saved, setSaved] = useState(false)
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     setSaved(false)
-    update.mutate({ name, phone: phone.trim() || null }, { onSuccess: () => setSaved(true) })
+    update.mutate(
+      { name, phone: phone.trim() || null, preferredContact: contact },
+      { onSuccess: () => setSaved(true) },
+    )
   }
 
   return (
@@ -106,6 +111,24 @@ function ProfileForm({ customer }: { customer: Customer }) {
         <p className="text-xs text-muted-foreground">
           Receipts you {sendVerb(intake.data)} us from this number go straight into your bookkeeping.
         </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="contact">Preferred contact method</Label>
+        <Select value={contact} onValueChange={(v) => setContact((v as ContactMethod | null) ?? null)}>
+          <SelectTrigger id="contact" className="h-11 w-full">
+            <SelectValue>
+              {(v: ContactMethod | null) => (v ? CONTACT_METHOD_LABEL[v] : 'No preference')}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(CONTACT_METHOD_LABEL) as ContactMethod[]).map((m) => (
+              <SelectItem key={m} value={m}>
+                {CONTACT_METHOD_LABEL[m]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">How you'd like us to reach you. Text and WhatsApp need your phone above.</p>
       </div>
       {update.error && (
         <p role="alert" className="text-sm text-destructive">

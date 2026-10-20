@@ -34,6 +34,15 @@ export function TextReceiptsCard({ className }: { className?: string }) {
           <div className="mt-3">
             <IntakeNumberChips intake={data} />
           </div>
+          {data.email && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Or email them to{' '}
+              <a href={`mailto:${data.email}`} className="font-medium text-brand underline-offset-2 hover:underline">
+                {data.email}
+              </a>{' '}
+              from <span className="font-medium text-[#0B1C2C]">the email on your account</span> — you can ask questions there too.
+            </p>
+          )}
           {data.phone ? (
             <p className="mt-3 text-xs text-muted-foreground">
               We recognise {wa ? 'texts and WhatsApp messages' : 'texts'} from{' '}

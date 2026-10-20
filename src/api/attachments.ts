@@ -72,6 +72,8 @@ export type Intake = {
   phone: string | null
   /** A phone is saved but cannot be read as a number. */
   phoneSaved: boolean
+  /** The firm inbox customers can email receipts and questions to (step12); null = none. Absent from an older server. */
+  email?: string | null
 }
 
 export async function fetchIntake(auth: BookAuth): Promise<Intake> {

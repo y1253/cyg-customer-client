@@ -2,7 +2,7 @@ import { bookFetch, type BookAuth } from './bookkeeping'
 import { errorFrom, fetchWithAuth } from './client'
 
 /** Where a message came from: the website chat, a text, or WhatsApp to a receipt number. */
-export type AssistantChannel = 'BOT' | 'SMS' | 'WHATSAPP'
+export type AssistantChannel = 'BOT' | 'SMS' | 'WHATSAPP' | 'EMAIL'
 
 /** One thing the agent did while answering (its audit trail). */
 export type AssistantAction = { tool: string; ok: boolean; summary: string }

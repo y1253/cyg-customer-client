@@ -454,7 +454,8 @@ function Folder({
 }) {
   const drop = useFolderDrop(onDrop)
   const range = folderRange(folder)
-  const note = starts ? startingNote(starts) : null
+  // Always say where the account starts; red only when it starts more than once.
+  const note = folder.account ? startingNote(starts ?? [], folder.from) : null
   // One currency for the account only when every read statement in it agrees.
   const currencies = new Set(folder.statements.filter((s) => s.status === 'DONE').map((s) => s.accountCurrency ?? null))
   const currency = currencies.size === 1 ? [...currencies][0] : undefined
