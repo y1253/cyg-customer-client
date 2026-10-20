@@ -12,6 +12,7 @@ import {
   Paperclip,
   RotateCw,
   Search,
+  Sparkles,
   Store,
   Trash2,
 } from 'lucide-react'
@@ -28,6 +29,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { useAttachmentActions, useAttachments, useUploadAttachments } from '@/hooks/useAttachments'
 import { useBookScope } from '@/context/BookScopeContext'
+import { AttachmentChat } from '@/components/Assistant/AttachmentChat'
+import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useBook } from '@/hooks/useBook'
 import {
   FILE_COLUMNS,
@@ -229,6 +232,9 @@ function FolderTable({
   const { retry, remove, attach } = useAttachmentActions()
   const controls = useTableControls({ key: 'date', dir: 'desc' })
   const [open, setOpen] = useState<string | null>(null)
+  // "Ask AI" about an attachment we could not file (step11); one chat open at a time.
+  const [asking, setAsking] = useState<number | null>(null)
+  const assistant = useAssistantEnabled()
   const [openError, setOpenError] = useState<string | null>(null)
   const rows = applyTable(folderItems(folder), FILE_COLUMNS, controls.filters, controls.sort)
   const error = attach.error ?? retry.error ?? remove.error
@@ -340,6 +346,7 @@ function FolderTable({
                         <AttachmentPreview a={a} />
                         <ReadingSummary a={a} />
                         {a.matchNote && <p className="text-xs text-muted-foreground">{a.matchNote}</p>}
+                        {asking === a.id && <AttachmentChat attachmentId={a.id} />}
                         <div className="flex flex-wrap items-center gap-2">
                           {a.transaction && (
                             <Button
@@ -354,6 +361,16 @@ function FolderTable({
                           {(a.status === 'UNMATCHED' || a.status === 'MATCHED' || a.status === 'FAILED') && (
                             <Button size="sm" variant="ghost" onClick={() => onPick(a)} className="gap-1.5">
                               <Search className="size-4" /> {a.transaction ? 'Change transaction' : 'Choose transaction'}
+                            </Button>
+                          )}
+                          {assistant && (a.status === 'FAILED' || a.status === 'UNMATCHED') && (
+                            <Button
+                              size="sm"
+                              variant={asking === a.id ? 'secondary' : 'ghost'}
+                              onClick={() => setAsking(asking === a.id ? null : a.id)}
+                              className="gap-1.5 text-brand"
+                            >
+                              <Sparkles className="size-4" /> {asking === a.id ? 'Hide AI chat' : 'Ask AI'}
                             </Button>
                           )}
                           {(a.status === 'FAILED' || a.status === 'UNMATCHED') && (

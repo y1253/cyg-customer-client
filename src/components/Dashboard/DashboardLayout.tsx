@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useAuth } from '@/context/AuthContext'
+import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { cn } from '@/lib/utils'
 import { ACCOUNT_ITEM, MODULES, type NavItem } from './nav'
 
@@ -43,6 +44,7 @@ function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }
 function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
   const { customer, logout } = useAuth()
   const navigate = useNavigate()
+  const assistant = useAssistantEnabled()
   // In the mobile sheet a link also closes the sheet.
   const row = (item: NavItem) =>
     inSheet && !item.soon ? (
@@ -62,7 +64,7 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
         Services
       </p>
       <nav className="flex flex-col gap-1 px-3">
-        {MODULES.map(row)}
+        {MODULES.filter((m) => !m.assistant || assistant).map(row)}
       </nav>
       <div className="mt-auto flex flex-col gap-1 border-t border-white/10 px-3 py-4">
         {row(ACCOUNT_ITEM)}

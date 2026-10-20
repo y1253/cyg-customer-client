@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AccountPage } from '@/components/Account/AccountPage'
+import { AssistantPage } from '@/components/Assistant/AssistantPage'
 import { ForgotPasswordPage } from '@/components/Auth/ForgotPasswordPage'
 import { LoginPage } from '@/components/Auth/LoginPage'
 import { SignupPage } from '@/components/Auth/SignupPage'
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardHome /> },
           { path: 'bookkeeping', element: <BookkeepingPage /> },
           { path: 'account', element: <AccountPage /> },
+          { path: 'assistant', element: <AssistantPage /> },
           { path: 'register', element: <RegistrationsPage /> },
           { path: 'register/:id', element: <RegisterWizardPage /> },
           { path: 'businesses/:id', element: <CompanyPortalPage /> },

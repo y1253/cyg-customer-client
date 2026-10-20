@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react'
-import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
+import { FileSpreadsheet, FileText, Loader2, Sparkles } from 'lucide-react'
 import { unreadable, type ExportFormat, type Period, type Reports } from '@/api/bookkeeping'
+import { AssistantPanel } from '@/components/Assistant/AssistantPanel'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useExportLedger } from '@/hooks/useExportLedger'
 import { useReports } from '@/hooks/useReports'
 import { useStatements } from '@/hooks/useStatements'
@@ -25,7 +27,16 @@ import { Names } from './Names'
 import { Products } from './Products'
 import { UploadDropzone } from './UploadDropzone'
 
-type Tab = 'statements' | 'ledger' | 'attachments' | 'accounts' | 'income' | 'balance' | 'names' | 'products'
+type Tab =
+  | 'statements'
+  | 'ledger'
+  | 'attachments'
+  | 'accounts'
+  | 'income'
+  | 'balance'
+  | 'names'
+  | 'products'
+  | 'assistant'
 
 /**
  * Bookkeeping: upload statements → the AI posts every transaction as a double entry →
@@ -38,6 +49,7 @@ type Tab = 'statements' | 'ledger' | 'attachments' | 'accounts' | 'income' | 'ba
  */
 export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
   const statements = useStatements()
+  const assistant = useAssistantEnabled()
   const exporter = useExportLedger()
   const [tab, setTab] = useState<Tab>('statements')
   const [period, setPeriod] = useState<Period>({ from: null, to: null })
@@ -176,6 +188,11 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
           <TabsTrigger value="products" className="h-9 flex-none px-4">
             Products
           </TabsTrigger>
+          {assistant && (
+            <TabsTrigger value="assistant" className="h-9 flex-none gap-1.5 px-4">
+              <Sparkles className="size-4" /> Assistant
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="statements">
@@ -232,6 +249,11 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
         <TabsContent value="products">
           <Products />
         </TabsContent>
+        {assistant && (
+          <TabsContent value="assistant">
+            <AssistantPanel />
+          </TabsContent>
+        )}
       </Tabs>
 
       <LedgerDialog

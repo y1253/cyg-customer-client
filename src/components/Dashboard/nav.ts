@@ -1,4 +1,4 @@
-import { BookOpenCheck, Building2, FileText, LayoutDashboard, Receipt, UserRound, Wallet } from 'lucide-react'
+import { BookOpenCheck, Building2, FileText, LayoutDashboard, Receipt, Sparkles, UserRound, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type NavItem = {
@@ -9,6 +9,8 @@ export type NavItem = {
   soon?: boolean
   /** Match only this exact path (the Overview link would otherwise match everything). */
   end?: boolean
+  /** Only while the firm has the AI assistant on (`GET /api/assistant/config`). */
+  assistant?: boolean
 }
 
 /** The modules a customer can open. Add a module here and give it a route. */
@@ -16,6 +18,7 @@ export const MODULES: NavItem[] = [
   { label: 'Overview', to: '/dashboard', icon: LayoutDashboard, end: true },
   { label: 'My businesses', to: '/dashboard/register', icon: Building2 },
   { label: 'Bookkeeping', to: '/dashboard/bookkeeping', icon: BookOpenCheck },
+  { label: 'AI assistant', to: '/dashboard/assistant', icon: Sparkles, assistant: true },
   { label: 'Invoices', to: '#', icon: Receipt, soon: true },
   { label: 'Tax filing', to: '#', icon: FileText, soon: true },
   { label: 'Payroll', to: '#', icon: Wallet, soon: true },
