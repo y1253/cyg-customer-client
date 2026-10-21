@@ -15,6 +15,7 @@ import {
   FolderInput,
   FolderOpen,
   FolderPlus,
+  Landmark,
   Loader2,
   RotateCcw,
   Trash2,
@@ -273,15 +274,26 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                     move.isPending && move.variables?.id === s.id && 'opacity-50',
                   )}
                 >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
-                    <FileText className="size-5" />
-                  </span>
+                  {s.source === 'PLAID' ? (
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                      <Landmark className="size-5" />
+                    </span>
+                  ) : (
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                      <FileText className="size-5" />
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-semibold text-[#0B1C2C]" title={s.filename}>
                         {s.label}
                       </p>
                       <StatusBadge s={s} />
+                      {s.source === 'PLAID' && (
+                        <Badge variant="outline" className="shrink-0 text-brand">
+                          Bank feed
+                        </Badge>
+                      )}
                     </div>
                     <p
                       className={cn(
@@ -343,17 +355,19 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                         <RotateCcw />
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      title="View original PDF"
-                      onClick={() => {
-                        setOpenError(null)
-                        openOriginal(auth, s.id).catch((e: Error) => setOpenError(e.message))
-                      }}
-                    >
-                      <ExternalLink />
-                    </Button>
+                    {s.source !== 'PLAID' && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="View original PDF"
+                        onClick={() => {
+                          setOpenError(null)
+                          openOriginal(auth, s.id).catch((e: Error) => setOpenError(e.message))
+                        }}
+                      >
+                        <ExternalLink />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon-sm"

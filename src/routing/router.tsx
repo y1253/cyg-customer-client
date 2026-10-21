@@ -5,6 +5,7 @@ import { ForgotPasswordPage } from '@/components/Auth/ForgotPasswordPage'
 import { LoginPage } from '@/components/Auth/LoginPage'
 import { SignupPage } from '@/components/Auth/SignupPage'
 import { BookkeepingPage } from '@/components/Bookkeeping/BookkeepingPage'
+import { PlaidOAuthPage } from '@/components/Bookkeeping/PlaidOAuthPage'
 import { ConnectResultPage } from '@/components/Connect/ConnectResultPage'
 import { DashboardHome } from '@/components/Dashboard/DashboardHome'
 import { DashboardLayout } from '@/components/Dashboard/DashboardLayout'
@@ -34,6 +35,8 @@ export const router = createBrowserRouter([
   {
     element: <CustomerRoute />,
     children: [
+      // A bank that signs in on its own site (OAuth) returns here to finish Plaid Link.
+      { path: '/plaid/oauth', element: <PlaidOAuthPage /> },
       {
         path: '/dashboard',
         element: <DashboardLayout />,

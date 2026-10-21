@@ -48,6 +48,8 @@ export type Statement = {
   processedAt: string | null
   /** The customer filed it under this account themselves (a Retry keeps it there). */
   movedByCustomer?: boolean
+  /** UPLOAD | SMS | WHATSAPP | EMAIL | PLAID (a month built from a connected bank — no file). */
+  source?: string
   /**
    * Set when this statement STARTS its account's books — a "Starting balance" row in the
    * ledger. Only the statements list carries it.

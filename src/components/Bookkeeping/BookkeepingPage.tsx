@@ -12,6 +12,7 @@ import { useStatements } from '@/hooks/useStatements'
 import { useTransactions } from '@/hooks/useTransactions'
 import type { SortState } from '@/lib/table-sort'
 import { AttachmentsPanel } from './AttachmentsPanel'
+import { BankConnectionsCard } from './BankConnectionsCard'
 import { BalanceSheet } from './BalanceSheet'
 import { CommunicationPanel } from './Communication/CommunicationPanel'
 import { ChartOfAccounts } from './ChartOfAccounts'
@@ -204,6 +205,7 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
             <section className="lg:col-span-2">
               <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Upload</h2>
               <UploadDropzone />
+              <BankConnectionsCard className="mt-4" />
               {busy && (
                 <p className="mt-3 text-sm text-muted-foreground">
                   Reading takes about a minute per statement — you can leave this page; it continues in the background.
