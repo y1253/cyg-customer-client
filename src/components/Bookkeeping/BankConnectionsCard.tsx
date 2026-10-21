@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { AlertTriangle, CreditCard, Landmark, Loader2, LogIn, Plus, RefreshCw, Unplug } from 'lucide-react'
+import {
+  AlertTriangle,
+  CalendarDays,
+  CreditCard,
+  Landmark,
+  ListChecks,
+  Loader2,
+  LogIn,
+  Plus,
+  RefreshCw,
+  Unplug,
+} from 'lucide-react'
 import type { BankConnection } from '@/api/bankFeeds'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +31,7 @@ import {
 } from '@/hooks/useBankFeeds'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { BankStartDatesDialog } from './BankStartDatesDialog'
 
 /** "5 min ago", "yesterday", "Oct 3". */
 function ago(iso: string): string {
@@ -32,10 +44,16 @@ function ago(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+/** "Mar 1, 2025" from YYYY-MM-DD. */
+function dayLabel(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function statusLine(c: BankConnection): { text: string; tone: 'muted' | 'busy' | 'warn' } {
   if (c.status === 'LOGIN_REQUIRED') return { text: 'Needs you to sign in again', tone: 'warn' }
   if (c.status === 'ERROR') return { text: c.error ?? 'The connection stopped working', tone: 'warn' }
-  if (!c.lastSyncAt || !c.historyDone) return { text: 'Bringing in up to 2 years of history…', tone: 'busy' }
+  if (!c.setupAt) return { text: 'Pick where each account starts — nothing is filed until you do', tone: 'warn' }
+  if (!c.lastSyncAt || !c.historyDone) return { text: 'Bringing in your history…', tone: 'busy' }
   return { text: `Up to date · ${ago(c.lastSyncAt)}`, tone: 'muted' }
 }
 
@@ -51,9 +69,30 @@ export function BankConnectionsCard({ className }: { className?: string }) {
   const refresh = useRefreshBank()
   const disconnect = useDisconnectBank()
   const [confirm, setConfirm] = useState<BankConnection | null>(null)
-  if (!enabled) return null
+  const [datesFor, setDatesFor] = useState<BankConnection | null>(null)
+  /** New connections whose start-date dialog was closed with "Later" (not reopened by itself). */
+  const [later, setLater] = useState<number[]>([])
   const list = connections.data ?? []
   const error = connect.error ?? refresh.error ?? disconnect.error
+  if (!enabled) return null
+
+  // A new connection waits for its start dates (also one finished on /plaid/oauth): its
+  // dialog opens by itself. Otherwise the freshest copy of the one the customer opened.
+  const waiting = list.find((c) => c.status === 'ACTIVE' && !c.setupAt && !later.includes(c.id))
+  const dialogFor = datesFor ? (list.find((c) => c.id === datesFor.id) ?? datesFor) : (waiting ?? null)
+  const closeDates = () => {
+    if (dialogFor && !dialogFor.setupAt) setLater((l) => [...l, dialogFor.id])
+    setDatesFor(null)
+  }
+
+  /** Plaid Link's Account Select on this bank; a newly shared account asks for its date. */
+  const chooseAccounts = (c: BankConnection) => {
+    const before = new Set(c.accounts.map((a) => a.id))
+    connect.mutate(
+      { itemId: c.id, chooseAccounts: true },
+      { onSuccess: (next) => next && next.accounts.some((a) => !before.has(a.id)) && setDatesFor(next) },
+    )
+  }
 
   return (
     <div className={cn('rounded-2xl bg-white p-5 ring-1 ring-black/5', className)}>
@@ -64,8 +103,8 @@ export function BankConnectionsCard({ className }: { className?: string }) {
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-[#0B1C2C]">Connect your bank</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            No more uploading: we bring in your transactions automatically, up to 2 years back, and file each
-            month as a statement. Read-only — your bank password goes to Plaid, never to us.
+            No more uploading: you pick the accounts at your bank and how far back (up to 2 years), and we file
+            each month as a statement automatically. Read-only — your bank password goes to Plaid, never to us.
           </p>
         </div>
       </div>
@@ -74,7 +113,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
         <ul className="mt-4 space-y-3">
           {list.map((c) => {
             const line = statusLine(c)
-            const busy = refresh.isPending && refresh.variables === c.id
+            const busy = c.syncing || (refresh.isPending && refresh.variables === c.id)
             return (
               <li key={c.id} className="rounded-xl bg-[#F6F8FA] p-3">
                 <div className="flex items-center gap-2">
@@ -86,7 +125,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                       size="sm"
                       variant="outline"
                       disabled={connect.isPending}
-                      onClick={() => connect.mutate(c.id)}
+                      onClick={() => connect.mutate({ itemId: c.id })}
                     >
                       <LogIn /> Sign in again
                     </Button>
@@ -121,6 +160,19 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                   {line.tone === 'warn' && <AlertTriangle className="size-3.5 shrink-0" />}
                   {line.text}
                 </p>
+                {c.newAccounts && c.status === 'ACTIVE' && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Your bank has an account you have not shared yet.{' '}
+                    <button
+                      type="button"
+                      className="font-medium underline"
+                      disabled={connect.isPending}
+                      onClick={() => chooseAccounts(c)}
+                    >
+                      Add it
+                    </button>
+                  </p>
+                )}
                 {c.accounts.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {c.accounts.map((a) => (
@@ -132,6 +184,12 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                         )}
                         <span className="min-w-0 flex-1 truncate" title={`Filed under “${a.accountName}”`}>
                           {a.accountName}
+                          {c.setupAt && (
+                            <span className="text-muted-foreground">
+                              {' '}
+                              · {a.startDate ? `from ${dayLabel(a.startDate)}` : 'all history'}
+                            </span>
+                          )}
                         </span>
                         {a.currentBalance !== null && (
                           <span className="shrink-0 tabular-nums text-muted-foreground">
@@ -143,17 +201,34 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                     ))}
                   </ul>
                 )}
+                {c.status === 'ACTIVE' && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <Button size="xs" variant="ghost" disabled={connect.isPending} onClick={() => chooseAccounts(c)}>
+                      <ListChecks /> Change accounts
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant={c.setupAt ? 'ghost' : 'default'}
+                      disabled={c.accounts.length === 0}
+                      onClick={() => setDatesFor(c)}
+                    >
+                      <CalendarDays /> Start dates
+                    </Button>
+                  </div>
+                )}
               </li>
             )
           })}
         </ul>
       )}
 
-      <Button className="mt-4 w-full" disabled={connect.isPending} onClick={() => connect.mutate(undefined)}>
+      <Button className="mt-4 w-full" disabled={connect.isPending} onClick={() => connect.mutate({})}>
         {connect.isPending ? <Loader2 className="animate-spin" /> : <Plus />}
         {list.length ? 'Connect another bank' : 'Connect your bank'}
       </Button>
       {error && <p className="mt-2 text-sm text-destructive">{error.message}</p>}
+
+      <BankStartDatesDialog connection={dialogFor} onClose={closeDates} />
 
       <Dialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>

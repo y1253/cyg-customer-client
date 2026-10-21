@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BANK_FEEDS_CONFIG_KEY,
@@ -9,6 +10,9 @@ import {
   markReconnected,
   refreshBankConnection,
   removeBankConnection,
+  saveStartDates,
+  type BankConnection,
+  type StartDate,
 } from '@/api/bankFeeds'
 import { clearPendingLink, openPlaidLink, savePendingLink } from '@/lib/plaid-link'
 import { useBook } from './useBook'
@@ -26,19 +30,35 @@ export function useBankFeedsEnabled(): boolean {
   return q.data?.enabled ?? false
 }
 
+/** Still bringing in its history, or syncing right now. */
+function busy(c: BankConnection): boolean {
+  return c.status === 'ACTIVE' && (c.syncing || !c.historyDone || !c.lastSyncAt)
+}
+
 /**
- * The book's bank connections. While one is still bringing in its history it polls, so the
- * statements appear without a reload.
+ * The book's bank connections. While one is busy it polls, and every finished sync
+ * refetches the whole book, so the statements appear without a reload.
  */
 export function useBankConnections(enabled: boolean) {
   const book = useBook()
-  return useQuery({
+  const invalidateBook = useInvalidateBookkeeping()
+  const q = useQuery({
     queryKey: book.key(BANK_FEEDS_KEY),
     queryFn: () => fetchBankConnections(book.auth),
     enabled: !!book.token && enabled,
-    refetchInterval: (q) =>
-      q.state.data?.some((c) => c.status === 'ACTIVE' && (!c.historyDone || !c.lastSyncAt)) ? 15_000 : false,
+    refetchInterval: (q) => (q.state.data?.some(busy) ? 15_000 : false),
   })
+
+  const synced = useRef<Map<number, string | null> | null>(null)
+  useEffect(() => {
+    if (!q.data) return
+    const now = new Map(q.data.map((c) => [c.id, c.lastSyncAt]))
+    const before = synced.current
+    synced.current = now
+    if (before && [...now].some(([id, at]) => before.has(id) && before.get(id) !== at)) void invalidateBook()
+  }, [q.data, invalidateBook])
+
+  return q
 }
 
 /** Everything that follows a bank change: the connections and the whole book. */
@@ -49,34 +69,47 @@ function useAfterChange() {
 }
 
 /**
- * Opens Plaid Link and keeps the bank. `itemId` = sign in to that bank again (update mode).
- * Resolves false when the customer closed the window.
+ * Opens Plaid Link and keeps the bank; the customer picks its accounts there (Account
+ * Select). `itemId` = update mode on that bank: sign in again, or with `chooseAccounts`
+ * pick its accounts again. Resolves with the connection, null when Link was closed.
  */
 export function useConnectBank() {
   const book = useBook()
   const after = useAfterChange()
   return useMutation({
-    mutationFn: async (itemId?: number): Promise<boolean> => {
-      const token = await createLinkToken(book.auth, itemId)
+    mutationFn: async ({
+      itemId,
+      chooseAccounts = false,
+    }: { itemId?: number; chooseAccounts?: boolean } = {}): Promise<BankConnection | null> => {
+      const token = await createLinkToken(book.auth, itemId, chooseAccounts)
       savePendingLink({ token, companyId: book.companyId, itemId, returnTo: window.location.pathname })
       const publicToken = await openPlaidLink(token).finally(clearPendingLink)
-      if (!publicToken) return false
-      if (itemId) await markReconnected(book.auth, itemId)
-      else await exchangePublicToken(book.auth, publicToken)
-      return true
+      if (!publicToken) return null
+      return itemId ? markReconnected(book.auth, itemId) : exchangePublicToken(book.auth, publicToken)
     },
-    onSuccess: (done) => {
-      if (done) void after()
+    onSuccess: (connection) => {
+      if (connection) void after()
     },
+  })
+}
+
+/** Each account's first day in the books; confirms a new connection. */
+export function useSaveStartDates() {
+  const book = useBook()
+  const after = useAfterChange()
+  return useMutation({
+    mutationFn: ({ id, accounts }: { id: number; accounts: StartDate[] }) => saveStartDates(book.auth, id, accounts),
+    onSuccess: () => void after(),
   })
 }
 
 export function useRefreshBank() {
   const book = useBook()
-  const after = useAfterChange()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => refreshBankConnection(book.auth, id),
-    onSuccess: () => void after(),
+    // Answers at once; the list polls while `syncing` and refetches the book when done.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: BANK_FEEDS_KEY }),
   })
 }
 
