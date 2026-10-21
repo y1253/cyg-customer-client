@@ -1,6 +1,28 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { ArrowLeft, Bot, FileText, Mail, MessageCircle, MessageSquare, Paperclip, Upload } from 'lucide-react'
-import { openCommFile, type ChannelSummary, type CommChannel, type CommFile, type CommItem } from '@/api/communications'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  ArrowLeft,
+  Bot,
+  FileText,
+  Loader2,
+  Mail,
+  MessageCircle,
+  MessageSquare,
+  Paperclip,
+  Phone,
+  PhoneIncoming,
+  PhoneMissed,
+  PhoneOutgoing,
+  Upload,
+} from 'lucide-react'
+import {
+  callRecordingUrl,
+  openCommFile,
+  type ChannelSummary,
+  type CommCall,
+  type CommChannel,
+  type CommFile,
+  type CommItem,
+} from '@/api/communications'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -11,6 +33,7 @@ import { cn } from '@/lib/utils'
 const CHANNEL: Record<CommChannel, { label: string; icon: typeof Mail; empty: string }> = {
   WHATSAPP: { label: 'WhatsApp', icon: MessageCircle, empty: 'Nothing on WhatsApp yet.' },
   SMS: { label: 'Text messages', icon: MessageSquare, empty: 'No text messages yet.' },
+  VOICE: { label: 'Phone calls', icon: Phone, empty: 'No calls with the AI yet. Call our receipt number to talk to it.' },
   EMAIL: { label: 'Email', icon: Mail, empty: 'No emails yet.' },
   BOT: { label: 'Website chat', icon: Bot, empty: 'No chats on the website yet.' },
   UPLOADS: { label: 'Uploads', icon: Upload, empty: 'Nothing uploaded on the website yet.' },
@@ -210,6 +233,7 @@ function Thread({
 }
 
 function Bubble({ m, onError }: { m: CommItem; onError: (msg: string) => void }) {
+  if (m.kind === 'call' && m.call) return <CallBubble call={m.call} at={m.at} />
   const own = m.side === 'customer'
   return (
     <div className={cn('flex', own ? 'justify-end' : 'justify-start')}>
@@ -261,5 +285,61 @@ function FileChip({ f, own, onError }: { f: CommFile; own: boolean; onError: (ms
       <span className={cn('min-w-0 flex-1 truncate font-medium', removed && 'line-through')}>{f.filename}</span>
       {status && <Badge className={cn('shrink-0 text-[10px]', status.tone)}>{status.label}</Badge>}
     </button>
+  )
+}
+
+const PURPOSE: Record<string, string> = {
+  INBOUND: 'You called us',
+  ACCOUNT_STATUS: 'We called with your account status',
+  FINANCIAL_REPORT: 'We called with your financial report',
+}
+
+const fmtDuration = (s: number | null) =>
+  s == null ? '' : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`
+
+/**
+ * step12: one phone call with the AI — who called, how long, and its recording (fetched
+ * with the sign-in token only when asked for). What was said is in the bubbles around it.
+ */
+function CallBubble({ call, at }: { call: CommCall; at: string }) {
+  const { auth } = useBook()
+  const [url, setUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const missed = call.status === 'NO_ANSWER' || call.status === 'FAILED'
+  const Icon = missed ? PhoneMissed : call.direction === 'OUTBOUND' ? PhoneOutgoing : PhoneIncoming
+  const load = () => {
+    setLoading(true)
+    setError(null)
+    callRecordingUrl(auth, call.id)
+      .then(setUrl, (e: Error) => setError(e.message))
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => () => {
+    if (url) URL.revokeObjectURL(url)
+  }, [url])
+  return (
+    <div className="flex justify-center">
+      <div className="flex w-full max-w-md flex-col gap-2 rounded-xl border bg-white px-3.5 py-2.5 text-sm shadow-sm">
+        <p className="flex items-center gap-2 font-medium text-[#0B1C2C]">
+          <Icon className={cn('size-4', missed ? 'text-red-600' : 'text-brand')} />
+          <span className="min-w-0 flex-1">
+            {missed ? 'Missed call — we sent it by text or email instead' : (PURPOSE[call.purpose] ?? 'Phone call')}
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {[fmtDuration(call.durationSec), fmtTime(at)].filter(Boolean).join(' · ')}
+          </span>
+        </p>
+        {!missed &&
+          (url ? (
+            <audio controls src={url} className="w-full" />
+          ) : call.hasRecording ? (
+            <Button size="sm" variant="outline" onClick={load} disabled={loading} className="w-fit gap-1.5">
+              {loading ? <Loader2 className="size-4 animate-spin" /> : <Phone className="size-4" />} Play recording
+            </Button>
+          ) : null)}
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+    </div>
   )
 }

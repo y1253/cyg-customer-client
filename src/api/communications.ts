@@ -2,7 +2,19 @@ import { bookFetch, type BookAuth } from './bookkeeping'
 import { errorFrom } from './client'
 
 /** One chat per channel on the Communication tab (step12). UPLOADS = files added on the site. */
-export type CommChannel = 'WHATSAPP' | 'SMS' | 'EMAIL' | 'BOT' | 'UPLOADS'
+export type CommChannel = 'WHATSAPP' | 'SMS' | 'VOICE' | 'EMAIL' | 'BOT' | 'UPLOADS'
+
+/** step12: one phone call with the AI (its words are the messages around it). */
+export type CommCall = {
+  id: number
+  /** INBOUND = they called us; OUTBOUND = the AI called them. */
+  direction: string
+  /** INBOUND | ACCOUNT_STATUS | FINANCIAL_REPORT */
+  purpose: string
+  status: string
+  durationSec: number | null
+  hasRecording: boolean
+}
 
 export type ChannelSummary = {
   channel: CommChannel
@@ -26,10 +38,11 @@ export type CommItem = {
   at: string
   /** customer = they sent it; cyg = we (the assistant) answered. */
   side: 'customer' | 'cyg'
-  kind: 'message' | 'upload'
+  kind: 'message' | 'upload' | 'call'
   text: string | null
   files: CommFile[]
   warning?: string | null
+  call?: CommCall
 }
 
 export type CommPage = { items: CommItem[]; nextBefore: string | null }
@@ -63,4 +76,11 @@ export async function openCommFile(auth: BookAuth, file: CommFile): Promise<void
   if (tab) tab.location.href = url
   else window.location.href = url
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+/** step12: a call's recording as an object URL (proxied by the customer API, never SignalWire's). */
+export async function callRecordingUrl(auth: BookAuth, callId: number): Promise<string> {
+  const res = await bookFetch(auth, `/api/bookkeeping/calls/${callId}/recording`)
+  if (!res.ok) throw await errorFrom(res)
+  return URL.createObjectURL(await res.blob())
 }

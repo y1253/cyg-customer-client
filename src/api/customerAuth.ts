@@ -16,11 +16,13 @@ export type Customer = {
   createdAt: string
 }
 
-export type ContactMethod = 'EMAIL' | 'WHATSAPP' | 'SMS'
+export type ContactMethod = 'EMAIL' | 'WHATSAPP' | 'SMS' | 'CALL'
 export const CONTACT_METHOD_LABEL: Record<ContactMethod, string> = {
   EMAIL: 'Email',
   WHATSAPP: 'WhatsApp',
   SMS: 'Text message',
+  // step12: scheduled messages arrive as a call from the AI assistant.
+  CALL: 'Phone call',
 }
 
 export type AuthResult = { access_token: string; customer: Customer }

@@ -209,7 +209,14 @@ function ScheduleCard({ s }: { s: Schedule }) {
                     <AlertCircle className="mt-px size-3.5 shrink-0 text-red-600" />
                   )}
                   <span>
-                    {fmtWhen(r.at)} · {r.channel === 'NONE' ? 'not sent' : r.channel === 'SMS' ? 'by text' : 'by email'}
+                    {fmtWhen(r.at)} ·{' '}
+                    {r.channel === 'NONE'
+                      ? 'not sent'
+                      : r.channel === 'SMS'
+                        ? 'by text'
+                        : r.channel === 'CALL'
+                          ? 'by phone call'
+                          : 'by email'}
                     {r.manual && ' (send now)'}
                     {r.channel === 'NONE' && r.text ? ` — ${r.text}` : ''}
                     {r.error ? ` — ${r.error}` : ''}
@@ -228,6 +235,14 @@ function ScheduleCard({ s }: { s: Schedule }) {
 function Delivery({ s }: { s: Schedule }) {
   const d = s.delivery
   if (!d.channel) return <>We have no email address or phone to send it to.</>
+  if (d.channel === 'CALL') {
+    return (
+      <>
+        The AI assistant <b>calls</b> {fmtPhone(d.to)}, says it, and answers your questions. No answer → a text, then
+        email.
+      </>
+    )
+  }
   if (d.channel === 'SMS') {
     return (
       <>
@@ -239,8 +254,8 @@ function Delivery({ s }: { s: Schedule }) {
   return (
     <>
       Sends by <b>email</b> to {d.to}
-      {d.preferred === 'SMS' || d.preferred === 'WHATSAPP'
-        ? ' — add a mobile number to your account to get it by text.'
+      {d.preferred === 'SMS' || d.preferred === 'WHATSAPP' || d.preferred === 'CALL'
+        ? ' — add a mobile number to your account to get it by text or call.'
         : '.'}
     </>
   )

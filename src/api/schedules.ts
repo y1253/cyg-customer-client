@@ -31,7 +31,7 @@ export type Schedule = {
   description: string
   nextRunAt: string | null
   lastRunAt: string | null
-  delivery: { channel: 'EMAIL' | 'SMS' | null; to: string | null; preferred: string | null }
+  delivery: { channel: 'EMAIL' | 'SMS' | 'CALL' | null; to: string | null; preferred: string | null }
   runs: ScheduleRun[]
 }
 

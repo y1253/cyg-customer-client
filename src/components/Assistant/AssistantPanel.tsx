@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lightbulb, MessageCircle, MessageSquareText, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Lightbulb, MessageCircle, MessageSquareText, Phone, Plus, Sparkles, Trash2 } from 'lucide-react'
 import type { AssistantConversation } from '@/api/assistant'
 import { uploadAttachments } from '@/api/attachments'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ const ago = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month
 function ChannelIcon({ c }: { c: AssistantConversation }) {
   if (c.channel === 'SMS') return <MessageSquareText className="size-4 shrink-0 text-sky-600" />
   if (c.channel === 'WHATSAPP') return <MessageCircle className="size-4 shrink-0 text-emerald-600" />
+  if (c.channel === 'VOICE') return <Phone className="size-4 shrink-0 text-violet-600" />
   return <Sparkles className="size-4 shrink-0 text-brand" />
 }
 
@@ -30,6 +31,8 @@ function readOnlyReason(c: AssistantConversation | undefined): string | undefine
   if (!c) return undefined
   if (c.channel === 'SMS') return 'This conversation happened by text — reply from your phone to continue it.'
   if (c.channel === 'WHATSAPP') return 'This conversation happened on WhatsApp — reply there to continue it.'
+  if (c.channel === 'VOICE') return 'These were phone calls — call our receipt number to talk to the AI again.'
+  if (c.channel === 'EMAIL') return 'This conversation happened by email — reply to that email to continue it.'
   if (c.attachmentId) return 'This chat is about one attachment — continue it from Attachments → Ask AI.'
   return undefined
 }
