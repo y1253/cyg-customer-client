@@ -53,6 +53,8 @@ function statusLine(c: BankConnection): { text: string; tone: 'muted' | 'busy' |
   if (c.status === 'LOGIN_REQUIRED') return { text: 'Needs you to sign in again', tone: 'warn' }
   if (c.status === 'ERROR') return { text: c.error ?? 'The connection stopped working', tone: 'warn' }
   if (!c.setupAt) return { text: 'Pick where each account starts — nothing is filed until you do', tone: 'warn' }
+  // An ACTIVE item's error = why the bank has sent nothing yet (e.g. it is down at Plaid).
+  if (!c.historyDone && c.error) return { text: c.error, tone: 'warn' }
   if (!c.lastSyncAt || !c.historyDone) return { text: 'Bringing in your history…', tone: 'busy' }
   return { text: `Up to date · ${ago(c.lastSyncAt)}`, tone: 'muted' }
 }

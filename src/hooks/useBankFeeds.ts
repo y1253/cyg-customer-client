@@ -32,7 +32,8 @@ export function useBankFeedsEnabled(): boolean {
 
 /** Still bringing in its history, or syncing right now. */
 function busy(c: BankConnection): boolean {
-  return c.status === 'ACTIVE' && (c.syncing || !c.historyDone || !c.lastSyncAt)
+  // Waiting on the bank (`error` set) is not busy: the server keeps trying every 5 minutes.
+  return c.status === 'ACTIVE' && (c.syncing || ((!c.historyDone || !c.lastSyncAt) && !c.error))
 }
 
 /**
