@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Lightbulb, MessageCircle, MessageSquareText, Plus, Sparkles, Trash2 } from 'lucide-react'
 import type { AssistantConversation } from '@/api/assistant'
+import { uploadAttachments } from '@/api/attachments'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -10,6 +11,8 @@ import {
   useDeleteAssistantRule,
   useSendAssistantMessage,
 } from '@/hooks/useAssistant'
+import { useBook } from '@/hooks/useBook'
+import { useInvalidateBookkeeping } from '@/hooks/useInvalidateBookkeeping'
 import { channelLabel, conversationLabel } from '@/lib/assistant'
 import { cn } from '@/lib/utils'
 import { ChatPanel } from './ChatPanel'
@@ -42,6 +45,8 @@ export function AssistantPanel() {
   const [selected, setSelected] = useState<number | null>(null)
   const messages = useConversationMessages(selected)
   const send = useSendAssistantMessage()
+  const book = useBook()
+  const invalidate = useInvalidateBookkeeping()
   const list = conversations.data ?? []
   const current = list.find((c) => c.id === selected)
 
@@ -94,15 +99,25 @@ export function AssistantPanel() {
             messages={selected === null ? [] : (messages.data ?? [])}
             loading={selected !== null && messages.isLoading}
             disabled={readOnlyReason(current)}
-            onSend={async (text) => {
-              const r = await send.mutateAsync({ conversationId: selected ?? undefined, text })
+            allowFiles
+            onSend={async (text, files) => {
+              // Files go up first (into this book, like any upload); the message then carries
+              // their ids and the AI answers once they are read.
+              const added = files.length ? await uploadAttachments(book.auth, files, null, () => {}) : []
+              if (added.length) void invalidate()
+              const r = await send.mutateAsync({
+                conversationId: selected ?? undefined,
+                text,
+                attachmentIds: added.map((a) => a.id),
+              })
               setSelected(r.conversationId)
             }}
             empty={
               <>
                 <Sparkles className="mx-auto mb-2 size-6 text-brand" />
                 Ask anything about your books — “show my transactions from March”, “what did I spend at Costco?”,
-                “move Uber to Travel”. You can also text or WhatsApp our receipt number.
+                “move Uber to Travel”. Add a receipt, a cheque or a letter with the paperclip and the AI will
+                read it. You can also text or WhatsApp our receipt number.
               </>
             }
           />

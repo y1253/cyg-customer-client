@@ -3,12 +3,14 @@ import {
   ASSISTANT_CONFIG_KEY,
   ASSISTANT_RULES_KEY,
   ATTACHMENT_CHAT_KEY,
+  ATTACHMENT_MESSAGES_KEY,
   CONVERSATION_KEY,
   CONVERSATIONS_KEY,
   deleteAssistantRule,
   fetchAssistantConfig,
   fetchAssistantRules,
   fetchAttachmentChat,
+  fetchAttachmentMessages,
   fetchConversationMessages,
   fetchConversations,
   sendAssistantMessage,
@@ -44,6 +46,7 @@ function useAfterReply() {
   return (r: AssistantReply) => {
     void queryClient.invalidateQueries({ queryKey: CONVERSATIONS_KEY })
     void queryClient.invalidateQueries({ queryKey: ASSISTANT_RULES_KEY })
+    void queryClient.invalidateQueries({ queryKey: ATTACHMENT_MESSAGES_KEY })
     if (changedSomething(r.reply)) void invalidate()
   }
 }
@@ -72,7 +75,8 @@ export function useSendAssistantMessage() {
   const queryClient = useQueryClient()
   const after = useAfterReply()
   return useMutation({
-    mutationFn: (body: { conversationId?: number; text: string }) => sendAssistantMessage(book.auth, body),
+    mutationFn: (body: { conversationId?: number; text: string; attachmentIds?: number[] }) =>
+      sendAssistantMessage(book.auth, body),
     onSuccess: (r) => {
       queryClient.setQueryData(book.key([...CONVERSATION_KEY, r.conversationId]), (old: unknown) => [
         ...((old as AssistantReply['message'][] | undefined) ?? []),
@@ -126,5 +130,15 @@ export function useDeleteAssistantRule() {
   return useMutation({
     mutationFn: (id: number) => deleteAssistantRule(book.auth, id),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ASSISTANT_RULES_KEY }),
+  })
+}
+
+/** step11b: every AI message linked to one file, any channel — shown on that file's row. */
+export function useAttachmentMessages(attachmentId: number, { enabled = true }: { enabled?: boolean } = {}) {
+  const book = useBook()
+  return useQuery({
+    queryKey: book.key([...ATTACHMENT_MESSAGES_KEY, attachmentId]),
+    queryFn: () => fetchAttachmentMessages(book.auth, attachmentId),
+    enabled: !!book.token && enabled,
   })
 }

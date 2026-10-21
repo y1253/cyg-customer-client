@@ -25,6 +25,7 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: 'Reading…', tone: 'bg-slate-100 text-slate-600' },
   PROCESSING: { label: 'Reading…', tone: 'bg-slate-100 text-slate-600' },
   FAILED: { label: "Couldn't read", tone: 'bg-red-50 text-red-700' },
+  DOCUMENT: { label: 'Document', tone: 'bg-sky-50 text-sky-800' },
   REMOVED: { label: 'Removed', tone: 'bg-slate-100 text-slate-500' },
 }
 

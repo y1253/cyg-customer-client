@@ -96,6 +96,9 @@ const KIND_NAMES: Record<Attachment['kind'], string> = {
   AUDIO: 'Voice note',
   TEXT: 'Text message',
   OTHER: 'Other',
+  INVOICE: 'Invoice',
+  DEPOSIT_SLIP: 'Deposit slip',
+  DOCUMENT: 'Document',
 }
 
 /** The table's columns — each sorts and filters on its own (`ColumnHeader`). */

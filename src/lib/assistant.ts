@@ -28,14 +28,40 @@ export function changedSomething(m: Pick<AssistantMessage, 'actions'>): boolean 
 }
 
 /** What a pending user message looks like before the server answers (negative id). */
-export function optimisticMessage(text: string, now = new Date()): AssistantMessage {
+export function optimisticMessage(text: string, now = new Date(), files: string[] = []): AssistantMessage {
   return {
     id: -now.getTime(),
     role: 'USER',
     channel: 'BOT',
-    text,
+    text: text || fileLabel(files.length),
     warning: null,
     actions: null,
     createdAt: now.toISOString(),
+    files: files.map((filename, i) => ({ id: -(i + 1), filename, role: 'SENT', live: true })),
   }
+}
+
+/** "[sent a file]" — the server's placeholder for a message with files and no words. */
+export function fileLabel(n: number): string {
+  return n === 1 ? '[sent a file]' : `[sent ${n} files]`
+}
+
+/** True for that placeholder (the bubble then shows only the file chips). */
+export const isFileLabel = (text: string) => /^\[sent (a file|\d+ files)\]$/.test(text)
+
+/** Splits text into plain parts and http(s) links, so a link the AI sends can be clicked. */
+export function linkParts(text: string): Array<{ text: string; href?: string }> {
+  const out: Array<{ text: string; href?: string }> = []
+  const re = /https?:\/\/[^\s<>"')\]]+/g
+  let last = 0
+  for (const m of text.matchAll(re)) {
+    // A sentence's final period is not part of the link.
+    const href = m[0].replace(/[.,;:!?]+$/, '')
+    const at = m.index ?? 0
+    if (at > last) out.push({ text: text.slice(last, at) })
+    out.push({ text: href, href })
+    last = at + href.length
+  }
+  if (last < text.length) out.push({ text: text.slice(last) })
+  return out
 }

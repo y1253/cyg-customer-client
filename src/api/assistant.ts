@@ -7,6 +7,16 @@ export type AssistantChannel = 'BOT' | 'SMS' | 'WHATSAPP' | 'EMAIL'
 /** One thing the agent did while answering (its audit trail). */
 export type AssistantAction = { tool: string; ok: boolean; summary: string }
 
+/** A file a message came with, is about, or changed (step11b) — kept after it is deleted. */
+export type AssistantMessageFile = {
+  id: number
+  filename: string
+  /** SENT = came with the message, ABOUT = the chat is about it, ACTION = the AI changed it. */
+  role: 'SENT' | 'ABOUT' | 'ACTION' | string
+  /** False = deleted since. */
+  live: boolean
+}
+
 export type AssistantMessage = {
   id: number
   role: 'USER' | 'ASSISTANT'
@@ -16,6 +26,7 @@ export type AssistantMessage = {
   warning: string | null
   actions: AssistantAction[] | null
   createdAt: string
+  files?: AssistantMessageFile[]
 }
 
 /** `POST /api/assistant/chat` and `POST …/attachments/:id/chat`. */
@@ -44,6 +55,7 @@ export const CONVERSATIONS_KEY = ['assistant-conversations'] as const
 export const CONVERSATION_KEY = ['assistant-conversation'] as const
 export const ASSISTANT_RULES_KEY = ['assistant-rules'] as const
 export const ATTACHMENT_CHAT_KEY = ['attachment-chat'] as const
+export const ATTACHMENT_MESSAGES_KEY = ['attachment-messages'] as const
 
 const json = (method: string, body: unknown): RequestInit => ({
   method,
@@ -60,7 +72,7 @@ export async function fetchAssistantConfig(token: string): Promise<{ enabled: bo
 
 export async function sendAssistantMessage(
   auth: BookAuth,
-  body: { conversationId?: number; text: string },
+  body: { conversationId?: number; text: string; attachmentIds?: number[] },
 ): Promise<AssistantReply> {
   const res = await bookFetch(auth, '/api/assistant/chat', json('POST', body))
   if (!res.ok) throw await errorFrom(res)
@@ -98,6 +110,13 @@ export async function fetchAttachmentChat(auth: BookAuth, attachmentId: number):
 
 export async function sendAttachmentChat(auth: BookAuth, attachmentId: number, text: string): Promise<AssistantReply> {
   const res = await bookFetch(auth, `/api/bookkeeping/attachments/${attachmentId}/chat`, json('POST', { text }))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** step11b: every AI message linked to one file, on any channel (kept after it is deleted). */
+export async function fetchAttachmentMessages(auth: BookAuth, attachmentId: number): Promise<AssistantMessage[]> {
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${attachmentId}/messages`)
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }

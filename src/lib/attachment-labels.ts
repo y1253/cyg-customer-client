@@ -18,4 +18,7 @@ export const KIND_LABEL: Record<AttachmentKind, string> = {
   AUDIO: 'Voice note',
   TEXT: 'Text message',
   OTHER: 'File',
+  INVOICE: 'Invoice',
+  DEPOSIT_SLIP: 'Deposit slip',
+  DOCUMENT: 'Document',
 }

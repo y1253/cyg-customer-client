@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Inbox,
   Loader2,
+  MessagesSquare,
   Paperclip,
   RotateCw,
   Search,
@@ -30,6 +31,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components
 import { useAttachmentActions, useAttachments, useUploadAttachments } from '@/hooks/useAttachments'
 import { useBookScope } from '@/context/BookScopeContext'
 import { AttachmentChat } from '@/components/Assistant/AttachmentChat'
+import { AttachmentConversation } from '@/components/Assistant/AttachmentConversation'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useBook } from '@/hooks/useBook'
 import {
@@ -331,6 +333,24 @@ function FolderTable({
                           from statement
                         </span>
                       )}
+                      {a?.source === 'EMAIL' && (
+                        <span className="hidden shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-600/20 sm:inline">
+                          via email
+                        </span>
+                      )}
+                      {a?.source === 'CHAT' && (
+                        <span className="hidden shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand ring-1 ring-brand/25 sm:inline">
+                          via AI chat
+                        </span>
+                      )}
+                      {!!a?.messageCount && (
+                        <span
+                          title={`${a.messageCount} message${a.messageCount === 1 ? '' : 's'} with the AI about this file`}
+                          className="flex shrink-0 items-center gap-0.5 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand"
+                        >
+                          <MessagesSquare className="size-3" /> {a.messageCount}
+                        </span>
+                      )}
                       {a && <AttachmentStatusBadge a={a} />}
                     </div>
                   </TableCell>
@@ -347,8 +367,14 @@ function FolderTable({
                       <div className="flex flex-col gap-3 py-1">
                         <AttachmentPreview a={a} />
                         <ReadingSummary a={a} />
-                        {a.matchNote && <p className="text-xs text-muted-foreground">{a.matchNote}</p>}
-                        {asking === a.id && <AttachmentChat attachmentId={a.id} />}
+                        {a.matchNote && a.matchNote !== a.reading?.summary && (
+                          <p className="text-xs text-muted-foreground">{a.matchNote}</p>
+                        )}
+                        {asking === a.id ? (
+                          <AttachmentChat attachmentId={a.id} />
+                        ) : (
+                          !!a.messageCount && <AttachmentConversation attachmentId={a.id} />
+                        )}
                         <div className="flex flex-wrap items-center gap-2">
                           {a.transaction && (
                             <Button
@@ -360,12 +386,15 @@ function FolderTable({
                               <ExternalLink className="size-4" /> View transaction
                             </Button>
                           )}
-                          {(a.status === 'UNMATCHED' || a.status === 'MATCHED' || a.status === 'FAILED') && (
+                          {(a.status === 'UNMATCHED' ||
+                            a.status === 'MATCHED' ||
+                            a.status === 'FAILED' ||
+                            a.status === 'DOCUMENT') && (
                             <Button size="sm" variant="ghost" onClick={() => onPick(a)} className="gap-1.5">
                               <Search className="size-4" /> {a.transaction ? 'Change transaction' : 'Choose transaction'}
                             </Button>
                           )}
-                          {assistant && (a.status === 'FAILED' || a.status === 'UNMATCHED') && (
+                          {assistant && (a.status === 'FAILED' || a.status === 'UNMATCHED' || a.status === 'DOCUMENT') && (
                             <Button
                               size="sm"
                               variant={asking === a.id ? 'secondary' : 'ghost'}
@@ -375,7 +404,7 @@ function FolderTable({
                               <Sparkles className="size-4" /> {asking === a.id ? 'Hide AI chat' : 'Ask AI'}
                             </Button>
                           )}
-                          {(a.status === 'FAILED' || a.status === 'UNMATCHED') && (
+                          {(a.status === 'FAILED' || a.status === 'UNMATCHED' || a.status === 'DOCUMENT') && (
                             <Button
                               size="sm"
                               variant="ghost"

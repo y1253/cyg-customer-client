@@ -3,10 +3,13 @@ import {
   CheckCircle2,
   Clock,
   FileText,
+  Landmark,
   Loader2,
+  Mail,
   MessageSquareText,
   Mic,
   Receipt,
+  ScrollText,
   SearchX,
   Wallet,
 } from 'lucide-react'
@@ -19,7 +22,10 @@ import { money } from '@/lib/money'
 
 export function KindIcon({ kind, className = 'size-4' }: { kind: AttachmentKind; className?: string }) {
   if (kind === 'RECEIPT') return <Receipt className={className} />
+  if (kind === 'INVOICE') return <ScrollText className={className} />
   if (kind === 'CHECK') return <Wallet className={className} />
+  if (kind === 'DEPOSIT_SLIP') return <Landmark className={className} />
+  if (kind === 'DOCUMENT') return <Mail className={className} />
   if (kind === 'AUDIO') return <Mic className={className} />
   if (kind === 'TEXT') return <MessageSquareText className={className} />
   return <FileText className={className} />
@@ -37,6 +43,13 @@ export function AttachmentStatusBadge({ a }: { a: Attachment }) {
     return (
       <Badge className="gap-1 bg-amber-50 text-amber-800 ring-1 ring-amber-600/20">
         <SearchX className="size-3" /> Choose transaction
+      </Badge>
+    )
+  }
+  if (a.status === 'DOCUMENT') {
+    return (
+      <Badge className="gap-1 bg-sky-50 text-sky-800 ring-1 ring-sky-600/20">
+        <Mail className="size-3" /> Document
       </Badge>
     )
   }
@@ -115,6 +128,7 @@ export function ReadingSummary({ a }: { a: Attachment }) {
   return (
     <div className="flex flex-col gap-2 text-sm">
       {texted}
+      {r.summary && <p className="text-[#0B1C2C]">{r.summary}</p>}
       {facts.length > 0 && <p className="font-medium text-[#0B1C2C]">{facts.join(' · ')}</p>}
       {r.kind === 'CHECK' && r.payee && (
         <p className="text-muted-foreground">

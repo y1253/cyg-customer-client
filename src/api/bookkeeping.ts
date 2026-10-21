@@ -102,7 +102,17 @@ export type LedgerTransaction = {
   attachments?: Array<{ id: number; kind: AttachmentKind; filename: string }>
 }
 
-export type AttachmentKind = 'RECEIPT' | 'CHECK' | 'AUDIO' | 'TEXT' | 'OTHER'
+export type AttachmentKind =
+  | 'RECEIPT'
+  | 'CHECK'
+  | 'AUDIO'
+  | 'TEXT'
+  | 'OTHER'
+  /** step11b: a supplier's bill. */
+  | 'INVOICE'
+  | 'DEPOSIT_SLIP'
+  /** step11b: not a payment — a letter, a request, a screenshot. Never matched. */
+  | 'DOCUMENT'
 
 /**
  * One hand-made split as the customer edits it: `amount` is positive, it takes the transaction's sign.

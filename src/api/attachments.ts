@@ -1,11 +1,28 @@
 import { bookFetch, bookUrl, type AttachmentKind, type BookAuth } from './bookkeeping'
 import { errorFrom, handleUnauthorized } from './client'
 
-/** PENDING/PROCESSING = being read; UNMATCHED = read, the customer picks the transaction. */
-export type AttachmentStatus = 'PENDING' | 'PROCESSING' | 'MATCHED' | 'UNMATCHED' | 'FAILED'
+/**
+ * PENDING/PROCESSING = being read; UNMATCHED = read, the customer picks the transaction;
+ * DOCUMENT (step11b) = read and not a payment (a letter, a request, a screenshot) — kept.
+ */
+export type AttachmentStatus = 'PENDING' | 'PROCESSING' | 'MATCHED' | 'UNMATCHED' | 'FAILED' | 'DOCUMENT'
+
+/** step11b: what the AI decided a file IS before matching it. */
+export type DocumentType =
+  | 'RECEIPT'
+  | 'INVOICE'
+  | 'CHECK'
+  | 'DEPOSIT_SLIP'
+  | 'PAYMENT_NOTE'
+  | 'BANK_STATEMENT'
+  | 'DOCUMENT'
 
 /** What the AI read off a receipt, cheque or voice note. Money is positive. */
 export type AttachmentReading = {
+  /** step11b; absent on files read before it. */
+  documentType?: DocumentType
+  /** step11b: one line saying what it is. */
+  summary?: string | null
   kind: 'RECEIPT' | 'CHECK' | 'OTHER'
   vendor: string | null
   date: string | null
@@ -33,8 +50,11 @@ export type Attachment = {
   total: number | null
   matchNote: string | null
   error: string | null
-  /** UPLOAD (this site), SMS / WHATSAPP (sent to one of our receipt numbers) or STATEMENT (a cheque image cut out of a statement). */
-  source: 'UPLOAD' | 'SMS' | 'WHATSAPP' | 'STATEMENT'
+  /**
+   * UPLOAD (this site), CHAT (added in the AI chat), SMS / WHATSAPP (sent to one of our
+   * receipt numbers), EMAIL (our inbox) or STATEMENT (a cheque image cut out of a statement).
+   */
+  source: 'UPLOAD' | 'CHAT' | 'SMS' | 'WHATSAPP' | 'EMAIL' | 'STATEMENT'
   /** SMS / WHATSAPP only: who sent it and what they wrote. */
   sourcePhone: string | null
   message: string | null
@@ -43,6 +63,8 @@ export type Attachment = {
    * statement its transaction came from. null = not matched yet ("Not filed yet").
    */
   folder: string | null
+  /** step11b: AI messages linked to this file (absent from an older server). */
+  messageCount?: number
   transaction: {
     id: number
     name: string | null

@@ -27,6 +27,7 @@ import { ReportSkeleton } from './ReportParts'
 import { StatementsList } from './StatementsList'
 import { Names } from './Names'
 import { Products } from './Products'
+import { SchedulesPanel } from './Schedules/SchedulesPanel'
 import { UploadDropzone } from './UploadDropzone'
 
 type Tab =
@@ -38,6 +39,7 @@ type Tab =
   | 'balance'
   | 'names'
   | 'products'
+  | 'schedules'
   | 'assistant'
 
 /**
@@ -192,6 +194,9 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
           <TabsTrigger value="products" className="h-9 flex-none px-4">
             Products
           </TabsTrigger>
+          <TabsTrigger value="schedules" className="h-9 flex-none px-4">
+            Schedules
+          </TabsTrigger>
           {assistant && (
             <TabsTrigger value="assistant" className="h-9 flex-none gap-1.5 px-4">
               <Sparkles className="size-4" /> Assistant
@@ -268,6 +273,9 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
         </TabsContent>
         <TabsContent value="products">
           <Products />
+        </TabsContent>
+        <TabsContent value="schedules">
+          <SchedulesPanel />
         </TabsContent>
         {assistant && (
           <TabsContent value="assistant">
