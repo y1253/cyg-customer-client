@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AI_SCHEDULES_KEY,
   SCHEDULES_KEY,
+  deleteAiSchedule,
+  fetchAiSchedules,
   fetchSchedules,
+  sendAiScheduleNow,
+  updateAiSchedule,
+  type AiSchedule,
+  type AiScheduleChange,
   sendScheduleNow,
   updateSchedule,
   type Schedule,
@@ -38,4 +45,35 @@ export function useScheduleActions() {
     onSuccess: put,
   })
   return { update, sendNow }
+}
+
+/** step12: the schedules the customer asked the AI assistant for (this book's). */
+export function useAiSchedules() {
+  const book = useBook()
+  return useQuery({
+    queryKey: book.key(AI_SCHEDULES_KEY),
+    queryFn: () => fetchAiSchedules(book.auth),
+    enabled: !!book.token,
+  })
+}
+
+export function useAiScheduleActions() {
+  const book = useBook()
+  const queryClient = useQueryClient()
+  const key = book.key(AI_SCHEDULES_KEY)
+  const put = (s: AiSchedule) =>
+    queryClient.setQueryData<AiSchedule[]>(key, (old) => (old ?? []).map((x) => (x.id === s.id ? s : x)))
+  const update = useMutation({
+    mutationFn: ({ id, change }: { id: number; change: AiScheduleChange }) => updateAiSchedule(book.auth, id, change),
+    onSuccess: put,
+  })
+  const sendNow = useMutation({
+    mutationFn: (id: number) => sendAiScheduleNow(book.auth, id),
+    onSuccess: put,
+  })
+  const remove = useMutation({
+    mutationFn: (id: number) => deleteAiSchedule(book.auth, id),
+    onSuccess: (_, id) => queryClient.setQueryData<AiSchedule[]>(key, (old) => (old ?? []).filter((x) => x.id !== id)),
+  })
+  return { update, sendNow, remove }
 }

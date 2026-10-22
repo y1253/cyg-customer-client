@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { AI_SCHEDULES_KEY } from '@/api/schedules'
 import { ATTACHMENTS_KEY, NAMES_KEY, PRODUCTS_KEY, REPORTS_KEY, STATEMENTS_KEY, TAX_KEY, TRANSACTIONS_KEY } from '@/api/bookkeeping'
 
 /** Tax and Generate change everything the page shows: refetch it all. */
@@ -6,7 +7,17 @@ export function useInvalidateBookkeeping() {
   const queryClient = useQueryClient()
   return () =>
     Promise.all(
-      [TAX_KEY, STATEMENTS_KEY, TRANSACTIONS_KEY, REPORTS_KEY, NAMES_KEY, PRODUCTS_KEY, ATTACHMENTS_KEY].map((queryKey) =>
+      [
+        TAX_KEY,
+        STATEMENTS_KEY,
+        TRANSACTIONS_KEY,
+        REPORTS_KEY,
+        NAMES_KEY,
+        PRODUCTS_KEY,
+        ATTACHMENTS_KEY,
+        // step12: the assistant can create / change schedules
+        AI_SCHEDULES_KEY,
+      ].map((queryKey) =>
         queryClient.invalidateQueries({ queryKey }),
       ),
     )
