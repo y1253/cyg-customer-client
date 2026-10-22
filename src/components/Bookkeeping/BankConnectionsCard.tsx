@@ -162,6 +162,14 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                   {line.tone === 'warn' && <AlertTriangle className="size-3.5 shrink-0" />}
                   {line.text}
                 </p>
+                {c.status === 'ACTIVE' && !c.historyDone && c.error && (
+                  <p className="mt-0.5 pl-5 text-xs text-muted-foreground">
+                    Don't disconnect — reconnecting restarts the wait.
+                  </p>
+                )}
+                {refresh.data?.id === c.id && refresh.data.refreshNote && (
+                  <p className="mt-0.5 pl-5 text-xs text-muted-foreground">{refresh.data.refreshNote}</p>
+                )}
                 {c.newAccounts && c.status === 'ACTIVE' && (
                   <p className="mt-1 text-xs text-amber-700">
                     Your bank has an account you have not shared yet.{' '}

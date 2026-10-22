@@ -20,6 +20,8 @@ export type BankConnection = {
   setupAt: string | null
   /** A sync is running right now. */
   syncing: boolean
+  /** Only on a "Refresh now" answer: why the bank was not asked again right now. */
+  refreshNote?: string | null
   /** The bank has an account the customer has not shared yet. */
   newAccounts: boolean
   /** YYYY-MM-DD — the oldest day Plaid can give. */
