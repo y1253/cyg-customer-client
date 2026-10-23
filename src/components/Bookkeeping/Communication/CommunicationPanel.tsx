@@ -292,6 +292,8 @@ const PURPOSE: Record<string, string> = {
   INBOUND: 'You called us',
   ACCOUNT_STATUS: 'We called with your account status',
   FINANCIAL_REPORT: 'We called with your financial report',
+  AI_SCHEDULE: 'We called with a message you scheduled',
+  REQUESTED: 'We called you back, as you asked',
 }
 
 const fmtDuration = (s: number | null) =>

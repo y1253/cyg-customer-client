@@ -67,9 +67,10 @@ export async function sendScheduleNow(auth: BookAuth, type: ScheduleType): Promi
 
 // ---- step12: the schedules the customer asked the AI assistant for ---------------------
 
-export type AiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY'
-/** How it is sent; null = the customer's preferred contact. */
-export type AiScheduleChannel = 'EMAIL' | 'SMS'
+/** ONCE (step12b) = one time, on `runDate` ("call me tomorrow at 3pm"). */
+export type AiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'ONCE'
+/** How it is sent; null = the customer's preferred contact. CALL = the AI phones them. */
+export type AiScheduleChannel = 'EMAIL' | 'SMS' | 'CALL'
 
 export type AiSchedule = {
   id: number
@@ -81,6 +82,8 @@ export type AiSchedule = {
   monthDay: number | null
   time: string
   timezone: string
+  /** ONCE: "YYYY-MM-DD". */
+  runDate: string | null
   /** "Every day at 6:00 AM". */
   description: string
   channel: AiScheduleChannel | null
@@ -96,7 +99,7 @@ export type AiSchedule = {
 
 export type AiScheduleChange = Partial<
   Pick<AiSchedule, 'title' | 'task' | 'active' | 'frequency' | 'weekday' | 'monthDay' | 'time' | 'timezone' | 'channel'>
->
+> & { date?: string | null }
 
 export const AI_SCHEDULES_KEY = ['ai-schedules'] as const
 

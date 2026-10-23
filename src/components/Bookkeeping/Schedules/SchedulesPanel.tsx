@@ -79,14 +79,24 @@ function AiDelivery({ s }: { s: AiSchedule }) {
   const d = s.delivery
   return (
     <>
-      Each time, the AI assistant looks up your books and writes the message.{' '}
+      Each time, the AI assistant looks up your books and {d.channel === 'CALL' ? 'prepares' : 'writes'} the
+      message.{' '}
       {!d.channel ? (
         'We have no email address or phone to send it to.'
+      ) : d.channel === 'CALL' ? (
+        <>
+          It <b>calls</b> {fmtPhone(d.to)}, says it, and answers your questions. No answer → a text, then email
+          {s.channel === null ? ' — your preferred contact.' : '.'}
+        </>
       ) : (
         <>
           It goes by{' '}
           <b>{d.channel === 'SMS' ? 'text message' : 'email'}</b> to {d.channel === 'SMS' ? fmtPhone(d.to) : d.to}
-          {s.channel === null ? ' — your preferred contact (a phone-call preference gets a text).' : '.'}
+          {s.channel === null
+            ? ' — your preferred contact.'
+            : s.channel === 'CALL'
+              ? ' (phone calls are not available right now).'
+              : '.'}
         </>
       )}{' '}
       Change your contact details on the <AccountLink />.
@@ -189,6 +199,7 @@ function BuiltInRow({ s, open, onToggle }: { s: Schedule; open: boolean; onToggl
     weekday: s.weekday ?? 1,
     monthDay: s.monthDay ?? 1,
     time: s.time,
+    date: '',
   }
   const error = sendNow.error ?? (open ? null : update.error)
   return (

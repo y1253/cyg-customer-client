@@ -9,7 +9,7 @@ export type CommCall = {
   id: number
   /** INBOUND = they called us; OUTBOUND = the AI called them. */
   direction: string
-  /** INBOUND | ACCOUNT_STATUS | FINANCIAL_REPORT */
+  /** INBOUND | ACCOUNT_STATUS | FINANCIAL_REPORT | AI_SCHEDULE | REQUESTED */
   purpose: string
   status: string
   durationSec: number | null

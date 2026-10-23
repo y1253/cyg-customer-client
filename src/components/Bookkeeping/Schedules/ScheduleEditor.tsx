@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAiScheduleActions, useScheduleActions } from '@/hooks/useSchedules'
 import { RunHistory } from './RunHistory'
-import { WEEKDAYS, isTime, ruleChange, type Rule } from './schedule-format'
+import { WEEKDAYS, isRule, ruleChange, todayIso, type Rule } from './schedule-format'
 
 const FREQ_LABEL: Record<AiFrequency, string> = {
   DAILY: 'Every day',
   WEEKLY: 'Every week',
   MONTHLY: 'Every month',
+  ONCE: 'Once',
 }
 
 /** Repeat · day · time — the three fields every schedule has. */
@@ -47,7 +48,20 @@ function RuleFields({
           </SelectContent>
         </Select>
       </div>
-      {rule.frequency !== 'DAILY' && (
+      {rule.frequency === 'ONCE' && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-date`}>Day</Label>
+          <Input
+            id={`${id}-date`}
+            type="date"
+            min={todayIso()}
+            value={rule.date}
+            onChange={(e) => set({ date: e.target.value })}
+            className="h-9"
+          />
+        </div>
+      )}
+      {(rule.frequency === 'WEEKLY' || rule.frequency === 'MONTHLY') && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${id}-day`}>{rule.frequency === 'WEEKLY' ? 'Day' : 'Day of month'}</Label>
           {rule.frequency === 'WEEKLY' ? (
@@ -82,18 +96,26 @@ function RuleFields({
   )
 }
 
-const ruleOf = (s: { frequency: AiFrequency; weekday: number | null; monthDay: number | null; time: string }): Rule => ({
+const ruleOf = (s: {
+  frequency: AiFrequency
+  weekday: number | null
+  monthDay: number | null
+  time: string
+  runDate?: string | null
+}): Rule => ({
   frequency: s.frequency,
   weekday: s.weekday ?? 1,
   monthDay: s.monthDay ?? 1,
   time: s.time,
+  date: s.runDate ?? todayIso(),
 })
 
 const ruleChanged = (a: Rule, b: Rule) =>
   a.frequency !== b.frequency ||
   a.time !== b.time ||
   (a.frequency === 'WEEKLY' && a.weekday !== b.weekday) ||
-  (a.frequency === 'MONTHLY' && a.monthDay !== b.monthDay)
+  (a.frequency === 'MONTHLY' && a.monthDay !== b.monthDay) ||
+  (a.frequency === 'ONCE' && a.date !== b.date)
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -117,7 +139,7 @@ export function BuiltInEditor({ s, about, note }: { s: Schedule; about: string; 
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            disabled={update.isPending || !isTime(rule.time)}
+            disabled={update.isPending || !isRule(rule)}
             onClick={() =>
               update.mutate({
                 type: s.type,
@@ -145,6 +167,7 @@ const CHANNEL_LABEL: Record<'PREFERRED' | AiScheduleChannel, string> = {
   PREFERRED: 'My preferred contact',
   SMS: 'Text message',
   EMAIL: 'Email',
+  CALL: 'Phone call',
 }
 
 /** A schedule the AI made: its name, what it sends, when and how — all editable. */
@@ -165,7 +188,7 @@ export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) 
     setRule(ruleOf(s))
     setChannel(s.channel ?? 'PREFERRED')
   }
-  const valid = title.trim() && task.trim() && isTime(rule.time)
+  const valid = title.trim() && task.trim() && isRule(rule)
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-3 sm:grid-cols-[1fr_14rem]">
@@ -186,7 +209,7 @@ export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) 
               <SelectValue>{(v: typeof channel) => CHANNEL_LABEL[v]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(['PREFERRED', 'SMS', 'EMAIL'] as const).map((c) => (
+              {(['PREFERRED', 'SMS', 'EMAIL', 'CALL'] as const).map((c) => (
                 <SelectItem key={c} value={c}>
                   {CHANNEL_LABEL[c]}
                 </SelectItem>
@@ -205,7 +228,12 @@ export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) 
           onChange={(e) => setTask(e.target.value)}
         />
       </div>
-      <RuleFields id={`ai-${s.id}`} rule={rule} onChange={setRule} frequencies={['DAILY', 'WEEKLY', 'MONTHLY']} />
+      <RuleFields
+        id={`ai-${s.id}`}
+        rule={rule}
+        onChange={setRule}
+        frequencies={['DAILY', 'WEEKLY', 'MONTHLY', 'ONCE']}
+      />
       {changed && (
         <div className="flex items-center gap-2">
           <Button
