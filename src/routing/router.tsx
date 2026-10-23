@@ -16,6 +16,7 @@ import { SecurityPolicyPage } from '@/components/Legal/SecurityPolicyPage'
 import { CompanyPortalPage } from '@/components/Portal/CompanyPortalPage'
 import { RegistrationsPage } from '@/components/Register/RegistrationsPage'
 import { RegisterWizardPage } from '@/components/Register/RegisterWizard'
+import { RequestsPage } from '@/components/Requests/RequestsPage'
 import { CustomerRoute, GuestRoute } from './CustomerRoute'
 
 export const router = createBrowserRouter([
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardHome /> },
           { path: 'bookkeeping', element: <BookkeepingRoute /> },
           { path: 'contacts', element: <ContactsPage /> },
+          { path: 'requests', element: <RequestsPage /> },
           { path: 'account', element: <AccountPage /> },
           { path: 'assistant', element: <AssistantPage /> },
           { path: 'register', element: <RegistrationsPage /> },

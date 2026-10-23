@@ -1,4 +1,4 @@
-import { BookOpenCheck, BookUser, Building2, LayoutDashboard, Sparkles, UserRound } from 'lucide-react'
+import { BookOpenCheck, BookUser, Building2, LayoutDashboard, Lightbulb, Sparkles, UserRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type NavItem = {
@@ -22,6 +22,8 @@ export const MODULES: NavItem[] = [
   { label: 'Bookkeeping', to: '/dashboard/bookkeeping', icon: BookOpenCheck },
   { label: 'AI assistant', to: '/dashboard/assistant', icon: Sparkles, assistant: true },
   { label: 'Contacts', to: '/dashboard/contacts', icon: BookUser },
+  // step12e: what they asked the AI for that we don't do yet.
+  { label: 'My requests', to: '/dashboard/requests', icon: Lightbulb, assistant: true },
 ]
 
 /** The modules shown to this customer (hidden ones out; the assistant only while it is on). */

@@ -20,6 +20,8 @@ const MODULE_BLURB: Record<string, string> = {
   'AI assistant':
     'Ask about your books, file a receipt or set up a report — the same assistant answers your texts, WhatsApps, emails and calls.',
   Contacts: 'People the AI can call or text for you — saved when you ask it to call someone.',
+  'My requests':
+    'Things you asked the AI for that we don’t do yet — follow them here, and we tell you when one is ready.',
 }
 
 export function DashboardHome() {
