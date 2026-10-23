@@ -4,7 +4,8 @@ import { AssistantPage } from '@/components/Assistant/AssistantPage'
 import { ForgotPasswordPage } from '@/components/Auth/ForgotPasswordPage'
 import { LoginPage } from '@/components/Auth/LoginPage'
 import { SignupPage } from '@/components/Auth/SignupPage'
-import { BookkeepingPage } from '@/components/Bookkeeping/BookkeepingPage'
+import { BookkeepingRoute } from '@/components/Bookkeeping/BookkeepingRoute'
+import { ContactsPage } from '@/components/Contacts/ContactsPage'
 import { PlaidOAuthPage } from '@/components/Bookkeeping/PlaidOAuthPage'
 import { ConnectResultPage } from '@/components/Connect/ConnectResultPage'
 import { DashboardHome } from '@/components/Dashboard/DashboardHome'
@@ -42,7 +43,8 @@ export const router = createBrowserRouter([
         element: <DashboardLayout />,
         children: [
           { index: true, element: <DashboardHome /> },
-          { path: 'bookkeeping', element: <BookkeepingPage /> },
+          { path: 'bookkeeping', element: <BookkeepingRoute /> },
+          { path: 'contacts', element: <ContactsPage /> },
           { path: 'account', element: <AccountPage /> },
           { path: 'assistant', element: <AssistantPage /> },
           { path: 'register', element: <RegistrationsPage /> },

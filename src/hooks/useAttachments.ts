@@ -90,13 +90,13 @@ export function useAttachmentActions() {
 
 /** The protected file as an object URL while mounted; revoked on unmount or change. */
 export function useAttachmentUrl(id: number | null) {
-  const { token, companyId } = useBook()
+  const { token, companyId, bookId } = useBook()
   const [state, setState] = useState<{ id: number; url: string | null; error: string | null } | null>(null)
   useEffect(() => {
     if (id == null || !token) return
     let url: string | null = null
     let alive = true
-    attachmentObjectUrl({ token, companyId }, id).then(
+    attachmentObjectUrl({ token, companyId, bookId }, id).then(
       (u) => {
         url = u
         if (alive) setState({ id, url: u, error: null })
@@ -108,6 +108,6 @@ export function useAttachmentUrl(id: number | null) {
       alive = false
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, token, companyId])
+  }, [id, token, companyId, bookId])
   return state && state.id === id ? state : { id, url: null, error: null }
 }

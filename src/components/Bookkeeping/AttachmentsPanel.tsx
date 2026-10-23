@@ -86,7 +86,8 @@ export function AttachmentsPanel({
   const { attach } = useAttachmentActions()
   // Texted receipts are filed by phone number, which names a customer, never a business —
   // so they always land in the general book, and a business's books do not offer it.
-  const generalBook = useBookScope() === null
+  // Texted receipts land in the customer's bookkeeping companies, never a business's book.
+  const generalBook = useBookScope().companyId === null
   const [picking, setPicking] = useState<Attachment | null>(null)
   const list = attachments.data
   const [grouping, setGroupingState] = useState<Grouping>(readGrouping)

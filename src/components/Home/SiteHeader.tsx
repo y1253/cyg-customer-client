@@ -1,10 +1,4 @@
-import { ChevronDown, Info, Mail, Menu } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Menu } from 'lucide-react'
 import {
   Sheet,
   SheetClose,
@@ -38,27 +32,6 @@ export function SiteHeader() {
               {l.label}
             </a>
           ))}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={`${NAV_LINK} flex items-center gap-1 outline-none`}
-            >
-              Contact us <ChevronDown className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-48 p-2">
-              <DropdownMenuItem
-                className="gap-3 px-3 py-2.5 text-base"
-                render={<a href="#contact" />}
-              >
-                <Info /> Contact Info
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-3 px-3 py-2.5 text-base"
-                render={<a href="#contact-form" />}
-              >
-                <Mail /> Contact Form
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <a href="#contact" className={ctaClass('brand')}>
             Contact Us
           </a>
@@ -75,11 +48,7 @@ export function SiteHeader() {
           <SheetContent side="top" className="rounded-b-3xl px-6 pt-14 pb-8">
             <SheetTitle className="sr-only">Menu</SheetTitle>
             <nav className="flex flex-col">
-              {[
-                ...NAV_LINKS,
-                { label: 'Contact Info', href: '#contact' },
-                { label: 'Contact Form', href: '#contact-form' },
-              ].map((l) => (
+              {NAV_LINKS.map((l) => (
                 <SheetClose
                   key={l.href}
                   render={<a href={l.href} />}

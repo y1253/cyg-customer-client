@@ -28,12 +28,14 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBook } from '@/hooks/useBook'
 import { useCommChannels, useCommThread } from '@/hooks/useCommunications'
+import { useIntake } from '@/hooks/useIntake'
+import { formatPhone } from '@/lib/portal-format'
 import { cn } from '@/lib/utils'
 
 const CHANNEL: Record<CommChannel, { label: string; icon: typeof Mail; empty: string }> = {
   WHATSAPP: { label: 'WhatsApp', icon: MessageCircle, empty: 'Nothing on WhatsApp yet.' },
   SMS: { label: 'Text messages', icon: MessageSquare, empty: 'No text messages yet.' },
-  VOICE: { label: 'Phone calls', icon: Phone, empty: 'No calls with the AI yet. Call our receipt number to talk to it.' },
+  VOICE: { label: 'Phone calls', icon: Phone, empty: 'No calls with the AI yet.' },
   EMAIL: { label: 'Email', icon: Mail, empty: 'No emails yet.' },
   BOT: { label: 'Website chat', icon: Bot, empty: 'No chats on the website yet.' },
   UPLOADS: { label: 'Uploads', icon: Upload, empty: 'Nothing uploaded on the website yet.' },
@@ -163,7 +165,13 @@ function Thread({
   onBack: () => void
   onOpenAssistant?: () => void
 }) {
-  const { label, icon: Icon, empty } = CHANNEL[channel]
+  const { label, icon: Icon } = CHANNEL[channel]
+  const intake = useIntake()
+  // step12c: only point at calling while calling the AI actually works.
+  const empty =
+    channel === 'VOICE' && intake.data?.voice
+      ? 'No calls with the AI yet. Call our receipt number to talk to it.'
+      : CHANNEL[channel].empty
   const q = useCommThread(channel)
   const scroller = useRef<HTMLDivElement>(null)
   // Oldest at the top, like a phone; the pages come newest first.
@@ -294,14 +302,26 @@ const PURPOSE: Record<string, string> = {
   FINANCIAL_REPORT: 'We called with your financial report',
   AI_SCHEDULE: 'We called with a message you scheduled',
   REQUESTED: 'We called you back, as you asked',
+  THIRD_PARTY: 'We called them for you',
 }
+
+const CALL_STATUS: Record<string, { label: string; tone: string }> = {
+  COMPLETED: { label: 'Completed', tone: 'bg-emerald-50 text-emerald-700' },
+  IN_PROGRESS: { label: 'In progress', tone: 'bg-sky-50 text-sky-800' },
+  RINGING: { label: 'Ringing', tone: 'bg-sky-50 text-sky-800' },
+  NO_ANSWER: { label: 'No answer', tone: 'bg-amber-50 text-amber-700' },
+  FAILED: { label: 'Failed', tone: 'bg-red-50 text-red-700' },
+}
+
+const fmtClock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 
 const fmtDuration = (s: number | null) =>
   s == null ? '' : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`
 
 /**
- * step12: one phone call with the AI — who called, how long, and its recording (fetched
- * with the sign-in token only when asked for). What was said is in the bubbles around it.
+ * step12: one phone call with the AI — who it was with, from which number to which, from
+ * when till when (step12c), and its recording (fetched with the sign-in token only when
+ * asked for). What was said is in the bubbles around it.
  */
 function CallBubble({ call, at }: { call: CommCall; at: string }) {
   const { auth } = useBook()
@@ -310,6 +330,16 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
   const [error, setError] = useState<string | null>(null)
   const missed = call.status === 'NO_ANSWER' || call.status === 'FAILED'
   const Icon = missed ? PhoneMissed : call.direction === 'OUTBOUND' ? PhoneOutgoing : PhoneIncoming
+  const thirdParty = call.purpose === 'THIRD_PARTY'
+  const who = call.withName ?? 'you'
+  const title = thirdParty
+    ? `Call with ${who}`
+    : call.direction === 'INBOUND'
+      ? `${who === 'you' ? 'You' : who} called us`
+      : `We called ${who === 'you' ? 'you' : who}`
+  const status = CALL_STATUS[call.status]
+  const start = call.answeredAt ?? at
+  const span = call.endedAt ? `${fmtTime(start)} – ${fmtClock(call.endedAt)}` : fmtTime(at)
   const load = () => {
     setLoading(true)
     setError(null)
@@ -323,14 +353,30 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
   return (
     <div className="flex justify-center">
       <div className="flex w-full max-w-md flex-col gap-2 rounded-xl border bg-white px-3.5 py-2.5 text-sm shadow-sm">
-        <p className="flex items-center gap-2 font-medium text-[#0B1C2C]">
-          <Icon className={cn('size-4', missed ? 'text-red-600' : 'text-brand')} />
-          <span className="min-w-0 flex-1">
-            {missed ? 'Missed call — we sent it by text or email instead' : (PURPOSE[call.purpose] ?? 'Phone call')}
-          </span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {[fmtDuration(call.durationSec), fmtTime(at)].filter(Boolean).join(' · ')}
-          </span>
+        <div className="flex items-start gap-2">
+          <Icon className={cn('mt-0.5 size-4 shrink-0', missed ? 'text-red-600' : 'text-brand')} />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-[#0B1C2C]">{title}</p>
+            <p className="text-xs text-muted-foreground">
+              {missed
+                ? thirdParty
+                  ? 'Nobody answered'
+                  : 'Missed — we sent it by text or email instead'
+                : (PURPOSE[call.purpose] ?? 'Phone call')}
+            </p>
+          </div>
+          {status && <Badge className={cn('shrink-0 text-[10px]', status.tone)}>{status.label}</Badge>}
+        </div>
+        {(call.fromNumber || call.toNumber) && (
+          <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-[#0B1C2C]">
+            <span className="text-muted-foreground">From</span>
+            <span className="font-medium tabular-nums">{call.fromNumber ? formatPhone(call.fromNumber) : '—'}</span>
+            <span className="text-muted-foreground">→ To</span>
+            <span className="font-medium tabular-nums">{call.toNumber ? formatPhone(call.toNumber) : '—'}</span>
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {[span, fmtDuration(call.durationSec)].filter(Boolean).join(' · ')}
         </p>
         {!missed &&
           (url ? (

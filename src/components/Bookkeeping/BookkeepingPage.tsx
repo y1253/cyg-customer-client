@@ -47,11 +47,19 @@ type Tab =
  * view the ledger, the chart of accounts, income statement and balance sheet, and
  * download the whole ledger (all statements combined) as Excel or PDF.
  *
- * It works on whichever book `BookScopeProvider` names: the general one at
- * `/dashboard/bookkeeping`, or one business's inside "My businesses" (`embedded`: that
- * page has its own header, so this one shows only its download buttons).
+ * It works on whichever book `BookScopeProvider` names: one of the customer's companies at
+ * `/dashboard/bookkeeping` (step12c, `BookkeepingRoute` + its switcher), or one business's
+ * inside "My businesses" (`embedded`: that page has its own header, so this one shows only
+ * its download buttons).
  */
-export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
+export function BookkeepingPage({
+  embedded = false,
+  switcher,
+}: {
+  embedded?: boolean
+  /** step12c: the company switcher (`BookkeepingRoute`). */
+  switcher?: ReactNode
+}) {
   const statements = useStatements()
   const assistant = useAssistantEnabled()
   const exporter = useExportLedger()
@@ -144,6 +152,7 @@ export function BookkeepingPage({ embedded = false }: { embedded?: boolean }) {
         </div>
       ) : (
         <PageHeader
+          above={switcher}
           title="Bookkeeping"
           description="Upload your bank statements — we post every transaction as a debit and a credit."
           actions={

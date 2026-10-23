@@ -1,20 +1,31 @@
 import { createContext, useContext, type ReactNode } from 'react'
 
 /**
- * WHICH set of books the bookkeeping screens below work on (step8): the customer's
- * general book (`null`, the default — `/dashboard/bookkeeping`) or one business of theirs
- * (its `Company.id`, the Bookkeeping tab on "My businesses"). Every bookkeeping call sends
- * it as `?companyId=`, and every bookkeeping query key carries it, so two books never
- * share a cache entry.
+ * WHICH set of books the bookkeeping screens below work on. step12c: a book is one of the
+ * customer's bookkeeping companies (`bookId`, picked in the switcher on
+ * `/dashboard/bookkeeping`) or a registered business's own book (`companyId`, the
+ * Bookkeeping tab on "My businesses"). Neither = the customer's default book. Every
+ * bookkeeping call sends it (`?bookId=` / `?companyId=`), and every bookkeeping query key
+ * carries it, so two books never share a cache entry.
  */
-const BookScopeContext = createContext<number | null>(null)
+export type BookScope = { bookId: number | null; companyId: number | null }
 
-export function BookScopeProvider({ companyId, children }: { companyId: number | null; children: ReactNode }) {
-  return <BookScopeContext.Provider value={companyId}>{children}</BookScopeContext.Provider>
+const BookScopeContext = createContext<BookScope>({ bookId: null, companyId: null })
+
+export function BookScopeProvider({
+  bookId = null,
+  companyId = null,
+  children,
+}: {
+  bookId?: number | null
+  companyId?: number | null
+  children: ReactNode
+}) {
+  return <BookScopeContext.Provider value={{ bookId, companyId }}>{children}</BookScopeContext.Provider>
 }
 
-/** The business whose books are open, or null for the general book. */
+/** The book that is open. */
 // eslint-disable-next-line react-refresh/only-export-components
-export function useBookScope(): number | null {
+export function useBookScope(): BookScope {
   return useContext(BookScopeContext)
 }

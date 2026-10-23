@@ -45,7 +45,14 @@ function loadPlaid(): Promise<PlaidGlobal> {
 }
 
 /** What `/plaid/oauth` needs to finish a Link session that left for the bank's site. */
-export type PendingLink = { token: string; companyId: number | null; itemId?: number; returnTo: string }
+export type PendingLink = {
+  token: string
+  companyId: number | null
+  /** step12c: the bookkeeping company the bank is connected in. */
+  bookId?: number | null
+  itemId?: number
+  returnTo: string
+}
 
 export function savePendingLink(p: PendingLink): void {
   try {

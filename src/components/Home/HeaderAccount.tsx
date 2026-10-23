@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SheetClose } from '@/components/ui/sheet'
-import type { Customer } from '@/api/customerAuth'
+import { displayName, type Customer } from '@/api/customerAuth'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
 
@@ -29,7 +29,7 @@ function Avatar({ customer, className }: { customer: Customer; className?: strin
         className,
       )}
     >
-      {customer.name.charAt(0).toUpperCase()}
+      {displayName(customer).charAt(0).toUpperCase()}
     </span>
   )
 }
@@ -50,14 +50,14 @@ export function HeaderAccountDesktop() {
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-full py-1 pr-2 pl-1 text-white outline-none transition-colors hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-white/40">
             <Avatar customer={customer} className="size-9 text-sm" />
             <span className="max-w-32 truncate text-base font-medium">
-              {customer.name.split(' ')[0]}
+              {displayName(customer).split(' ')[0]}
             </span>
             <ChevronDown className="size-4 opacity-70" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56 p-2">
             <div className="px-3 py-2">
-              <p className="truncate text-sm font-semibold">{customer.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{customer.email}</p>
+              <p className="truncate text-sm font-semibold">{displayName(customer)}</p>
+              <p className="truncate text-xs text-muted-foreground">{customer.email ?? customer.phone}</p>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-3 px-3 py-2.5" render={<Link to="/dashboard" />}>
@@ -104,7 +104,7 @@ export function HeaderAccountMobile() {
       <div className="mt-6 flex items-center gap-3 border-t pt-6">
         <Avatar customer={customer} className="size-11 text-base" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{customer.name}</p>
+          <p className="truncate font-semibold">{displayName(customer)}</p>
           <SheetClose
             render={<Link to="/dashboard" />}
             className="text-sm font-medium text-brand hover:underline"

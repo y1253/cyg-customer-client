@@ -24,7 +24,7 @@ export function PlaidOAuthPage() {
   useEffect(() => {
     if (started.current || !token || !pending) return
     started.current = true
-    const auth = { token, companyId: pending.companyId }
+    const auth = { token, companyId: pending.companyId, bookId: pending.bookId ?? null }
     openPlaidLink(pending.token, window.location.href)
       .then(async (publicToken) => {
         if (publicToken) {

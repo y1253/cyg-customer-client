@@ -96,6 +96,8 @@ export type Intake = {
   phoneSaved: boolean
   /** The firm inbox customers can email receipts and questions to (step12); null = none. Absent from an older server. */
   email?: string | null
+  /** step12c: calling a receipt number reaches the AI assistant right now. Absent from an older server. */
+  voice?: boolean
 }
 
 export async function fetchIntake(auth: BookAuth): Promise<Intake> {

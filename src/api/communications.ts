@@ -9,11 +9,21 @@ export type CommCall = {
   id: number
   /** INBOUND = they called us; OUTBOUND = the AI called them. */
   direction: string
-  /** INBOUND | ACCOUNT_STATUS | FINANCIAL_REPORT | AI_SCHEDULE | REQUESTED */
+  /** INBOUND | ACCOUNT_STATUS | FINANCIAL_REPORT | AI_SCHEDULE | REQUESTED | THIRD_PARTY */
   purpose: string
+  /** RINGING | IN_PROGRESS | COMPLETED | NO_ANSWER | FAILED */
   status: string
   durationSec: number | null
   hasRecording: boolean
+  /** step12c: picked up / hung up (null = never / not yet). Absent from an older API. */
+  answeredAt?: string | null
+  endedAt?: string | null
+  /** step12c: the two ends, E.164 — who dialled, and the number dialled. */
+  fromNumber?: string | null
+  toNumber?: string | null
+  /** step12c: who the call was with — the contact (THIRD_PARTY), else the customer. */
+  withName?: string
+  contactName?: string | null
 }
 
 export type ChannelSummary = {

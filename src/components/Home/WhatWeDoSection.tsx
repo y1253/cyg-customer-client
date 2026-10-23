@@ -2,15 +2,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WHAT_WE_DO } from './content'
 import { EYEBROW, SECTION_TITLE } from './cta'
 
-/** "What we do" — three tabs, each a paragraph beside a photo (Webflow `.core-tabs`). */
+/** "How it works" — one tab per part of the service, each a paragraph beside a photo. */
 export function WhatWeDoSection() {
   return (
     <section id="what-we-do" className="scroll-mt-6 bg-white py-16 lg:py-[100px]">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8">
         <div className="mx-auto mb-12 max-w-[750px] text-center">
-          <div className={EYEBROW}>What we do</div>
+          <div className={EYEBROW}>How it works</div>
           <h2 className={SECTION_TITLE}>
-            Bookkeeping <span className="text-brand-light">year-round</span>
+            Bookkeeping that <span className="text-brand-light">answers back</span>
           </h2>
           <p className="mt-6 text-lg text-black/70">{WHAT_WE_DO.lead}</p>
         </div>
@@ -19,15 +19,15 @@ export function WhatWeDoSection() {
           defaultValue={WHAT_WE_DO.tabs[0].id}
           className="gap-0 rounded-xl bg-white px-3 pt-3 shadow-[0_0_70px_#0000000d]"
         >
-          <TabsList className="grid h-auto! w-full grid-cols-1 gap-2 rounded-xl bg-[#f9f9f9] p-2.5 sm:grid-cols-3">
-            {WHAT_WE_DO.tabs.map((t) => (
+          <TabsList className="grid h-auto! w-full grid-cols-1 gap-2 rounded-xl bg-[#f9f9f9] p-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            {WHAT_WE_DO.tabs.map(({ icon: Icon, ...t }) => (
               <TabsTrigger
                 key={t.id}
                 value={t.id}
                 className="h-auto justify-start gap-3 rounded-xl px-3 py-3 text-left text-base font-extrabold whitespace-normal text-black data-active:bg-white data-active:shadow-sm"
               >
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand p-3">
-                  <img src={t.icon} alt="" className="size-5" />
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand p-3 text-white">
+                  <Icon className="size-5" />
                 </span>
                 {t.title}
               </TabsTrigger>

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 import { CONTACT, NAV_LINKS } from './content'
 import { ctaClass } from './cta'
 
@@ -5,6 +7,7 @@ const LINK = 'mb-3 block text-base text-white/50 transition-opacity hover:text-w
 const TITLE = 'mb-6 text-xl font-extrabold'
 
 export function SiteFooter() {
+  const { token } = useAuth()
   return (
     <footer className="bg-ink pb-8 text-white">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8">
@@ -14,9 +17,9 @@ export function SiteFooter() {
             <span className="text-brand-light">so you can be on scene.</span>
           </h3>
           <div className="flex flex-wrap gap-4">
-            <a href="#contact" className={ctaClass('light')}>
-              Talk to an Expert
-            </a>
+            <Link to={token ? '/dashboard' : '/signup'} className={ctaClass('light')}>
+              {token ? 'Go to your dashboard' : 'Get started'}
+            </Link>
             <a href="#contact" className={ctaClass('brand')}>
               Contact Us
             </a>
@@ -30,7 +33,7 @@ export function SiteFooter() {
           <div>
             <div className={TITLE}>Company</div>
             <a href="#top" className={LINK}>Home</a>
-            <a href="#what-we-do" className={LINK}>About Us</a>
+            <a href="#what-we-do" className={LINK}>How it works</a>
             <a href="#contact" className={LINK}>Contact</a>
             <a href="/privacy" className={LINK}>Privacy Policy</a>
             <a href="/security-policy" className={LINK}>Security Policy</a>

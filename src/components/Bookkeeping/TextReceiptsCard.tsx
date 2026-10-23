@@ -34,6 +34,12 @@ export function TextReceiptsCard({ className }: { className?: string }) {
           <div className="mt-3">
             <IntakeNumberChips intake={data} />
           </div>
+          {data.voice && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Or <span className="font-medium text-[#0B1C2C]">call</span> the same number to talk to our AI assistant
+              about your books — it can also call or text people for you.
+            </p>
+          )}
           {data.email && (
             <p className="mt-3 text-sm text-muted-foreground">
               Or email them to{' '}

@@ -8,14 +8,15 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SUBMIT_CLASS } from '@/components/Auth/AuthLayout'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
-import { CONTACT_METHOD_LABEL, type ContactMethod, type Customer } from '@/api/customerAuth'
+import { CONTACT_METHOD_LABEL, displayName, type ContactMethod, type Customer } from '@/api/customerAuth'
+import { AddEmailField } from './AddEmailField'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/hooks/useMe'
 import { useUpdateMe } from '@/hooks/useUpdateMe'
 import { useIntake } from '@/hooks/useIntake'
 import { sendVerb } from '@/lib/intake'
 
-const METHOD_LABEL = { PASSWORD: 'Email & password', GOOGLE: 'Google' } as const
+const METHOD_LABEL = { PASSWORD: 'Email & password', GOOGLE: 'Google', PHONE: 'a code texted to your phone' } as const
 
 /** Profile, inside the dashboard shell (which owns the logo and Log out). */
 export function AccountPage() {
@@ -39,12 +40,12 @@ export function AccountPage() {
             />
           ) : (
             <span className="flex size-14 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
-              {customer.name.charAt(0).toUpperCase()}
+              {displayName(customer).charAt(0).toUpperCase()}
             </span>
           )}
           <div className="flex flex-col gap-1">
-            <CardTitle className="text-xl font-bold text-[#0B1C2C]">{customer.name}</CardTitle>
-            <CardDescription className="text-base">{customer.email}</CardDescription>
+            <CardTitle className="text-xl font-bold text-[#0B1C2C]">{displayName(customer)}</CardTitle>
+            <CardDescription className="text-base">{customer.email ?? customer.phone}</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="px-8">
@@ -59,7 +60,8 @@ export function AccountPage() {
         </CardContent>
       </Card>
       {/* The server copy only: a profile cached before `hasPassword` existed lacks it. */}
-      {me.data && <PasswordCard customer={me.data} />}
+      {/* step12c: a password signs in with the email — an account opened by phone adds one first. */}
+      {me.data?.email && <PasswordCard customer={me.data} />}
       <SavedCardsCard />
     </>
   )
@@ -94,10 +96,14 @@ function ProfileForm({ customer }: { customer: Customer }) {
           onChange={(e) => setName(e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" className="h-11" value={customer.email} disabled />
-      </div>
+      {customer.email ? (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" className="h-11" value={customer.email} disabled />
+        </div>
+      ) : (
+        <AddEmailField />
+      )}
       <div className="flex flex-col gap-2">
         <Label htmlFor="phone">Phone</Label>
         <Input
@@ -109,7 +115,8 @@ function ProfileForm({ customer }: { customer: Customer }) {
           onChange={(e) => setPhone(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          Receipts you {sendVerb(intake.data)} us from this number go straight into your bookkeeping.
+          Receipts you {sendVerb(intake.data)} us from this number go straight into your bookkeeping. You can
+          also log in with it — we text you a code.
         </p>
       </div>
       <div className="flex flex-col gap-2">

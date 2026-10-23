@@ -1,16 +1,19 @@
 import { errorFrom, fetchWithAuth, handleUnauthorized } from './client'
 
 /**
- * A bookkeeping call's credentials AND its book (step8): the general book (`companyId:
- * null`) or one business's. Every `/api/bookkeeping` call goes through `bookFetch`, which
- * adds `?companyId=` — the server's `BookScopeGuard` resolves (and checks) it.
+ * A bookkeeping call's credentials AND its book. step12c: `bookId` = one of the customer's
+ * bookkeeping companies; `companyId` = a registered business's own book; neither = the
+ * default book. Every `/api/bookkeeping` call goes through `bookFetch`, which adds the
+ * param — the server's `BookScopeGuard` resolves (and checks) it.
  */
-export type BookAuth = { token: string; companyId: number | null }
+export type BookAuth = { token: string; companyId: number | null; bookId?: number | null }
 
-/** The URL with the book's `companyId` added (nothing for the general book). */
+/** The URL with the book added (nothing for the default book). */
 export function bookUrl(auth: BookAuth, url: string): string {
-  if (auth.companyId === null) return url
-  return `${url}${url.includes('?') ? '&' : '?'}companyId=${auth.companyId}`
+  const sep = url.includes('?') ? '&' : '?'
+  if (auth.bookId) return `${url}${sep}bookId=${auth.bookId}`
+  if (auth.companyId !== null) return `${url}${sep}companyId=${auth.companyId}`
+  return url
 }
 
 export function bookFetch(auth: BookAuth, url: string, options: RequestInit = {}): Promise<Response> {
@@ -18,8 +21,14 @@ export function bookFetch(auth: BookAuth, url: string, options: RequestInit = {}
 }
 
 /** A bookkeeping query key scoped to one book, so two books never share a cache entry. */
-export function bookKey<K extends readonly unknown[]>(key: K, companyId: number | null) {
-  return [...key, companyId ?? 'general'] as const
+export function bookKey<K extends readonly unknown[]>(
+  key: K,
+  book: { bookId?: number | null; companyId: number | null },
+) {
+  return [
+    ...key,
+    book.bookId ? `book-${book.bookId}` : book.companyId !== null ? `company-${book.companyId}` : 'default',
+  ] as const
 }
 
 /** UPLOADED = not read yet; reading starts when the customer clicks Generate. */

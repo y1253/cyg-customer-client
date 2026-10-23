@@ -1,25 +1,14 @@
 import { LogOut, Menu } from 'lucide-react'
+import { displayName } from '@/api/customerAuth'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useAuth } from '@/context/AuthContext'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { cn } from '@/lib/utils'
-import { ACCOUNT_ITEM, MODULES, type NavItem } from './nav'
+import { ACCOUNT_ITEM, visibleModules, type NavItem } from './nav'
 
 function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   const Icon = item.icon
-  if (item.soon) {
-    return (
-      <div className="flex cursor-default items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/35">
-        <Icon className="size-[18px]" />
-        <span className="flex-1">{item.label}</span>
-        <Badge className="border-white/10 bg-white/5 px-1.5 text-[10px] font-medium text-white/50">
-          Soon
-        </Badge>
-      </div>
-    )
-  }
   return (
     <NavLink
       to={item.to}
@@ -47,7 +36,7 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
   const assistant = useAssistantEnabled()
   // In the mobile sheet a link also closes the sheet.
   const row = (item: NavItem) =>
-    inSheet && !item.soon ? (
+    inSheet ? (
       <SheetClose key={item.label} render={<div />} className="block">
         <NavRow item={item} />
       </SheetClose>
@@ -64,7 +53,7 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
         Services
       </p>
       <nav className="flex flex-col gap-1 px-3">
-        {MODULES.filter((m) => !m.assistant || assistant).map(row)}
+        {visibleModules(assistant).map(row)}
       </nav>
       <div className="mt-auto flex flex-col gap-1 border-t border-white/10 px-3 py-4">
         {row(ACCOUNT_ITEM)}
@@ -89,12 +78,12 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
               />
             ) : (
               <span className="flex size-9 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
-                {customer.name.charAt(0).toUpperCase()}
+                {displayName(customer).charAt(0).toUpperCase()}
               </span>
             )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">{customer.name}</p>
-              <p className="truncate text-xs text-white/50">{customer.email}</p>
+              <p className="truncate text-sm font-semibold text-white">{displayName(customer)}</p>
+              <p className="truncate text-xs text-white/50">{customer.email ?? customer.phone}</p>
             </div>
           </div>
         )}

@@ -83,7 +83,13 @@ export function useConnectBank() {
       chooseAccounts = false,
     }: { itemId?: number; chooseAccounts?: boolean } = {}): Promise<BankConnection | null> => {
       const token = await createLinkToken(book.auth, itemId, chooseAccounts)
-      savePendingLink({ token, companyId: book.companyId, itemId, returnTo: window.location.pathname })
+      savePendingLink({
+        token,
+        companyId: book.companyId,
+        bookId: book.bookId,
+        itemId,
+        returnTo: window.location.pathname + window.location.search,
+      })
       const publicToken = await openPlaidLink(token).finally(clearPendingLink)
       if (!publicToken) return null
       return itemId ? markReconnected(book.auth, itemId) : exchangePublicToken(book.auth, publicToken)

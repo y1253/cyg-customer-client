@@ -1,11 +1,14 @@
 import { errorFrom, fetchWithAuth, safeFetch } from './client'
 
-export type AuthType = 'PASSWORD' | 'GOOGLE'
+/** step12c: PHONE = opened by text / WhatsApp / call; signs in with a texted code. */
+export type AuthType = 'PASSWORD' | 'GOOGLE' | 'PHONE'
 
 export type Customer = {
   id: number
+  /** step12c: '' for an account opened by text until the customer (or the AI) sets it. */
   name: string
-  email: string
+  /** step12c: null for an account opened by phone that has not added an email. */
+  email: string | null
   authType: AuthType
   /** False for an account created through Google that never set a password. */
   hasPassword: boolean
@@ -80,6 +83,41 @@ export function login(values: LoginValues): Promise<AuthResult> {
 }
 
 /** `credential` is the ID token Google's button hands the page. */
+/** step12c: texts a 6-digit login code (answers the same for a number with no account). */
+export function requestPhoneCode(phone: string, turnstileToken?: string): Promise<{ phone: string }> {
+  return postJson('/api/customer-auth/login/phone', { phone, turnstileToken })
+}
+
+export function verifyPhoneCode(phone: string, code: string): Promise<AuthResult> {
+  return postJson('/api/customer-auth/login/phone/verify', { phone, code })
+}
+
+/** step12c: an account opened by phone adds an email — a code is emailed to it first. */
+export async function sendEmailCode(token: string, email: string): Promise<SignupStarted> {
+  const res = await fetchWithAuth(token, '/api/customer-auth/me/email/code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  if (!res.ok) throw await errorFrom(res)
+  return (await res.json()) as SignupStarted
+}
+
+export async function verifyEmail(token: string, email: string, code: string): Promise<Customer> {
+  const res = await fetchWithAuth(token, '/api/customer-auth/me/email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  })
+  if (!res.ok) throw await errorFrom(res)
+  return (await res.json()) as Customer
+}
+
+/** "Sarah", else the phone / email — for a greeting or an avatar. */
+export function displayName(c: Pick<Customer, 'name' | 'email' | 'phone'>): string {
+  return c.name.trim() || c.phone || c.email || 'there'
+}
+
 export function googleLogin(credential: string): Promise<AuthResult> {
   return postJson('/api/customer-auth/google', { credential })
 }

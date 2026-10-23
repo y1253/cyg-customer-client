@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 import { HERO } from './content'
 import { ctaClass } from './cta'
 
@@ -10,6 +11,7 @@ import { ctaClass } from './cta'
  * nothing and the gradient + line pattern beneath it carry the section on their own.
  */
 export function HeroSection() {
+  const { token } = useAuth()
   return (
     <section
       id="top"
@@ -45,12 +47,11 @@ export function HeroSection() {
           <div className="flex flex-col gap-8">
             <p className="text-lg leading-relaxed text-white/85 sm:text-xl">{HERO.body}</p>
             <div className="flex flex-wrap gap-4">
-              {/* Signed-out visitors are sent through /login (CustomerRoute) first. */}
-              <Link to="/dashboard/register" className={ctaClass('light')}>
-                Start your application
+              <Link to={token ? '/dashboard' : '/signup'} className={ctaClass('light')}>
+                {token ? 'Go to your dashboard' : 'Get started'}
               </Link>
-              <a href="#contact" className={ctaClass('brand')}>
-                Talk to an Expert
+              <a href="#what-we-do" className={ctaClass('brand')}>
+                See how it works
               </a>
             </div>
           </div>

@@ -8,12 +8,13 @@ import { useBookScope } from '@/context/BookScopeContext'
  */
 export function useBook() {
   const { token } = useAuth()
-  const companyId = useBookScope()
-  const auth: BookAuth = { token: token ?? '', companyId }
+  const { bookId, companyId } = useBookScope()
+  const auth: BookAuth = { token: token ?? '', companyId, bookId }
   return {
     token,
+    bookId,
     companyId,
     auth,
-    key: <K extends readonly unknown[]>(k: K) => bookKey(k, companyId),
+    key: <K extends readonly unknown[]>(k: K) => bookKey(k, auth),
   }
 }
