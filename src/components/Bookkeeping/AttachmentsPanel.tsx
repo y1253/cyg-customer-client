@@ -292,8 +292,7 @@ function FolderTable({
                   className="cursor-pointer"
                   onClick={() => {
                     if (item.type === 'statement') {
-                      // A bank-feed month has no file to open.
-                      if (item.statement.source === 'PLAID') return
+                      // A bank-feed month opens a PDF the server builds from its rows.
                       setOpenError(null)
                       openOriginal(auth, item.statement.id).catch((e: Error) => setOpenError(e.message))
                     } else setOpen(expanded ? null : item.key)

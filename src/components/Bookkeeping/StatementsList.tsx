@@ -355,19 +355,17 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                         <RotateCcw />
                       </Button>
                     )}
-                    {s.source !== 'PLAID' && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        title="View original PDF"
-                        onClick={() => {
-                          setOpenError(null)
-                          openOriginal(auth, s.id).catch((e: Error) => setOpenError(e.message))
-                        }}
-                      >
-                        <ExternalLink />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title={s.source === 'PLAID' ? 'View statement PDF' : 'View original PDF'}
+                      onClick={() => {
+                        setOpenError(null)
+                        openOriginal(auth, s.id).catch((e: Error) => setOpenError(e.message))
+                      }}
+                    >
+                      <ExternalLink />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon-sm"
