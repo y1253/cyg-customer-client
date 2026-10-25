@@ -16,6 +16,8 @@ export type Customer = {
   phone: string | null
   /** How they prefer to be contacted; null = not chosen. Absent on a profile cached before step12. */
   preferredContact?: ContactMethod | null
+  /** A message with each new bank transaction and its category (default on). Absent on an older cached profile. */
+  transactionAlerts?: boolean
   createdAt: string
 }
 
@@ -40,7 +42,12 @@ export type SignupValues = {
 export type SignupStarted = { email: string }
 export type VerifySignupValues = { email: string; code: string }
 export type LoginValues = { email: string; password: string }
-export type UpdateMeValues = { name?: string; phone?: string | null; preferredContact?: ContactMethod | null }
+export type UpdateMeValues = {
+  name?: string
+  phone?: string | null
+  preferredContact?: ContactMethod | null
+  transactionAlerts?: boolean
+}
 export type ResetPasswordValues = { email: string; code: string; newPassword: string }
 /** `currentPassword` when the account has one; otherwise the emailed `code`. */
 export type ChangePasswordValues = { currentPassword?: string; code?: string; newPassword: string }

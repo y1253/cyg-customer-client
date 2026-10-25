@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { SUBMIT_CLASS } from '@/components/Auth/AuthLayout'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { CONTACT_METHOD_LABEL, displayName, type ContactMethod, type Customer } from '@/api/customerAuth'
@@ -73,13 +74,14 @@ function ProfileForm({ customer }: { customer: Customer }) {
   const [name, setName] = useState(customer.name)
   const [phone, setPhone] = useState(customer.phone ?? '')
   const [contact, setContact] = useState<ContactMethod | null>(customer.preferredContact ?? null)
+  const [alerts, setAlerts] = useState(customer.transactionAlerts ?? true)
   const [saved, setSaved] = useState(false)
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     setSaved(false)
     update.mutate(
-      { name, phone: phone.trim() || null, preferredContact: contact },
+      { name, phone: phone.trim() || null, preferredContact: contact, transactionAlerts: alerts },
       { onSuccess: () => setSaved(true) },
     )
   }
@@ -136,6 +138,16 @@ function ProfileForm({ customer }: { customer: Customer }) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">How you'd like us to reach you. Text and WhatsApp need your phone above.</p>
+      </div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="transaction-alerts">New bank transaction alerts</Label>
+          <p className="text-xs text-muted-foreground">
+            When your connected bank sends new transactions, we message you each one and the category we filed it
+            under — by your preferred contact method (a text if you haven't chosen one). Reply to change a category.
+          </p>
+        </div>
+        <Switch id="transaction-alerts" checked={alerts} onCheckedChange={setAlerts} className="mt-0.5" />
       </div>
       {update.error && (
         <p role="alert" className="text-sm text-destructive">
