@@ -172,7 +172,7 @@ export function BookkeepingPage({
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="gap-6">
         <TabsList className="h-auto! w-full flex-wrap justify-start gap-1 rounded-xl bg-white p-1.5 ring-1 ring-black/5 sm:w-fit">
           <TabsTrigger value="statements" className="h-9 flex-none gap-1.5 px-4">
-            Statements
+            Bank feeds
             {unread > 0 && (
               <span
                 className="rounded-full bg-red-600 px-1.5 text-[11px] leading-[18px] font-semibold text-white"
@@ -228,7 +228,7 @@ export function BookkeepingPage({
             </section>
             <section className="lg:col-span-3">
               <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                Statements {list.length > 0 && <span className="text-foreground">· {list.length}</span>}
+                Bank feeds {list.length > 0 && <span className="text-foreground">· {list.length}</span>}
               </h2>
               <StatementsList statements={list} loading={statements.isLoading} />
               {statements.error && <p className="mt-2 text-sm text-destructive">{statements.error.message}</p>}

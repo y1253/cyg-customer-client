@@ -4,7 +4,7 @@ import { errorFrom } from './client'
 /** One chat per channel on the Communication tab (step12). UPLOADS = files added on the site. */
 export type CommChannel = 'WHATSAPP' | 'SMS' | 'VOICE' | 'EMAIL' | 'BOT' | 'UPLOADS'
 
-/** step12: one phone call with the AI (its words are the messages around it). */
+/** step12: one phone call with the AI. step12g: its words open inside its card. */
 export type CommCall = {
   id: number
   /** INBOUND = they called us; OUTBOUND = the AI called them. */
@@ -24,7 +24,12 @@ export type CommCall = {
   /** step12c: who the call was with — the contact (THIRD_PARTY), else the customer. */
   withName?: string
   contactName?: string | null
+  /** step12g: what was said is saved (absent from an older API = maybe). */
+  hasTranscript?: boolean
 }
+
+/** step12g: one line of a call's transcript. USER = the person on the phone. */
+export type TranscriptLine = { id: number; role: string; text: string; at: string }
 
 export type ChannelSummary = {
   channel: CommChannel
@@ -86,6 +91,13 @@ export async function openCommFile(auth: BookAuth, file: CommFile): Promise<void
   if (tab) tab.location.href = url
   else window.location.href = url
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+/** step12g: what was said on a call, oldest first. */
+export async function fetchCallTranscript(auth: BookAuth, callId: number): Promise<TranscriptLine[]> {
+  const res = await bookFetch(auth, `/api/bookkeeping/calls/${callId}/transcript`)
+  if (!res.ok) throw await errorFrom(res)
+  return ((await res.json()) as { lines: TranscriptLine[] }).lines
 }
 
 /** step12: a call's recording as an object URL (proxied by the customer API, never SignalWire's). */

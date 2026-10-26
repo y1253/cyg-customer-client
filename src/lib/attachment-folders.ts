@@ -9,7 +9,7 @@ import type { ColumnDef } from '@/lib/table-sort'
  * one "Not filed yet" folder for what has no account yet (a statement not read, an
  * attachment not matched).
  *
- * A statement's folder is the same as on the Statements tab (`folderOf`); an attachment's
+ * A statement's folder is the same as on the Bank feeds tab (`folderOf`); an attachment's
  * is the account of the statement its transaction came from — computed by the server
  * (`Attachment.folder`, `attachment-folders.util.ts`). The staff app's company Attachments
  * folder groups the same way (internal `company-files.util.ts`). Pure, so it is tested.

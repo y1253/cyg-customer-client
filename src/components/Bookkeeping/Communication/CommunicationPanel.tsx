@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Bot,
+  ChevronDown,
   FileText,
   Loader2,
   Mail,
@@ -27,6 +28,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBook } from '@/hooks/useBook'
+import { useCallTranscript } from '@/hooks/useCallTranscript'
 import { useCommChannels, useCommThread } from '@/hooks/useCommunications'
 import { useIntake } from '@/hooks/useIntake'
 import { formatPhone } from '@/lib/portal-format'
@@ -320,15 +322,17 @@ const fmtDuration = (s: number | null) =>
 
 /**
  * step12: one phone call with the AI — who it was with, from which number to which, from
- * when till when (step12c), and its recording (fetched with the sign-in token only when
- * asked for). What was said is in the bubbles around it.
+ * when till when (step12c). step12g: click it open for its recording (fetched with the
+ * sign-in token only then) and what was said, line by line.
  */
 function CallBubble({ call, at }: { call: CommCall; at: string }) {
   const { auth } = useBook()
+  const [open, setOpen] = useState(false)
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const missed = call.status === 'NO_ANSWER' || call.status === 'FAILED'
+  const canOpen = !missed && (call.hasRecording || call.hasTranscript !== false)
   const Icon = missed ? PhoneMissed : call.direction === 'OUTBOUND' ? PhoneOutgoing : PhoneIncoming
   const thirdParty = call.purpose === 'THIRD_PARTY'
   const who = call.withName ?? 'you'
@@ -340,7 +344,15 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
   const status = CALL_STATUS[call.status]
   const start = call.answeredAt ?? at
   const span = call.endedAt ? `${fmtTime(start)} – ${fmtClock(call.endedAt)}` : fmtTime(at)
-  const load = () => {
+  // The recording is fetched when the card opens and its object URL dropped when it closes.
+  const toggle = () => {
+    if (open) {
+      setOpen(false)
+      setUrl(null)
+      return
+    }
+    setOpen(true)
+    if (!call.hasRecording || url) return
     setLoading(true)
     setError(null)
     callRecordingUrl(auth, call.id)
@@ -353,41 +365,97 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
   return (
     <div className="flex justify-center">
       <div className="flex w-full max-w-md flex-col gap-2 rounded-xl border bg-white px-3.5 py-2.5 text-sm shadow-sm">
-        <div className="flex items-start gap-2">
-          <Icon className={cn('mt-0.5 size-4 shrink-0', missed ? 'text-red-600' : 'text-brand')} />
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-[#0B1C2C]">{title}</p>
-            <p className="text-xs text-muted-foreground">
-              {missed
-                ? thirdParty
-                  ? 'Nobody answered'
-                  : 'Missed — we sent it by text or email instead'
-                : (PURPOSE[call.purpose] ?? 'Phone call')}
-            </p>
+        <button
+          type="button"
+          disabled={!canOpen}
+          onClick={toggle}
+          aria-expanded={open}
+          className={cn('flex flex-col gap-2 text-left', canOpen ? 'cursor-pointer' : 'cursor-default')}
+          title={canOpen ? (open ? 'Close the call' : 'Open the recording and what was said') : undefined}
+        >
+          <div className="flex w-full items-start gap-2">
+            <Icon className={cn('mt-0.5 size-4 shrink-0', missed ? 'text-red-600' : 'text-brand')} />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-[#0B1C2C]">{title}</p>
+              <p className="text-xs text-muted-foreground">
+                {missed
+                  ? thirdParty
+                    ? 'Nobody answered'
+                    : 'Missed — we sent it by text or email instead'
+                  : (PURPOSE[call.purpose] ?? 'Phone call')}
+              </p>
+            </div>
+            {status && <Badge className={cn('shrink-0 text-[10px]', status.tone)}>{status.label}</Badge>}
+            {canOpen && (
+              <ChevronDown
+                className={cn('mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}
+              />
+            )}
           </div>
-          {status && <Badge className={cn('shrink-0 text-[10px]', status.tone)}>{status.label}</Badge>}
-        </div>
-        {(call.fromNumber || call.toNumber) && (
-          <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-[#0B1C2C]">
-            <span className="text-muted-foreground">From</span>
-            <span className="font-medium tabular-nums">{call.fromNumber ? formatPhone(call.fromNumber) : '—'}</span>
-            <span className="text-muted-foreground">→ To</span>
-            <span className="font-medium tabular-nums">{call.toNumber ? formatPhone(call.toNumber) : '—'}</span>
+          {(call.fromNumber || call.toNumber) && (
+            <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-[#0B1C2C]">
+              <span className="text-muted-foreground">From</span>
+              <span className="font-medium tabular-nums">{call.fromNumber ? formatPhone(call.fromNumber) : '—'}</span>
+              <span className="text-muted-foreground">→ To</span>
+              <span className="font-medium tabular-nums">{call.toNumber ? formatPhone(call.toNumber) : '—'}</span>
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {[span, fmtDuration(call.durationSec)].filter(Boolean).join(' · ')}
+            {canOpen && !open && (
+              <span className="ml-1.5 font-medium text-[#1f8f86]">
+                · {call.hasRecording ? 'Recording & transcript' : 'Transcript'}
+              </span>
+            )}
           </p>
+        </button>
+        {open && (
+          <div className="flex flex-col gap-2 border-t pt-2">
+            {call.hasRecording &&
+              (url ? (
+                <audio controls src={url} className="w-full" />
+              ) : loading ? (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" /> Loading the recording…
+                </p>
+              ) : null)}
+            {error && <p className="text-xs text-destructive">{error}</p>}
+            <CallTranscript call={call} />
+          </div>
         )}
-        <p className="text-xs text-muted-foreground">
-          {[span, fmtDuration(call.durationSec)].filter(Boolean).join(' · ')}
-        </p>
-        {!missed &&
-          (url ? (
-            <audio controls src={url} className="w-full" />
-          ) : call.hasRecording ? (
-            <Button size="sm" variant="outline" onClick={load} disabled={loading} className="w-fit gap-1.5">
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <Phone className="size-4" />} Play recording
-            </Button>
-          ) : null)}
-        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
+    </div>
+  )
+}
+
+/** step12g: what was said on a call — the person on the left, the AI on the right. */
+function CallTranscript({ call }: { call: CommCall }) {
+  const q = useCallTranscript(call.id, true)
+  const them = call.purpose === 'THIRD_PARTY' ? (call.contactName ?? call.withName ?? 'Them') : 'You'
+  if (q.isLoading) return <Skeleton className="h-16 w-full" />
+  if (q.error) return <p className="text-xs text-destructive">{q.error.message}</p>
+  const lines = q.data ?? []
+  if (!lines.length) return <p className="text-xs text-muted-foreground">No transcript for this call.</p>
+  return (
+    <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pr-1">
+      {lines.map((l) => {
+        const ai = l.role !== 'USER'
+        return (
+          <div key={l.id} className={cn('flex flex-col', ai ? 'items-end' : 'items-start')}>
+            <div
+              className={cn(
+                'max-w-[90%] rounded-2xl px-3 py-1.5 text-[13px] break-words whitespace-pre-wrap',
+                ai ? 'rounded-br-md bg-[#3BBFB4]/15 text-[#0B1C2C]' : 'rounded-bl-md bg-muted',
+              )}
+            >
+              {l.text}
+            </div>
+            <span className="mt-0.5 text-[10px] text-muted-foreground">
+              {ai ? 'CYG Finance AI' : them} · {fmtClock(l.at)}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
