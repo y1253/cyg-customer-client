@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useAuth } from '@/context/AuthContext'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 import { cn } from '@/lib/utils'
 import { ACCOUNT_ITEM, visibleModules, type NavItem } from './nav'
 
@@ -97,6 +98,8 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
  * modules, and a light content area. Built to take more modules — add one to `nav.ts`.
  */
 export function DashboardLayout() {
+  // step12h: changes the AI makes on any channel show without a reload.
+  useLiveRefresh()
   return (
     <div className="min-h-svh bg-[#F5F7F7]">
       <aside className="fixed inset-y-0 left-0 hidden w-64 bg-[#0B1C2C] lg:block">

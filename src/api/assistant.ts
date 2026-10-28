@@ -120,3 +120,15 @@ export async function fetchAttachmentMessages(auth: BookAuth, attachmentId: numb
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
+
+export const CHANGES_KEY = ['assistant-changes'] as const
+
+/**
+ * step12h: this customer's change counter — moves when the AI (any channel) or a statement /
+ * receipt / bank feed changed their books. Not book-scoped.
+ */
+export async function fetchChanges(token: string): Promise<{ version: string }> {
+  const res = await fetchWithAuth(token, '/api/assistant/changes')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}

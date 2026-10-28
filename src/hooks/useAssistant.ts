@@ -18,9 +18,8 @@ import {
   type AssistantReply,
 } from '@/api/assistant'
 import { useAuth } from '@/context/AuthContext'
-import { changedSomething } from '@/lib/assistant'
 import { useBook } from './useBook'
-import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
+import { useRefreshEverything } from './useRefreshEverything'
 
 /** Whether the AI assistant is on for this firm. Off (or unknown) = every AI control hides. */
 export function useAssistantConfig() {
@@ -39,16 +38,14 @@ export function useAssistantEnabled(): boolean {
   return useAssistantConfig().data?.enabled === true
 }
 
-/** After an answer: the threads list always; the books too when the AI changed something. */
+/**
+ * After EVERY answer the page refetches what is on screen (step12h: it used to refetch only
+ * some book data, and only when an action was reported, so contacts, books, categories, the
+ * profile… stayed stale until a reload).
+ */
 function useAfterReply() {
-  const queryClient = useQueryClient()
-  const invalidate = useInvalidateBookkeeping()
-  return (r: AssistantReply) => {
-    void queryClient.invalidateQueries({ queryKey: CONVERSATIONS_KEY })
-    void queryClient.invalidateQueries({ queryKey: ASSISTANT_RULES_KEY })
-    void queryClient.invalidateQueries({ queryKey: ATTACHMENT_MESSAGES_KEY })
-    if (changedSomething(r.reply)) void invalidate()
-  }
+  const refresh = useRefreshEverything()
+  return () => void refresh()
 }
 
 /** This book's conversations, every channel (website, text, WhatsApp), newest first. */
@@ -83,7 +80,7 @@ export function useSendAssistantMessage() {
         r.message,
         r.reply,
       ])
-      after(r)
+      after()
     },
   })
 }
@@ -109,7 +106,7 @@ export function useSendAttachmentChat(attachmentId: number) {
         const prev = old as { messages: AssistantReply['message'][] } | undefined
         return { conversationId: r.conversationId, messages: [...(prev?.messages ?? []), r.message, r.reply] }
       })
-      after(r)
+      after()
     },
   })
 }
