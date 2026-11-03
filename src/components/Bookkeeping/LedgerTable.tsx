@@ -10,7 +10,7 @@ import {
   Search,
   Split,
 } from 'lucide-react'
-import { UNCLARIFIED_NAME, type LedgerTransaction, type Statement } from '@/api/bookkeeping'
+import { openOriginal, UNCLARIFIED_NAME, type LedgerTransaction, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useBook } from '@/hooks/useBook'
 import { useIncrementalRows } from '@/hooks/useIncrementalRows'
 import { money } from '@/lib/money'
 import { applyTable, useTableControls, type ColumnDef, type SortState } from '@/lib/table-sort'
@@ -162,6 +163,8 @@ export function LedgerTable({
   const [renaming, setRenaming] = useState<LedgerTransaction | null>(null)
   const [splitting, setSplitting] = useState<SplitTarget | null>(null)
   const [attaching, setAttaching] = useState<LedgerTransaction | null>(null)
+  const { auth } = useBook()
+  const [openError, setOpenError] = useState<string | null>(null)
 
   const done = statements.filter((s) => s.status === 'DONE')
   const folders = useMemo(() => groupByAccount(statements.filter((s) => s.status === 'DONE')), [statements])
@@ -452,6 +455,7 @@ export function LedgerTable({
           </Button>
         )}
       </div>
+      {openError && <p className="border-b px-3 py-2 text-sm text-destructive sm:px-5">{openError}</p>}
 
       {loading ? (
         <div className="flex flex-col gap-2 p-5">
@@ -543,12 +547,26 @@ export function LedgerTable({
               )
               const extras = (
                 <span className="flex max-w-full min-w-0 items-center gap-1.5">
-                  <span
-                    className="min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-                    title={t.statementLabel}
-                  >
-                    {t.statementLabel}
-                  </span>
+                  {t.statementId > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenError(null)
+                        openOriginal(auth, t.statementId).catch((e: Error) => setOpenError(e.message))
+                      }}
+                      className="min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:underline"
+                      title={`Open the statement PDF — ${t.statementLabel}`}
+                    >
+                      {t.statementLabel}
+                    </button>
+                  ) : (
+                    <span
+                      className="min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                      title={t.statementLabel}
+                    >
+                      {t.statementLabel}
+                    </span>
+                  )}
                   {!t.kind && <AttachButton count={t.attachments?.length ?? 0} onClick={() => setAttaching(t)} />}
                   {!t.kind && <SplitButton onClick={() => openSplit(t.id)} />}
                 </span>

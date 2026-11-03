@@ -370,6 +370,8 @@ export type LedgerName = {
   otherCategories: number
   type: NameType
   rows: number
+  /** What its rows add up to, as the bank moved it (tax included). */
+  total: number
   /** The agencies that tax this name's rows — none = not taxed (the default). */
   agencyIds: number[]
   /** The descriptions the AI put under this name. */
@@ -385,7 +387,7 @@ export type LedgerName = {
   unclarified?: true
 }
 
-export type NameRuleMatch = 'NAME' | 'DESCRIPTION'
+export type NameRuleMatch = 'NAME' | 'DESCRIPTION' | 'CONTAINS'
 export type NameRuleRef = { matchType: NameRuleMatch; matchKey: string }
 
 /** Rows the AI found no payee name for, grouped by description. */
@@ -397,12 +399,27 @@ export type UnrecognizedName = {
   category: string
   otherCategories: number
   rows: number
+  /** What its rows add up to. */
+  total: number
   rule: NameRuleRef | null
+}
+
+/** "Every description that contains …" — the customer's own rule (step2). */
+export type ContainsRule = {
+  /** The text, as typed. */
+  text: string
+  /** What it is saved under — the `matchKey` an edit or a reset sends. */
+  key: string
+  name: string | null
+  category: string | null
+  /** Ledger rows whose description contains it now. */
+  rows: number
 }
 
 export type NamesData = {
   names: LedgerName[]
   unrecognized: UnrecognizedName[]
+  containsRules: ContainsRule[]
 }
 
 /** Where a product's category came from: your own choice, the AI (remembered), or the transaction's. */

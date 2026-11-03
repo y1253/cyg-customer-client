@@ -4,6 +4,7 @@ import {
   CircleDashed,
   CircleHelp,
   Landmark,
+  ListFilter,
   Pencil,
   Plus,
   RotateCcw,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react'
 import {
   TAX_KIND_LABEL,
+  type ContainsRule,
   type LedgerName,
   type NameRuleRef,
   type NameType,
@@ -41,11 +43,25 @@ import { useNames } from '@/hooks/useNames'
 import { useResetNameRule } from '@/hooks/useNameRule'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useTax } from '@/hooks/useTax'
+import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { AgencyDialog } from './AgencyDialog'
+import { ContainsRuleDialog } from './ContainsRuleDialog'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 
 const pct = (n: number) => `${n.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`
+
+/** What a name's rows add up to, red when money went out — as the ledger colours amounts. */
+function Total({ total }: { total: number }) {
+  return (
+    <span
+      className={cn('text-xs font-medium tabular-nums', total < 0 ? 'text-red-600' : 'text-emerald-700')}
+      title="Total of its transactions"
+    >
+      · {money(total)}
+    </span>
+  )
+}
 
 type Filter = 'ALL' | 'AGENCY' | 'UNRECOGNIZED' | NameType
 
@@ -109,6 +125,8 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
   const [confirm, setConfirm] = useState<TaxAgency | null>(null)
   const [filter, setFilter] = useState<Filter>('ALL')
   const [query, setQuery] = useState('')
+  const [containsOpen, setContainsOpen] = useState(false)
+  const [containsEditing, setContainsEditing] = useState<ContainsRule | null>(null)
 
   const allAgencies = tax.data?.agencies ?? []
   const q = query.trim().toLowerCase()
@@ -133,6 +151,17 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
       ),
     [names.data, q],
   )
+  const containsRules = useMemo(
+    () =>
+      (names.data?.containsRules ?? []).filter(
+        (r) =>
+          !q ||
+          r.text.toLowerCase().includes(q) ||
+          r.name?.toLowerCase().includes(q) ||
+          r.category?.toLowerCase().includes(q),
+      ),
+    [names.data, q],
+  )
   const count = (f: Filter) =>
     f === 'ALL'
       ? agencies.length + payees.length
@@ -150,6 +179,11 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
         : payees.filter((n) => n.type === filter)
   // In "All" the nameless rows are the Unclarified name entry (its descriptions under it).
   const shownUnrecognized = filter === 'UNRECOGNIZED' ? unrecognized : []
+  const shownContains = filter === 'ALL' || filter === 'UNRECOGNIZED' ? containsRules : []
+  const openContains = (rule: ContainsRule | null) => {
+    setContainsEditing(rule)
+    setContainsOpen(true)
+  }
   const resetting = (rule: NameRuleRef | null) =>
     !!rule &&
     resetRule.isPending &&
@@ -174,10 +208,21 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
             agencies you pick for it.
           </p>
         </div>
-        <Button onClick={() => open(null)} className="h-10 gap-2 rounded-lg bg-brand px-4 text-white hover:bg-brand/85">
-          <Plus className="size-4" />
-          Add agency
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => openContains(null)}
+            className="h-10 gap-2 rounded-lg px-4"
+            title="Every description that contains some text gets a name or category"
+          >
+            <ListFilter className="size-4" />
+            Add description rule
+          </Button>
+          <Button onClick={() => open(null)} className="h-10 gap-2 rounded-lg bg-brand px-4 text-white hover:bg-brand/85">
+            <Plus className="size-4" />
+            Add agency
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 border-b px-5 py-3 sm:flex-row sm:items-center">
@@ -215,7 +260,7 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
             <Skeleton key={i} className="h-12" />
           ))}
         </div>
-      ) : !shownAgencies.length && !shownNames.length && !shownUnrecognized.length ? (
+      ) : !shownAgencies.length && !shownNames.length && !shownUnrecognized.length && !shownContains.length ? (
         <div className="px-6 py-14 text-center">
           <span className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-brand/10 text-brand">
             <Landmark className="size-5" />
@@ -229,6 +274,15 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
         </div>
       ) : (
         <ul className="divide-y">
+          {shownContains.map((r) => (
+            <ContainsRuleRow
+              key={`c:${r.key}`}
+              rule={r}
+              onEdit={() => openContains(r)}
+              onDelete={() => resetRule.mutate({ matchType: 'CONTAINS', matchKey: r.key })}
+              deleting={resetting({ matchType: 'CONTAINS', matchKey: r.key })}
+            />
+          ))}
           {shownAgencies.map((a) => (
             <li key={`a:${a.id}`} className={cn('flex items-center gap-4 px-5 py-3.5', !a.active && 'opacity-60')}>
               <TypeIcon type="AGENCY" />
@@ -297,6 +351,7 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
 
       <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} />
       <NameRuleDialog target={ruleTarget} onOpenChange={(o) => !o && setRuleTarget(null)} />
+      <ContainsRuleDialog open={containsOpen} rule={containsEditing} onOpenChange={setContainsOpen} />
 
       <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <DialogContent>
@@ -393,6 +448,7 @@ function NameRow({
           <span className="text-xs text-muted-foreground/80 tabular-nums">
             · {n.rows.toLocaleString()} row{n.rows === 1 ? '' : 's'}
           </span>
+          <Total total={n.total} />
         </div>
         {many > 0 && (
           <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -448,6 +504,14 @@ function NameRow({
               <span className="shrink-0 text-xs text-muted-foreground">{u.category}</span>
               <span className="w-14 shrink-0 text-right text-xs text-muted-foreground/80 tabular-nums">
                 {u.rows.toLocaleString()} row{u.rows === 1 ? '' : 's'}
+              </span>
+              <span
+                className={cn(
+                  'w-20 shrink-0 text-right text-xs font-medium tabular-nums',
+                  u.total < 0 ? 'text-red-600' : 'text-emerald-700',
+                )}
+              >
+                {money(u.total)}
               </span>
               <Button variant="outline" size="xs" onClick={() => onAssign(u)}>
                 Assign
@@ -572,6 +636,7 @@ function UnrecognizedRow({
           <span className="text-xs text-muted-foreground/80 tabular-nums">
             · {u.rows.toLocaleString()} row{u.rows === 1 ? '' : 's'}
           </span>
+          <Total total={u.total} />
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -579,6 +644,59 @@ function UnrecognizedRow({
           Assign
         </Button>
         {u.rule && <ResetButton onReset={onReset} resetting={resetting} />}
+      </div>
+    </li>
+  )
+}
+
+/**
+ * A customer's "description contains …" rule: the text, what it gives (name and/or
+ * category) and how many rows it reaches. Edit, or delete it (its rows go back to the
+ * default).
+ */
+function ContainsRuleRow({
+  rule,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  rule: ContainsRule
+  onEdit: () => void
+  onDelete: () => void
+  deleting: boolean
+}) {
+  const gives = [rule.name, rule.category].filter(Boolean).join(' · ')
+  return (
+    <li className="flex items-center gap-4 px-5 py-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+        <ListFilter className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-[#0B1C2C]" title={rule.text}>
+          Description contains “{rule.text}”
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          <Badge className="bg-brand/10 text-brand">Description rule</Badge>
+          <span className="truncate text-sm text-muted-foreground">→ {gives}</span>
+          <span className="text-xs text-muted-foreground/80 tabular-nums">
+            · {rule.rows.toLocaleString()} row{rule.rows === 1 ? '' : 's'}
+          </span>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-1">
+        <Button variant="ghost" size="icon-sm" title="Edit this rule" onClick={onEdit}>
+          <Pencil />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Delete this rule"
+          disabled={deleting}
+          onClick={onDelete}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 />
+        </Button>
       </div>
     </li>
   )
