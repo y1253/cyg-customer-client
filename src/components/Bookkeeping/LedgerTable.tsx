@@ -483,7 +483,7 @@ export function LedgerTable({
                 kind="number"
                 align="end"
                 controls={controls}
-                className="w-[6.5rem] text-right sm:w-28"
+                className="w-[7.5rem] text-right sm:w-32 xl:w-36"
               />
               <ColumnHeader column="drcr" label="Debit / Credit" kind="text" controls={controls} className={cn(SHOW.stacked, 'w-44')} />
               <ColumnHeader column="debit" label="Debit" kind="text" controls={controls} className={cn(SHOW.wide, 'w-40')} />
@@ -532,7 +532,7 @@ export function LedgerTable({
                 </button>
               )
               const description = (
-                <span className="line-clamp-2 text-xs break-words md:text-sm">
+                <span className="line-clamp-2 text-xs break-words [overflow-wrap:anywhere] md:text-sm">
                   {t.kind === 'opening' ? (
                     <Badge variant="secondary">{t.description}</Badge>
                   ) : t.kind === 'fx' ? (
@@ -602,7 +602,7 @@ export function LedgerTable({
                       {extras}
                     </span>
                   </TableCell>
-                  <TableCell className={cn(SHOW.desc, 'align-top whitespace-normal text-[#0B1C2C]')} title={t.description}>
+                  <TableCell className={cn(SHOW.desc, 'overflow-hidden align-top whitespace-normal text-[#0B1C2C]')} title={t.description}>
                     <span className="flex min-w-0 flex-col items-start gap-1">
                       {splitChip}
                       {description}
@@ -611,7 +611,7 @@ export function LedgerTable({
                   </TableCell>
                   <TableCell
                     className={cn(
-                      'text-right align-top font-semibold tabular-nums',
+                      'pl-4 text-right align-top font-semibold tabular-nums',
                       t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
                     )}
                   >
@@ -667,7 +667,7 @@ export function LedgerTable({
               </TableCell>
               <TableCell className={SHOW.desc} />
               <TableCell
-                className={cn('text-right font-bold tabular-nums', net < 0 ? 'text-red-600' : 'text-emerald-700')}
+                className={cn('pl-4 text-right font-bold tabular-nums', net < 0 ? 'text-red-600' : 'text-emerald-700')}
                 title="Net change"
               >
                 {money(net)}
@@ -748,14 +748,14 @@ function TaxRow({ t, joined, onRename }: { t: LedgerTransaction; joined: boolean
           <AccountStack t={t} tax />
         </span>
       </TableCell>
-      <TableCell className={cn(SHOW.desc, 'py-1.5 align-top')} title={`${t.offsetAccount} on: ${t.description}`}>
+      <TableCell className={cn(SHOW.desc, 'overflow-hidden py-1.5 align-top')} title={`${t.offsetAccount} on: ${t.description}`}>
         <span className={cn('flex min-w-0 items-center gap-1.5', t.splitOfId ? 'pl-6' : 'pl-2')}>
           <CornerDownRight className="size-3.5 shrink-0 text-slate-400" />
           {agency}
           <span className="truncate text-xs">{t.description}</span>
         </span>
       </TableCell>
-      <TableCell className="py-1.5 text-right align-top text-sm font-medium tabular-nums">
+      <TableCell className="py-1.5 pl-4 text-right align-top text-sm font-medium tabular-nums">
         {money(t.amount)}
         <FxNote t={t} amount={t.amount} />
       </TableCell>
@@ -821,7 +821,7 @@ function SplitRow({
           {edit}
         </span>
       </TableCell>
-      <TableCell className={cn(SHOW.desc, 'py-1.5 align-top')} title={t.description}>
+      <TableCell className={cn(SHOW.desc, 'overflow-hidden py-1.5 align-top')} title={t.description}>
         <span className="flex min-w-0 items-center gap-1.5 pl-2">
           <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
           {item}
@@ -830,7 +830,7 @@ function SplitRow({
       </TableCell>
       <TableCell
         className={cn(
-          'py-1.5 text-right align-top text-sm font-semibold tabular-nums',
+          'py-1.5 pl-4 text-right align-top text-sm font-semibold tabular-nums',
           t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
         )}
       >
