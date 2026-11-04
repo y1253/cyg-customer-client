@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useSaveStartDates } from '@/hooks/useBankFeeds'
+import { useClosingValue } from '@/hooks/useClosingValue'
 
 /** Today as YYYY-MM-DD in the customer's own time zone. */
 function today(): string {
@@ -32,10 +33,11 @@ export function BankStartDatesDialog({
   connection: BankConnection | null
   onClose: () => void
 }) {
+  const shown = useClosingValue(connection)
   return (
     <Dialog open={!!connection} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
-        {connection && <StartDatesForm key={connection.id} connection={connection} onClose={onClose} />}
+        {shown && <StartDatesForm key={shown.id} connection={shown} onClose={onClose} />}
       </DialogContent>
     </Dialog>
   )

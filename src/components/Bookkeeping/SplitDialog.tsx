@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAttachmentActions } from '@/hooks/useAttachments'
+import { useClosingValue } from '@/hooks/useClosingValue'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useSaveSplits } from '@/hooks/useSplits'
 import { money } from '@/lib/money'
@@ -58,10 +59,11 @@ const cents = (s: string): number => {
  * transaction. Opened again, it edits the existing splits; removing them all un-splits it.
  */
 export function SplitDialog({ target, onOpenChange }: { target: SplitTarget | null; onOpenChange: (open: boolean) => void }) {
+  const shown = useClosingValue(target)
   return (
     <Dialog open={!!target} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
-        {target && <SplitForm key={target.id} target={target} onDone={() => onOpenChange(false)} />}
+        {shown && <SplitForm key={shown.id} target={shown} onDone={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
   )

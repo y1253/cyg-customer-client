@@ -36,7 +36,9 @@ export function ContainsRuleDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        {open && <ContainsRuleForm key={rule?.key ?? 'new'} rule={rule} onDone={() => onOpenChange(false)} />}
+        {/* Always rendered: the popup unmounts once closed (resetting the form), and the fields
+            stay until its exit animation ends. */}
+        <ContainsRuleForm key={rule?.key ?? 'new'} rule={rule} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   )

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
 import { useAttachmentActions, useAttachments, useUploadAttachments } from '@/hooks/useAttachments'
+import { useClosingValue } from '@/hooks/useClosingValue'
 import { KIND_LABEL } from '@/lib/attachment-labels'
 import { money } from '@/lib/money'
 import { AttachmentPreview, AttachmentStatusBadge, KindIcon, ReadingSummary } from './AttachmentParts'
@@ -22,10 +23,11 @@ export function TransactionAttachmentsDialog({
   transaction: LedgerTransaction | null
   onOpenChange: (open: boolean) => void
 }) {
+  const shown = useClosingValue(transaction)
   return (
     <Dialog open={!!transaction} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col gap-4 sm:max-w-2xl">
-        {transaction && <Body key={transaction.id} transaction={transaction} />}
+        {shown && <Body key={shown.id} transaction={shown} />}
       </DialogContent>
     </Dialog>
   )

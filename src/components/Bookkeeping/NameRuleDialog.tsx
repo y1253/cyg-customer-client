@@ -19,6 +19,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
+import { useClosingValue } from '@/hooks/useClosingValue'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
 import { useSaveNameRule } from '@/hooks/useNameRule'
 import { cn } from '@/lib/utils'
@@ -49,11 +50,12 @@ export function NameRuleDialog({
   target: NameRuleTarget | null
   onOpenChange: (open: boolean) => void
 }) {
+  const shown = useClosingValue(target)
   return (
     <Dialog open={!!target} onOpenChange={onOpenChange}>
       <DialogContent>
         {/* Keyed so the form starts from the row's own values every time it opens. */}
-        {target && <NameRuleForm key={keyOf(target)} target={target} onDone={() => onOpenChange(false)} />}
+        {shown && <NameRuleForm key={keyOf(shown)} target={shown} onDone={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
   )

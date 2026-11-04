@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import type { Attachment } from '@/api/attachments'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useClosingValue } from '@/hooks/useClosingValue'
 import { useTransactions } from '@/hooks/useTransactions'
 import { fmtDay } from '@/lib/attachment-labels'
 import { money } from '@/lib/money'
@@ -26,10 +27,11 @@ export function TransactionPicker({
   onPick: (transactionId: number) => void
   pending?: boolean
 }) {
+  const shown = useClosingValue(attachment)
   return (
     <Dialog open={!!attachment} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-2xl">
-        {attachment && <PickerBody key={attachment.id} attachment={attachment} onPick={onPick} pending={pending} />}
+        {shown && <PickerBody key={shown.id} attachment={shown} onPick={onPick} pending={pending} />}
       </DialogContent>
     </Dialog>
   )

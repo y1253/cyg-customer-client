@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { useClosingValue } from '@/hooks/useClosingValue'
 import { useRenameTaxLine } from '@/hooks/useSplits'
 import { NamePicker } from './NamePicker'
 
@@ -22,9 +23,10 @@ export function TaxLineNameDialog({
   line: LedgerTransaction | null
   onOpenChange: (open: boolean) => void
 }) {
+  const shown = useClosingValue(line)
   return (
     <Dialog open={!!line} onOpenChange={onOpenChange}>
-      <DialogContent>{line && <TaxLineNameForm key={line.key} line={line} onDone={() => onOpenChange(false)} />}</DialogContent>
+      <DialogContent>{shown && <TaxLineNameForm key={shown.key} line={shown} onDone={() => onOpenChange(false)} />}</DialogContent>
     </Dialog>
   )
 }

@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
+import { useClosingValue } from '@/hooks/useClosingValue'
 import { useProducts } from '@/hooks/useProducts'
 import { useResetProductRule, useSaveProductRule } from '@/hooks/useProductRule'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
@@ -48,6 +49,7 @@ export function Products() {
   const products = useProducts()
   const reset = useResetProductRule()
   const [editing, setEditing] = useState<Product | null>(null)
+  const shownEditing = useClosingValue(editing)
   const [filter, setFilter] = useState<Filter>('ALL')
   const [query, setQuery] = useState('')
 
@@ -162,7 +164,7 @@ export function Products() {
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
-          {editing && <ProductForm key={editing.itemKey} product={editing} onDone={() => setEditing(null)} />}
+          {shownEditing && <ProductForm key={shownEditing.itemKey} product={shownEditing} onDone={() => setEditing(null)} />}
         </DialogContent>
       </Dialog>
     </div>
