@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ContainsRule } from '@/api/bookkeeping'
+import { CONTAINS_MIN as MIN_CHARS, type ContainsRule } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -17,9 +17,6 @@ import { useSaveNameRule } from '@/hooks/useNameRule'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
 import { CategoryField } from './CategoryField'
 import { NamePicker } from './NamePicker'
-
-/** The shortest text a rule may look for — the server's `CONTAINS_MIN`. */
-const MIN_CHARS = 3
 
 /**
  * "Every description that contains …" (step2): a name and/or a category for every

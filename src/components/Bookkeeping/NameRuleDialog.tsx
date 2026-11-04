@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import type {
-  EditScope,
-  LedgerName,
-  LedgerTransaction,
-  UnrecognizedName,
+import {
+  CONTAINS_MIN,
+  type EditScope,
+  type LedgerName,
+  type LedgerTransaction,
+  type UnrecognizedName,
 } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
@@ -37,6 +39,8 @@ export type NameRuleTarget =
  * this description (and every later statement), or just this one. A name, once there, can
  * be changed but not cleared; a row the AI could not name may stay "Unclarified name" and
  * still get its description's category. A hand-made split only ever changes itself.
+ * "Contains text" (step2) saves a CONTAINS rule instead: every description holding the
+ * text (trimmed from this one) gets the name and/or category, now and from now on.
  */
 export function NameRuleDialog({
   target,
@@ -71,7 +75,14 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const [name, setName] = useState(initialName)
   const [choice, setChoice] = useState(categoryChoice(initialCategory))
   const isSplit = target.kind === 'transaction' && target.view.kind === 'split'
-  const [scope, setScope] = useState<EditScope>(isSplit ? 'ONCE' : 'ALWAYS')
+  const [scope, setScope] = useState<EditScope | 'CONTAINS'>(isSplit ? 'ONCE' : 'ALWAYS')
+  const [containsText, setContainsText] = useState(
+    target.kind === 'transaction'
+      ? target.view.description
+      : target.kind === 'unrecognized'
+        ? target.view.sampleDescription
+        : '',
+  )
 
   const trimmed = name.trim()
   const nameChanged = trimmed !== '' && trimmed !== initialName
@@ -80,21 +91,43 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const finalName = trimmed || initialName
   // "Always / Only this row" is about the NAME on a description's rows — a payee on the
   // Names tab is always renamed everywhere, and a category is always the name's own.
-  const askScope = nameChanged && target.kind !== 'name' && !isSplit
+  // "Contains text" is offered for any change, so a category alone can become a rule too.
+  const canScope = target.kind !== 'name' && !isSplit
+  const contains = canScope && scope === 'CONTAINS'
   const categoryChanged =
     choiceReady(choice) && (choice.category === NEW_CATEGORY || choice.category !== initialCategory)
   const pending = create.isPending || saveRule.isPending || editRow.isPending
-  const canSave = (nameChanged || categoryChanged) && !nameMissing && !pending
+  const containsTrimmed = containsText.trim()
+  const canSave = contains
+    ? containsTrimmed.length >= CONTAINS_MIN && (nameChanged || choiceReady(choice)) && !nameMissing && !pending
+    : (nameChanged || categoryChanged) && !nameMissing && !pending
   const error = create.error ?? saveRule.error ?? editRow.error
 
   const submit = async () => {
     if (!canSave) return
+    if (contains) {
+      // The text is the rule: its category goes with it as picked; a name only when one was
+      // typed — the row's own name would otherwise rename every matching transaction.
+      const category = choiceReady(choice) ? await resolveChoice(choice, create) : null
+      if (choiceReady(choice) && !category) return
+      saveRule.mutate(
+        {
+          matchType: 'CONTAINS',
+          matchKey: containsTrimmed,
+          name: nameChanged ? trimmed : null,
+          category,
+          scope: 'ALWAYS',
+        },
+        { onSuccess: onDone },
+      )
+      return
+    }
     const chosen = categoryChanged ? await resolveChoice(choice, create) : null
     if (categoryChanged && !chosen) return
     const values = {
       name: nameChanged ? trimmed : null,
       category: chosen,
-      scope: target.kind === 'name' ? ('ALWAYS' as const) : scope,
+      scope: target.kind === 'name' || scope === 'CONTAINS' ? ('ALWAYS' as const) : scope,
     }
     if (target.kind === 'transaction') {
       editRow.mutate({ id: target.view.id, ...values }, { onSuccess: onDone })
@@ -154,13 +187,14 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         {nameMissing && <p className="text-xs text-destructive">A name is required.</p>}
       </div>
 
-      {askScope && (
+      {canScope && (
         <div className="flex flex-col gap-1.5">
-          <Label>Use this name for</Label>
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+          <Label>Apply to</Label>
+          <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
             {(
               [
-                { id: 'ALWAYS', label: 'Always' },
+                { id: 'ALWAYS', label: 'This description' },
+                { id: 'CONTAINS', label: 'Contains text' },
                 { id: 'ONCE', label: target.kind === 'transaction' ? 'Only this row' : 'Only these rows' },
               ] as const
             ).map((o) => (
@@ -169,7 +203,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                 type="button"
                 onClick={() => setScope(o.id)}
                 className={cn(
-                  'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  'rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
                   scope === o.id ? 'bg-white text-[#0B1C2C] shadow-sm' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -177,8 +211,25 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
               </button>
             ))}
           </div>
+          {contains && (
+            <>
+              <Input
+                aria-label="Description contains"
+                value={containsText}
+                onChange={(e) => setContainsText(e.target.value)}
+                maxLength={191}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Trim it to the part every description has. At least {CONTAINS_MIN} characters; capital letters
+                don't matter.
+              </p>
+            </>
+          )}
           <p className="text-xs text-muted-foreground">
-            {scope === 'ALWAYS'
+            {contains
+              ? `Every transaction whose description contains this text gets ${nameChanged ? `the name “${trimmed}” and its category` : 'this category'} — in this ledger and every statement from now on. A rule for one exact description still wins.`
+              : scope === 'ALWAYS'
               ? 'Every transaction with this description gets this name — in this ledger and every statement you upload from now on.'
               : target.kind === 'transaction'
                 ? 'Only this transaction gets this name. Nothing is saved for the future.'

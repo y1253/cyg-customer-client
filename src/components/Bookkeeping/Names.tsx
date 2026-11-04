@@ -216,7 +216,7 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
             title="Every description that contains some text gets a name or category"
           >
             <ListFilter className="size-4" />
-            Add description rule
+            Description contains…
           </Button>
           <Button onClick={() => open(null)} className="h-10 gap-2 rounded-lg bg-brand px-4 text-white hover:bg-brand/85">
             <Plus className="size-4" />
@@ -676,7 +676,7 @@ function ContainsRuleRow({
           Description contains “{rule.text}”
         </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-          <Badge className="bg-brand/10 text-brand">Description rule</Badge>
+          <Badge className="bg-brand/10 text-brand">Contains rule</Badge>
           <span className="truncate text-sm text-muted-foreground">→ {gives}</span>
           <span className="text-xs text-muted-foreground/80 tabular-nums">
             · {rule.rows.toLocaleString()} row{rule.rows === 1 ? '' : 's'}

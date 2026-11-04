@@ -444,6 +444,9 @@ export type ChartAccount = { name: string; type: AccountType; custom: boolean }
 /** How far an edit reaches: saved for the future, or only the rows changed now. */
 export type EditScope = 'ALWAYS' | 'ONCE'
 
+/** The shortest text a "description contains" rule may look for — the server's `CONTAINS_MIN`. */
+export const CONTAINS_MIN = 3
+
 /** One description the AI put under a name, with the category its rows mostly have. */
 export type NameDescription = { description: string; category: string; rows: number }
 
