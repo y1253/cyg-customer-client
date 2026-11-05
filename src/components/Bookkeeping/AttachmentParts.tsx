@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
@@ -78,13 +79,30 @@ export function AttachmentStatusBadge({ a }: { a: Attachment }) {
  * The file itself: a picture, a player, or the PDF in a frame. Fetched with the token. A
  * text message has no file worth showing — its words are shown by `ReadingSummary`.
  */
-export function AttachmentPreview({ a }: { a: Pick<Attachment, 'id' | 'mimeType' | 'filename'> }) {
+type Previewed = Pick<Attachment, 'id' | 'mimeType' | 'filename'> & Partial<Pick<Attachment, 'size' | 'cropped'>>
+
+export function AttachmentPreview({ a }: { a: Previewed }) {
+  const [whole, setWhole] = useState(false)
   if (a.mimeType.startsWith('text/')) return null
-  return <FilePreview a={a} />
+  return (
+    <div className="flex flex-col gap-1">
+      <FilePreview a={a} whole={whole} />
+      {/* step9: a cheque cut out of an image that held several — the whole image on demand. */}
+      {a.cropped && (
+        <button
+          type="button"
+          onClick={() => setWhole((w) => !w)}
+          className="self-start text-xs font-medium text-brand hover:underline"
+        >
+          {whole ? 'Show only this document' : 'Show the whole image it was cut from'}
+        </button>
+      )}
+    </div>
+  )
 }
 
-function FilePreview({ a }: { a: Pick<Attachment, 'id' | 'mimeType' | 'filename'> }) {
-  const file = useAttachmentUrl(a.id)
+function FilePreview({ a, whole }: { a: Previewed; whole: boolean }) {
+  const file = useAttachmentUrl(a.id, `${a.size ?? ''}:${a.mimeType}`, whole)
   if (file.error) return <p className="text-sm text-destructive">{file.error}</p>
   if (!file.url) {
     return (
@@ -93,7 +111,7 @@ function FilePreview({ a }: { a: Pick<Attachment, 'id' | 'mimeType' | 'filename'
       </div>
     )
   }
-  if (a.mimeType.startsWith('image/')) {
+  if (a.mimeType.startsWith('image/') || whole) {
     return (
       <a href={file.url} target="_blank" rel="noreferrer" title="Open full size">
         <img src={file.url} alt={a.filename} className="max-h-[50vh] w-full rounded-xl bg-muted/30 object-contain" />

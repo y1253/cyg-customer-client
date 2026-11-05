@@ -1,10 +1,12 @@
-import { useRef } from 'react'
-import { Link2Off, ListChecks, Loader2, Paperclip } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Link2Off, ListChecks, Loader2, Paperclip, Sparkles } from 'lucide-react'
 import { ATTACHMENT_ACCEPT, isAcceptedAttachment, MAX_ATTACHMENT_BYTES } from '@/api/attachments'
 import type { LedgerTransaction } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
+import { AttachmentChat } from '@/components/Assistant/AttachmentChat'
+import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useAttachmentActions, useAttachments, useUploadAttachments } from '@/hooks/useAttachments'
 import { useClosingValue } from '@/hooks/useClosingValue'
 import { KIND_LABEL } from '@/lib/attachment-labels'
@@ -39,6 +41,9 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
   const upload = useUploadAttachments()
   const { attach, applyItems } = useAttachmentActions()
   const mine = (attachments.data ?? []).filter((a) => a.transaction?.id === transaction.id)
+  // step9: "Ask AI" about a file of this transaction (it was read or attached wrong).
+  const assistant = useAssistantEnabled()
+  const [asking, setAsking] = useState<number | null>(null)
 
   const add = (list: FileList | null) => {
     const files = Array.from(list ?? []).filter((f) => isAcceptedAttachment(f) && f.size <= MAX_ATTACHMENT_BYTES)
@@ -77,7 +82,19 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
               <AttachmentPreview a={a} />
               <ReadingSummary a={a} />
               {a.matchNote && <p className="text-xs text-muted-foreground">{a.matchNote}</p>}
+              {asking === a.id && <AttachmentChat attachmentId={a.id} />}
               <div className="flex flex-wrap gap-2">
+                {assistant && a.status !== 'PENDING' && a.status !== 'PROCESSING' && (
+                  <Button
+                    size="sm"
+                    variant={asking === a.id ? 'secondary' : 'ghost'}
+                    onClick={() => setAsking(asking === a.id ? null : a.id)}
+                    className="gap-1.5 text-brand"
+                    title="Tell the AI what is wrong with this file"
+                  >
+                    <Sparkles className="size-4" /> {asking === a.id ? 'Hide AI chat' : 'Ask AI'}
+                  </Button>
+                )}
                 {canSplit && (
                   <Button
                     size="sm"

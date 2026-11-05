@@ -594,6 +594,14 @@ export function LedgerTable({
                         </button>
                       )}
                     </span>
+                    {t.exception && (
+                      <span
+                        className="block truncate text-[11px] font-normal text-amber-700"
+                        title={`Renamed for this transaction only — its description's rule names it ${t.exception.main}`}
+                      >
+                        exception from {t.exception.main}
+                      </span>
+                    )}
                     {/* Phone: the description, accounts and statement fold in under the name. */}
                     <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
                       {splitChip}

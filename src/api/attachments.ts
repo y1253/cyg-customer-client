@@ -65,6 +65,13 @@ export type Attachment = {
   folder: string | null
   /** step11b: AI messages linked to this file (absent from an older server). */
   messageCount?: number
+  /**
+   * step9: cut out of a bigger image that held several documents (two cheques side by side)
+   * — `attachmentObjectUrl(…, true)` gives the whole image.
+   */
+  cropped?: boolean
+  /** step9: the other documents read off the same image (only on a single fetch). */
+  siblings?: number[]
   transaction: {
     id: number
     name: string | null
@@ -194,8 +201,9 @@ export async function deleteAttachment(auth: BookAuth, id: number): Promise<void
 }
 
 /** The file as an object URL (the route needs the Bearer token, so no plain link). Revoke it when done. */
-export async function attachmentObjectUrl(auth: BookAuth, id: number): Promise<string> {
-  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/file`)
+export async function attachmentObjectUrl(auth: BookAuth, id: number, original = false): Promise<string> {
+  // step9: `original` = the whole image a cropped file was cut out of.
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/file${original ? '?original=1' : ''}`)
   if (!res.ok) throw await errorFrom(res)
   return URL.createObjectURL(await res.blob())
 }

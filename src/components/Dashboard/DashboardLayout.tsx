@@ -1,6 +1,7 @@
 import { LogOut, Menu } from 'lucide-react'
 import { displayName } from '@/api/customerAuth'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { FloatingChat } from '@/components/Assistant/FloatingChat'
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useAuth } from '@/context/AuthContext'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
@@ -129,6 +130,9 @@ export function DashboardLayout() {
           <Outlet />
         </div>
       </main>
+
+      {/* step8: the AI chat, one click away on every page. */}
+      <FloatingChat />
     </div>
   )
 }

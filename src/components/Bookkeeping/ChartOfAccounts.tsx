@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils'
 import { periodLabel } from '@/lib/period'
 import { AccountCurrency, ForeignAmount } from './AccountCurrency'
 import { MoveMenu } from './AccountMove'
-import { dragProps, SECTION_LABEL, useDropTarget } from './account-move'
+import { dragProps, SECTION_LABEL, useAccountDrop, useDropTarget } from './account-move'
+import { useAccountMerge } from './AccountMerge'
 import { ReportCard, UncategorizedNote } from './ReportParts'
 
 const GROUPS: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE']
@@ -21,6 +22,7 @@ export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; 
   const move = useMoveAccount()
   const moved = new Set(reports.moved ?? [])
   const onMove = (account: string, type: AccountType | null) => move.mutate({ account, type })
+  const merge = useAccountMerge()
   return (
     <ReportCard title="Chart of accounts" subtitle={periodLabel(reports.from, reports.to)}>
       <UncategorizedNote reports={reports} />
@@ -41,14 +43,18 @@ export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; 
               moved={moved}
               onOpen={onOpenAccount}
               onMove={onMove}
+              onMerge={merge.ask}
             />
           ))}
         </Table>
       </div>
       {move.error && <p className="mt-4 text-sm text-destructive">{move.error.message}</p>}
+      {merge.error && <p className="mt-4 text-sm text-destructive">{merge.error.message}</p>}
+      {merge.dialog}
       <p className="mt-6 text-xs text-muted-foreground">
         Bank accounts show the net money in and out for the period; a credit card what was charged on it. Click an
-        account to see its transactions, or drag it to another section to move it. Click a bank account's currency
+        account to see its transactions, drag it to another section to move it, or drop it on another account to merge
+        the two (a bank or card account only with another one that has a Bank feeds folder). Click a bank account's currency
         to change it; a foreign account shows its balance before conversion underneath.
       </p>
     </ReportCard>
@@ -62,12 +68,14 @@ function Group({
   moved,
   onOpen,
   onMove,
+  onMerge,
 }: {
   type: AccountType
   accounts: AccountBalance[]
   moved: ReadonlySet<string>
   onOpen: (name: string) => void
   onMove: (account: string, type: AccountType | null) => void
+  onMerge: (from: string, into: string, bank: boolean) => void
 }) {
   const drop = useDropTarget(type, onMove)
   const total = accounts.reduce((c, a) => c + Math.round(a.balance * 100), 0) / 100
@@ -90,7 +98,14 @@ function Group({
         </TableRow>
       )}
       {accounts.map((a) => (
-        <AccountRow key={`${type}:${a.name}`} account={a} moved={moved.has(a.name)} onOpen={onOpen} onMove={onMove} />
+        <AccountRow
+          key={`${type}:${a.name}`}
+          account={a}
+          moved={moved.has(a.name)}
+          onOpen={onOpen}
+          onMove={onMove}
+          onMerge={(from) => onMerge(from, a.name, a.bank)}
+        />
       ))}
     </TableBody>
   )
@@ -101,18 +116,27 @@ function AccountRow({
   moved,
   onOpen,
   onMove,
+  onMerge,
 }: {
   account: AccountBalance
   moved: boolean
   onOpen: (name: string) => void
   onMove: (account: string, type: AccountType | null) => void
+  /** step8: another account was dropped on this row — merge it into this one. */
+  onMerge: (from: string) => void
 }) {
   const active = a.count > 0
+  const drop = useAccountDrop(a.name, a.bank, onMerge)
   return (
     <TableRow
       {...dragProps(a.name, a.bank)}
+      {...drop.props}
       onClick={active ? () => onOpen(a.name) : undefined}
-      className={cn('group cursor-grab active:cursor-grabbing', !active && 'text-muted-foreground hover:bg-transparent')}
+      className={cn(
+        'group cursor-grab active:cursor-grabbing',
+        !active && 'text-muted-foreground hover:bg-transparent',
+        drop.over && 'bg-brand/10 outline-2 outline-brand/40',
+      )}
     >
       <TableCell className="pl-8">
         <span className="flex items-center gap-2">

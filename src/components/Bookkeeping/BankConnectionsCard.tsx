@@ -50,7 +50,8 @@ function dayLabel(iso: string): string {
 }
 
 function statusLine(c: BankConnection): { text: string; tone: 'muted' | 'busy' | 'warn' } {
-  if (c.status === 'LOGIN_REQUIRED') return { text: 'Needs you to sign in again', tone: 'warn' }
+  // step8: `error` is what happened and what to do, in plain words (the raw text is "Details").
+  if (c.status === 'LOGIN_REQUIRED') return { text: c.error ?? 'Needs you to sign in again', tone: 'warn' }
   if (c.status === 'ERROR') return { text: c.error ?? 'The connection stopped working', tone: 'warn' }
   if (!c.setupAt) return { text: 'Pick where each account starts — nothing is filed until you do', tone: 'warn' }
   // An ACTIVE item's error = why the bank has sent nothing yet (e.g. it is down at Plaid).
@@ -74,6 +75,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
   const [datesFor, setDatesFor] = useState<BankConnection | null>(null)
   /** New connections whose start-date dialog was closed with "Later" (not reopened by itself). */
   const [later, setLater] = useState<number[]>([])
+  const [detailFor, setDetailFor] = useState<number | null>(null)
   const list = connections.data ?? []
   const error = connect.error ?? refresh.error ?? disconnect.error
   if (!enabled) return null
@@ -162,6 +164,20 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                   {line.tone === 'warn' && <AlertTriangle className="size-3.5 shrink-0" />}
                   {line.text}
                 </p>
+                {c.status !== 'ACTIVE' && c.errorDetail && (
+                  <div className="mt-0.5 pl-5 text-xs">
+                    <button
+                      type="button"
+                      className="font-medium text-brand hover:underline"
+                      onClick={() => setDetailFor(detailFor === c.id ? null : c.id)}
+                    >
+                      {detailFor === c.id ? 'Hide details' : 'Details'}
+                    </button>
+                    {detailFor === c.id && (
+                      <p className="mt-0.5 font-mono break-words text-muted-foreground">{c.errorDetail}</p>
+                    )}
+                  </div>
+                )}
                 {c.status === 'ACTIVE' && !c.historyDone && c.error && (
                   <p className="mt-0.5 pl-5 text-xs text-muted-foreground">
                     Don't disconnect — reconnecting restarts the wait.

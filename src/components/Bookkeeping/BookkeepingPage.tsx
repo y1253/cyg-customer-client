@@ -1,12 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { FileSpreadsheet, FileText, Loader2, Sparkles } from 'lucide-react'
-import { unreadable, type ExportFormat, type Period, type Reports } from '@/api/bookkeeping'
+import { UNCLARIFIED_NAME, unreadable, type ExportFormat, type Period, type Reports } from '@/api/bookkeeping'
 import { AssistantPanel } from '@/components/Assistant/AssistantPanel'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useExportLedger } from '@/hooks/useExportLedger'
+import { useFloatingChatBook } from '@/lib/floating-chat'
 import { useReports } from '@/hooks/useReports'
 import { useStatements } from '@/hooks/useStatements'
 import { useTransactions } from '@/hooks/useTransactions'
@@ -20,7 +21,7 @@ import { DebitCreditGuide } from './DebitCreditGuide'
 import { GenerateBar } from './GenerateBar'
 import { IncomeStatement } from './IncomeStatement'
 import { LedgerDialog } from './LedgerDialog'
-import type { LedgerScope } from './ledger-scope'
+import { BY_DESCRIPTION, type LedgerScope } from './ledger-scope'
 import { LedgerTable } from './LedgerTable'
 import { ReportPeriod } from './ReportPeriod'
 import { ReportSkeleton } from './ReportParts'
@@ -64,6 +65,8 @@ export function BookkeepingPage({
   const assistant = useAssistantEnabled()
   const exporter = useExportLedger()
   const [tab, setTab] = useState<Tab>('statements')
+  // step8: the floating chat talks to this book; hidden on the Assistant tab (it IS the chat).
+  useFloatingChatBook({ hidden: tab === 'assistant' })
   // Attachments has two sub-tabs (step12): the files, and every conversation with us.
   const [attachView, setAttachView] = useState<'files' | 'communication'>('files')
   const [period, setPeriod] = useState<Period>({ from: null, to: null })
@@ -91,7 +94,7 @@ export function BookkeepingPage({
   const openLedger = (scope: LedgerScope) => {
     setLedgerAccount(scope.account ?? null)
     setLedgerName(scope.name ?? null)
-    setLedgerSort(scope.sort ?? null)
+    setLedgerSort(scope.sort ?? (scope.name === UNCLARIFIED_NAME ? BY_DESCRIPTION : null))
     setLedgerFocus(null)
     setLedgerRange({ from: scope.from ?? null, to: scope.to ?? null })
     setLedgerOpen(true)
@@ -275,7 +278,14 @@ export function BookkeepingPage({
           {report((r) => <IncomeStatement reports={r} onOpen={openReportLedger} />)}
         </TabsContent>
         <TabsContent value="balance">
-          {report((r) => <BalanceSheet reports={r} onOpenAccount={openAccount} />)}
+          {report((r) => (
+            <BalanceSheet
+              reports={r}
+              onOpenAccount={openAccount}
+              unread={unread}
+              onOpenStatements={() => setTab('statements')}
+            />
+          ))}
         </TabsContent>
         <TabsContent value="names">
           <Names onOpenName={(name) => openLedger({ name })} />

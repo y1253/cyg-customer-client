@@ -42,6 +42,8 @@ export type AssistantConversation = {
   title: string | null
   peer: string | null
   attachmentId: number | null
+  /** step8: the statement this thread is about (Bank feeds → Ask AI). */
+  statementId?: number | null
   lastMessageAt: string
   preview: string | null
 }
@@ -55,6 +57,7 @@ export const CONVERSATIONS_KEY = ['assistant-conversations'] as const
 export const CONVERSATION_KEY = ['assistant-conversation'] as const
 export const ASSISTANT_RULES_KEY = ['assistant-rules'] as const
 export const ATTACHMENT_CHAT_KEY = ['attachment-chat'] as const
+export const STATEMENT_CHAT_KEY = ['statement-chat'] as const
 export const ATTACHMENT_MESSAGES_KEY = ['attachment-messages'] as const
 
 const json = (method: string, body: unknown): RequestInit => ({
@@ -114,6 +117,19 @@ export async function sendAttachmentChat(auth: BookAuth, attachmentId: number, t
   return res.json()
 }
 
+/** step8: the "Ask AI" thread about one statement we could not read (same shape as a file's). */
+export async function fetchStatementChat(auth: BookAuth, statementId: number): Promise<AttachmentChat> {
+  const res = await bookFetch(auth, `/api/bookkeeping/statements/${statementId}/chat`)
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function sendStatementChat(auth: BookAuth, statementId: number, text: string): Promise<AssistantReply> {
+  const res = await bookFetch(auth, `/api/bookkeeping/statements/${statementId}/chat`, json('POST', { text }))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
 /** step11b: every AI message linked to one file, on any channel (kept after it is deleted). */
 export async function fetchAttachmentMessages(auth: BookAuth, attachmentId: number): Promise<AssistantMessage[]> {
   const res = await bookFetch(auth, `/api/bookkeeping/attachments/${attachmentId}/messages`)
@@ -129,6 +145,23 @@ export const CHANGES_KEY = ['assistant-changes'] as const
  */
 export async function fetchChanges(token: string): Promise<{ version: string }> {
   const res = await fetchWithAuth(token, '/api/assistant/changes')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/**
+ * step8: the customer's own voice, as text (the mic button on every chat). An empty `text`
+ * means nothing was heard.
+ */
+export async function transcribeDictation(
+  auth: BookAuth,
+  recording: Blob,
+  filename: string,
+): Promise<{ text: string }> {
+  const form = new FormData()
+  form.append('file', recording, filename)
+  // No Content-Type header: the browser sets the multipart boundary itself.
+  const res = await bookFetch(auth, '/api/assistant/transcribe', { method: 'POST', body: form })
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }

@@ -13,3 +13,6 @@ export interface LedgerScope {
 
 /** "Sorted by name", for a drill-down that lists an account's payees. */
 export const BY_NAME: SortState = { key: 'name', dir: 'asc' }
+/** "Sorted by description" — the Unclarified name list opens A→Z by it (step8): every row there
+ *  has the same name, and like descriptions side by side are what the customer names together. */
+export const BY_DESCRIPTION: SortState = { key: 'description', dir: 'asc' }

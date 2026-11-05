@@ -15,6 +15,9 @@ import {
   fetchConversations,
   sendAssistantMessage,
   sendAttachmentChat,
+  fetchStatementChat,
+  sendStatementChat,
+  STATEMENT_CHAT_KEY,
   type AssistantReply,
 } from '@/api/assistant'
 import { useAuth } from '@/context/AuthContext'
@@ -103,6 +106,32 @@ export function useSendAttachmentChat(attachmentId: number) {
     mutationFn: (text: string) => sendAttachmentChat(book.auth, attachmentId, text),
     onSuccess: (r) => {
       queryClient.setQueryData(book.key([...ATTACHMENT_CHAT_KEY, attachmentId]), (old: unknown) => {
+        const prev = old as { messages: AssistantReply['message'][] } | undefined
+        return { conversationId: r.conversationId, messages: [...(prev?.messages ?? []), r.message, r.reply] }
+      })
+      after()
+    },
+  })
+}
+
+/** step8: the "Ask AI" thread about one statement we could not read. */
+export function useStatementChat(statementId: number) {
+  const book = useBook()
+  return useQuery({
+    queryKey: book.key([...STATEMENT_CHAT_KEY, statementId]),
+    queryFn: () => fetchStatementChat(book.auth, statementId),
+    enabled: !!book.token,
+  })
+}
+
+export function useSendStatementChat(statementId: number) {
+  const book = useBook()
+  const queryClient = useQueryClient()
+  const after = useAfterReply()
+  return useMutation({
+    mutationFn: (text: string) => sendStatementChat(book.auth, statementId, text),
+    onSuccess: (r) => {
+      queryClient.setQueryData(book.key([...STATEMENT_CHAT_KEY, statementId]), (old: unknown) => {
         const prev = old as { messages: AssistantReply['message'][] } | undefined
         return { conversationId: r.conversationId, messages: [...(prev?.messages ?? []), r.message, r.reply] }
       })

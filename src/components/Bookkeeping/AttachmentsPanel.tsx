@@ -235,7 +235,7 @@ function FolderTable({
   const { retry, remove, attach } = useAttachmentActions()
   const controls = useTableControls({ key: 'date', dir: 'desc' })
   const [open, setOpen] = useState<string | null>(null)
-  // "Ask AI" about an attachment we could not file (step11); one chat open at a time.
+  // "Ask AI" about an attachment (step11; step9: any file, attached or not); one chat open at a time.
   const [asking, setAsking] = useState<number | null>(null)
   const assistant = useAssistantEnabled()
   const [openError, setOpenError] = useState<string | null>(null)
@@ -394,7 +394,7 @@ function FolderTable({
                               <Search className="size-4" /> {a.transaction ? 'Change transaction' : 'Choose transaction'}
                             </Button>
                           )}
-                          {assistant && (a.status === 'FAILED' || a.status === 'UNMATCHED' || a.status === 'DOCUMENT') && (
+                          {assistant && a.status !== 'PENDING' && a.status !== 'PROCESSING' && (
                             <Button
                               size="sm"
                               variant={asking === a.id ? 'secondary' : 'ghost'}

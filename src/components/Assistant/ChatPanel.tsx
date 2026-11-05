@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { channelLabel, isFileLabel, linkParts, optimisticMessage } from '@/lib/assistant'
 import { cn } from '@/lib/utils'
+import { DictateButton } from './DictateButton'
 
 /** At most this many files go with one message (the server's limit). */
 const MAX_FILES = 10
@@ -134,6 +135,7 @@ export function ChatPanel({
   placeholder = 'Ask about your books…',
   disabled,
   allowFiles,
+  initialDraft = '',
 }: {
   messages: AssistantMessage[]
   loading?: boolean
@@ -146,8 +148,10 @@ export function ChatPanel({
   disabled?: string
   /** step11b: the customer may add files (receipts, cheques, letters…) to a message. */
   allowFiles?: boolean
+  /** step8: text already in the box when the panel opens (the floating chat's "Ask AI"). */
+  initialDraft?: string
 }) {
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState(initialDraft)
   const [files, setFiles] = useState<File[]>([])
   const [pending, setPending] = useState<AssistantMessage | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -294,6 +298,10 @@ export function ChatPanel({
                 </Button>
               </>
             )}
+            <DictateButton
+              disabled={!!pending}
+              onText={(t) => setDraft((d) => (d.trim() ? `${d.trim()} ${t}` : t).slice(0, 2000))}
+            />
             <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

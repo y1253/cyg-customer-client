@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
 import { ForeignAmount } from './AccountCurrency'
 import { DropSection, MoveMenu } from './AccountMove'
-import { dragProps } from './account-move'
+import { dragProps, useAccountDrop } from './account-move'
 
 /** Net income to date — a figure, not an account: never opened or moved. */
 export const RETAINED_EARNINGS = 'Retained Earnings'
@@ -41,6 +41,7 @@ export function ReportSection({
   type,
   onMove,
   moved,
+  onMerge,
 }: {
   title: string
   lines: ReportLine[]
@@ -52,6 +53,8 @@ export function ReportSection({
   onMove?: (account: string, type: AccountType | null) => void
   /** Accounts the customer already moved (they can be put back). */
   moved?: ReadonlySet<string>
+  /** step8: an account dropped on another's row is merged into it (after a confirm). */
+  onMerge?: (from: string, into: string, bank: boolean) => void
 }) {
   return (
     <section className="mb-6 last:mb-0">
@@ -70,6 +73,11 @@ export function ReportSection({
                 note={l.starts ? (startingNote(l.starts) ?? undefined) : undefined}
                 onClick={account && onOpen ? () => onOpen(l) : undefined}
                 drag={account && type && onMove ? dragProps(l.name, !!l.bank) : undefined}
+                merge={
+                  account && type && onMerge
+                    ? { bank: !!l.bank, onMerge: (from) => onMerge(from, l.name, !!l.bank) }
+                    : undefined
+                }
                 action={
                   account && type && onMove ? (
                     <MoveMenu
@@ -93,21 +101,27 @@ export function ReportSection({
   )
 }
 
-/** The hover card of an income-statement line: its total per payee. */
+/**
+ * The hover card of an income-statement line: its total per payee — EVERY name (step8),
+ * scrolling inside the card when there are more than fit (the card stays open while the
+ * pointer is on it).
+ */
 function ByName({ lines }: { lines: ReportLine[] }) {
-  const top = lines.slice(0, 12)
   return (
-    <div className="flex w-64 flex-col gap-0.5 py-0.5">
-      <span className="mb-0.5 text-[11px] font-semibold tracking-wide uppercase opacity-70">By name</span>
-      {top.map((l) => (
-        <span key={l.name} className="flex justify-between gap-3">
-          <span className="truncate">{l.name}</span>
-          <span className="shrink-0 tabular-nums">{money(l.amount)}</span>
-        </span>
-      ))}
-      {lines.length > top.length && (
-        <span className="opacity-70">+ {lines.length - top.length} more — click to see them all</span>
-      )}
+    <div className="flex w-72 flex-col py-0.5">
+      <span className="mb-1 text-[11px] font-semibold tracking-wide uppercase opacity-70">
+        By name{lines.length > 1 ? ` · ${lines.length}` : ''}
+      </span>
+      <div className="-mr-2 flex max-h-[60vh] flex-col gap-0.5 overflow-y-auto overscroll-contain pr-2">
+        {lines.map((l) => (
+          <span key={l.name} className="flex justify-between gap-3">
+            <span className="truncate" title={l.name}>
+              {l.name}
+            </span>
+            <span className="shrink-0 tabular-nums">{money(l.amount)}</span>
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
@@ -123,6 +137,7 @@ export function ReportRow({
   action,
   foreign,
   note,
+  merge,
 }: {
   label: string
   amount: number
@@ -139,17 +154,19 @@ export function ReportRow({
   drag?: ReturnType<typeof dragProps>
   /** A small button at the end of the row (e.g. "Move to…"). */
   action?: ReactNode
+  /** step8: this row takes another account dropped on it — merged into this one. */
+  merge?: { bank: boolean; onMerge: (from: string) => void }
 }) {
+  const drop = useAccountDrop(label, merge?.bank ?? false, merge?.onMerge)
   const body = (
     <>
       {note ? (
         <span className="flex min-w-0 flex-col">
           <span className="truncate">{label}</span>
-          <span
-            className={cn('truncate text-xs font-normal', note.warn ? 'text-red-600' : 'text-muted-foreground')}
-            title={note.warn ? STARTS_WARNING : undefined}
-          >
+          <span className={cn('text-xs font-normal', note.warn ? 'text-red-600' : 'truncate text-muted-foreground')}>
             {note.text}
+            {/* step8: the whole list of dates, and why more than one is a problem — never cut off. */}
+            {note.warn && <span className="block text-red-600/80">{STARTS_WARNING}</span>}
           </span>
         </span>
       ) : (
@@ -166,6 +183,7 @@ export function ReportRow({
     strong ? 'border-t font-semibold text-[#0B1C2C]' : 'pl-3 text-[#0B1C2C]/90',
     (onClick || drag) && 'rounded-md -mx-1 px-1 pl-4 hover:bg-muted/60',
     drag && 'cursor-grab active:cursor-grabbing',
+    drop.over && 'bg-brand/10 ring-2 ring-brand/40',
     className,
   )
   const button = onClick ? (
@@ -181,7 +199,7 @@ export function ReportRow({
     <span className="flex min-w-0 flex-1 items-baseline gap-4">{body}</span>
   )
   return (
-    <div className={rowClass} {...drag}>
+    <div className={rowClass} {...drag} {...drop.props}>
       {byName?.length && onClick ? (
         <Tooltip>
           <TooltipTrigger

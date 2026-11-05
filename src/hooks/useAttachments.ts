@@ -89,14 +89,20 @@ export function useAttachmentActions() {
 }
 
 /** The protected file as an object URL while mounted; revoked on unmount or change. */
-export function useAttachmentUrl(id: number | null) {
+export function useAttachmentUrl(
+  id: number | null,
+  /** step9: changes when the file itself changes (a re-read cut it), so it is fetched again. */
+  version = '',
+  /** step9: the whole image a cropped file was cut out of. */
+  original = false,
+) {
   const { token, companyId, bookId } = useBook()
   const [state, setState] = useState<{ id: number; url: string | null; error: string | null } | null>(null)
   useEffect(() => {
     if (id == null || !token) return
     let url: string | null = null
     let alive = true
-    attachmentObjectUrl({ token, companyId, bookId }, id).then(
+    attachmentObjectUrl({ token, companyId, bookId }, id, original).then(
       (u) => {
         url = u
         if (alive) setState({ id, url: u, error: null })
@@ -108,6 +114,6 @@ export function useAttachmentUrl(id: number | null) {
       alive = false
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, token, companyId, bookId])
+  }, [id, token, companyId, bookId, version, original])
   return state && state.id === id ? state : { id, url: null, error: null }
 }

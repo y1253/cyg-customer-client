@@ -18,6 +18,7 @@ import {
   Landmark,
   Loader2,
   RotateCcw,
+  Sparkles,
   Trash2,
 } from 'lucide-react'
 import { isBusy, openOriginal, unreadable, type Statement } from '@/api/bookkeeping'
@@ -50,6 +51,9 @@ import { useDeleteStatement } from '@/hooks/useDeleteStatement'
 import { useMoveStatement } from '@/hooks/useMoveStatement'
 import { useRetryStatement } from '@/hooks/useRetryStatement'
 import { cn } from '@/lib/utils'
+import { statementHelp } from '@/lib/statement-errors'
+import { StatementChat } from '@/components/Assistant/StatementChat'
+import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { statementDragProps, useFolderDrop } from './statement-drag'
 import { folderKey, folderOf, groupByAccount, isFiled, startsByFolder, type StatementFolder } from './statement-folders'
 import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
@@ -160,6 +164,10 @@ export function StatementsList({ statements, loading }: { statements: Statement[
   const [closed, setClosed] = useState<Set<string>>(new Set())
   const [newFor, setNewFor] = useState<Statement | null>(null)
   const [newName, setNewName] = useState('')
+  // step8: one "Ask AI" chat / one "Details" open at a time, under its statement.
+  const [asking, setAsking] = useState<number | null>(null)
+  const [details, setDetails] = useState<number | null>(null)
+  const assistant = useAssistantEnabled()
   const home = useCurrency().data?.home
 
   if (loading) {
@@ -263,17 +271,22 @@ export function StatementsList({ statements, loading }: { statements: Statement[
               onToggle={() => toggle(key)}
               onDrop={f.account ? (id) => moveTo(id, f.account!) : undefined}
             >
-              {f.statements.map((s) => (
+              {f.statements.map((s) => {
+                const failed = s.status === 'FAILED' || s.status === 'NEEDS_REVIEW'
+                // Not draggable while its chat is open — the text box must take the mouse.
+                const draggable = isFiled(s) && asking !== s.id
+                return (
                 <li
                   key={s.id}
-                  {...(isFiled(s) ? statementDragProps(s.id) : {})}
+                  {...(draggable ? statementDragProps(s.id) : {})}
                   className={cn(
-                    'flex items-center gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-black/5',
+                    'rounded-xl bg-white px-4 py-3 ring-1 ring-black/5',
                     isBusy(s) && 'ring-brand/20',
-                    isFiled(s) && 'cursor-grab active:cursor-grabbing',
+                    draggable && 'cursor-grab active:cursor-grabbing',
                     move.isPending && move.variables?.id === s.id && 'opacity-50',
                   )}
                 >
+                  <div className="flex items-center gap-3">
                   {s.source === 'PLAID' ? (
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
                       <Landmark className="size-5" />
@@ -310,6 +323,27 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                       {subtitle(s, home)}
                       {s.movedByCustomer && ' · moved by you'}
                     </p>
+                    {failed && (
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        <button
+                          type="button"
+                          className="font-medium text-brand hover:underline"
+                          onClick={() => setDetails(details === s.id ? null : s.id)}
+                        >
+                          {details === s.id ? 'Hide details' : 'Details'}
+                        </button>
+                        {assistant && (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
+                            onClick={() => setAsking(asking === s.id ? null : s.id)}
+                          >
+                            <Sparkles className="size-3.5" />
+                            {asking === s.id ? 'Close the chat' : 'Ask AI to fix it'}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
                     {isFiled(s) && (
@@ -376,8 +410,16 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                       <Trash2 />
                     </Button>
                   </div>
+                  </div>
+                  {failed && details === s.id && <StatementDetails s={s} />}
+                  {failed && asking === s.id && (
+                    <div className="mt-3 border-t pt-3">
+                      <StatementChat statementId={s.id} />
+                    </div>
+                  )}
                 </li>
-              ))}
+                )
+              })}
             </Folder>
           )
         })}
@@ -523,5 +565,43 @@ function Folder({
       </div>
       {open && <ul className="mt-1 flex flex-col gap-2">{children}</ul>}
     </section>
+  )
+}
+
+
+/** step8: the full story of a statement we could not read — the checks, what it means, what to do. */
+function StatementDetails({ s }: { s: Statement }) {
+  const help = statementHelp(s)
+  return (
+    <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-[#0B1C2C]/90">
+      {!!s.checks?.length && (
+        <>
+          <p className="font-semibold">What did not match the bank's totals</p>
+          <ul className="mt-0.5 mb-2 list-disc pl-5">
+            {s.checks.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {help && (
+        <>
+          <p className="font-semibold">What this means</p>
+          <p className="mt-0.5">{help.what}</p>
+          <p className="mt-2 font-semibold">What you can do</p>
+          <ul className="mt-0.5 list-disc pl-5">
+            {help.todo.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {s.customerNote && (
+        <p className="mt-2">
+          <span className="font-semibold">What you told us: </span>
+          {s.customerNote}
+        </p>
+      )}
+    </div>
   )
 }

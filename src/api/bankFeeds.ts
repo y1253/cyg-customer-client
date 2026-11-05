@@ -12,6 +12,8 @@ export type BankConnection = {
   institutionName: string | null
   status: BankConnectionStatus
   error: string | null
+  /** step8: Plaid's raw `CODE: message` behind `error` — shown under "Details". */
+  errorDetail?: string | null
   /** Every past transaction (up to 2 years) has arrived. */
   historyDone: boolean
   lastSyncAt: string | null

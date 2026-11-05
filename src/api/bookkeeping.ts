@@ -40,6 +40,10 @@ export type Statement = {
   sizeBytes: number
   status: StatementStatus
   error: string | null
+  /** step8: the checks against the bank's totals that failed, in words (NEEDS_REVIEW only). */
+  checks?: string[]
+  /** step8: what the customer said was wrong with it (its chat) — used on every re-read. */
+  customerNote?: string | null
   accountName: string | null
   /** BANK | CREDIT_CARD (null = read before it was recorded). */
   accountKind?: string | null
@@ -81,6 +85,8 @@ export type LedgerTransaction = {
   name: string | null
   /** On a split made for a receipt line: that line ("Pampers"). */
   itemName?: string | null
+  /** step9: renamed ONE time — the name its description's rules give (it is an exception from it). */
+  exception?: { main: string }
   amount: number
   offsetAccount: string
   debitAccount: string
@@ -376,6 +382,12 @@ export type LedgerName = {
   agencyIds: number[]
   /** The descriptions the AI put under this name. */
   descriptions: NameDescription[]
+  /** step9: the "description contains …" rules that give rows this name. */
+  followsContains?: Array<{ key: string; text: string; category: string | null; rows: number }>
+  /** step9: this name's rows that are one-time exceptions from another name. */
+  exceptionOf?: Array<{ main: string; key: string; description: string; rows: number }>
+  /** step9: its Names-tab group key (CUSTOMER | SUPPLIER | OTHER | g<id>). */
+  group?: string
   /** What an edit of this name saves under (a NAME rule with this key). */
   ruleKey: string
   /** The customer's own change behind this row — what "Reset to default" removes. */
@@ -419,8 +431,17 @@ export type ContainsRule = {
 export type NamesData = {
   names: LedgerName[]
   unrecognized: UnrecognizedName[]
+  /** step9: only the category-only contains rules — the others sit inside their name. */
   containsRules: ContainsRule[]
+  /** step9: the Names-tab groups — Suppliers, Customers, Other, then the customer's own. */
+  groups?: NameGroup[]
 }
+
+/** step9: a Names-tab group; `id` is set on one the customer made. */
+export type NameGroup = { key: string; label: string; id?: number }
+
+/** step9: a name whose rows' bank descriptions match the Names-tab search. */
+export type NameSearchHit = { name: string; key: string; description: string }
 
 /** Where a product's category came from: your own choice, the AI (remembered), or the transaction's. */
 export type ProductSource = 'rule' | 'memory' | 'parent'
@@ -447,8 +468,19 @@ export type EditScope = 'ALWAYS' | 'ONCE'
 /** The shortest text a "description contains" rule may look for — the server's `CONTAINS_MIN`. */
 export const CONTAINS_MIN = 3
 
-/** One description the AI put under a name, with the category its rows mostly have. */
-export type NameDescription = { description: string; category: string; rows: number }
+/**
+ * One description the AI put under a name, with the category its rows mostly have — and
+ * (step9) its key, the customer's rule that ties it to the name, and its exceptions.
+ */
+export type NameDescription = {
+  key?: string
+  description: string
+  category: string
+  rows: number
+  rule?: { id: number; matchType: 'DESCRIPTION' | 'CONTAINS'; matchKey: string; text: string } | null
+  /** Rows of it renamed ONE time — exceptions from this name, under the names they carry now. */
+  exceptions?: Array<{ name: string; rows: number }>
+}
 
 const json = (method: string, body: unknown): RequestInit => ({
   method,
@@ -530,6 +562,56 @@ export async function saveNameRule(
   const res = await bookFetch(auth, '/api/bookkeeping/names/rule', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
+}
+
+/** step9: names whose rows' bank descriptions contain `q`. */
+export async function searchNames(auth: BookAuth, q: string): Promise<NameSearchHit[]> {
+  const res = await bookFetch(auth, `/api/bookkeeping/names/search?q=${encodeURIComponent(q)}`)
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** step9: put a name in a Names-tab group; null = back to following its category. */
+export async function setNameGroup(
+  auth: BookAuth,
+  values: { name: string; group: string | null },
+): Promise<NamesData> {
+  const res = await bookFetch(auth, '/api/bookkeeping/names/group', json('PUT', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** step9: the customer's own Names-tab groups ("Employees"). */
+export async function saveNameGroup(
+  auth: BookAuth,
+  values: { id?: number; name: string },
+): Promise<NamesData> {
+  const res = await bookFetch(
+    auth,
+    values.id ? `/api/bookkeeping/name-groups/${values.id}` : '/api/bookkeeping/name-groups',
+    json(values.id ? 'PATCH' : 'POST', { name: values.name }),
+  )
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function deleteNameGroup(auth: BookAuth, id: number): Promise<NamesData> {
+  const res = await bookFetch(auth, `/api/bookkeeping/name-groups/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** step8: merge name `from` into `into` (it takes `into`'s name, category and tax). */
+export async function mergeNames(auth: BookAuth, values: { from: string; into: string }): Promise<NamesData> {
+  const res = await bookFetch(auth, '/api/bookkeeping/names/merge', json('POST', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** step8: merge account `from` into `into` — its rows, rules and (for two folders) statements. */
+export async function mergeAccounts(auth: BookAuth, values: { from: string; into: string }): Promise<void> {
+  const res = await bookFetch(auth, '/api/bookkeeping/accounts/merge', json('POST', values))
+  if (!res.ok) throw await errorFrom(res)
 }
 
 /** Drop the customer's own change: the rows go back to the default. */

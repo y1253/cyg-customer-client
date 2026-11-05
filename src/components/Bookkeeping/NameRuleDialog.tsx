@@ -25,6 +25,7 @@ import { useSaveNameRule } from '@/hooks/useNameRule'
 import { cn } from '@/lib/utils'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
 import { CategoryField } from './CategoryField'
+import { NameDescriptionsEditor } from './NameDescriptionsEditor'
 import { NamePicker } from './NamePicker'
 
 /** What is being edited: a payee, a group of rows the AI could not name, or one ledger row. */
@@ -53,7 +54,7 @@ export function NameRuleDialog({
   const shown = useClosingValue(target)
   return (
     <Dialog open={!!target} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         {/* Keyed so the form starts from the row's own values every time it opens. */}
         {shown && <NameRuleForm key={keyOf(shown)} target={shown} onDone={() => onOpenChange(false)} />}
       </DialogContent>
@@ -256,6 +257,9 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
               : 'Every unnamed transaction with this description goes in it.'}
         </p>
       </div>
+
+      {/* step9: the descriptions this name follows, and its group — saved as they change. */}
+      {target.kind === 'name' && <NameDescriptionsEditor name={target.view.name} />}
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
