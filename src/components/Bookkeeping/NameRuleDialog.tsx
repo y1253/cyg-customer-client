@@ -22,6 +22,7 @@ import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useClosingValue } from '@/hooks/useClosingValue'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
 import { useSaveNameRule } from '@/hooks/useNameRule'
+import { useNames } from '@/hooks/useNames'
 import { cn } from '@/lib/utils'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
 import { CategoryField } from './CategoryField'
@@ -77,6 +78,33 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const initialCategory = target.kind === 'transaction' ? target.view.offsetAccount : target.view.category
   const [name, setName] = useState(initialName)
   const [choice, setChoice] = useState(categoryChoice(initialCategory))
+  // step11: picking a name that already exists shows ITS category at once (a name has one),
+  // so saving never moves the name into this row's old category by accident. Kept only
+  // until the customer picks a category themselves.
+  const names = useNames()
+  const [adopted, setAdopted] = useState<{ name: string; category: string } | null>(null)
+  const existingName = (typed: string) => {
+    const key = typed.trim().toLowerCase()
+    return key ? names.data?.names.find((n) => !n.unclarified && n.name.toLowerCase() === key) : undefined
+  }
+  const onNameChange = (next: string) => {
+    setName(next)
+    if (isSplit) return
+    const found = existingName(next)
+    if (found && found.name.toLowerCase() !== initialName.toLowerCase()) {
+      if (adopted?.name !== found.name) {
+        setAdopted({ name: found.name, category: found.category })
+        setChoice(categoryChoice(found.category))
+      }
+    } else if (adopted) {
+      setAdopted(null)
+      setChoice(categoryChoice(initialCategory))
+    }
+  }
+  const onCategoryChange = (next: typeof choice) => {
+    setAdopted(null)
+    setChoice(next)
+  }
   const isSplit = target.kind === 'transaction' && target.view.kind === 'split'
   const [scope, setScope] = useState<EditScope | 'CONTAINS'>(isSplit ? 'ONCE' : 'ALWAYS')
   const [containsText, setContainsText] = useState(
@@ -97,8 +125,12 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   // "Contains text" is offered for any change, so a category alone can become a rule too.
   const canScope = target.kind !== 'name' && !isSplit
   const contains = canScope && scope === 'CONTAINS'
+  // Moving to a name that exists: the category shown is sent as is — even when it is the
+  // row's old one (picked on purpose), which the server would otherwise replace with the name's.
+  const toExistingName = nameChanged && !!existingName(trimmed)
   const categoryChanged =
-    choiceReady(choice) && (choice.category === NEW_CATEGORY || choice.category !== initialCategory)
+    choiceReady(choice) &&
+    (choice.category === NEW_CATEGORY || choice.category !== initialCategory || toExistingName)
   const pending = create.isPending || saveRule.isPending || editRow.isPending
   const containsTrimmed = containsText.trim()
   const canSave = contains
@@ -185,7 +217,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
           id="name-rule-name"
           value={name}
           placeholder={initialName || 'Unclarified name'}
-          onChange={setName}
+          onChange={onNameChange}
         />
         {nameMissing && <p className="text-xs text-destructive">A name is required.</p>}
       </div>
@@ -243,7 +275,12 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
 
       <div className="flex flex-col gap-1.5">
         <Label>Category</Label>
-        <CategoryField value={choice} onChange={setChoice} />
+        <CategoryField value={choice} onChange={onCategoryChange} />
+        {adopted && (
+          <p className="text-xs text-brand">
+            “{adopted.name}” is already in {adopted.category} — its category is filled in for you.
+          </p>
+        )}
         {otherCategories > 0 && !categoryChanged && (
           <p className="text-xs text-muted-foreground">
             Its rows have {otherCategories + 1} different categories. Choose one to put them all in it.

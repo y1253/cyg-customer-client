@@ -24,7 +24,11 @@ export function NamePicker({
 }) {
   const names = useNames()
   const items = useMemo(
-    () => [...new Set((names.data?.names ?? []).map((n) => n.name))].sort((a, b) => a.localeCompare(b)),
+    // "Unclarified name" is not a name you can give a row (the server refuses it).
+    () =>
+      [...new Set((names.data?.names ?? []).filter((n) => !n.unclarified).map((n) => n.name))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
     [names.data],
   )
   const typed = value.trim()

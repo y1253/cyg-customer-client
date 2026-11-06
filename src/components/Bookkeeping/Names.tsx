@@ -52,6 +52,7 @@ import { cn } from '@/lib/utils'
 import { AgencyDialog } from './AgencyDialog'
 import { ContainsRuleDialog } from './ContainsRuleDialog'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
+import { UnclarifiedTable } from './UnclarifiedTable'
 import { descriptionDragProps, nameDragProps, useGroupDrop, useNameDrop } from './name-drag'
 
 const pct = (n: number) => `${n.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`
@@ -437,17 +438,19 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
               )
             })}
           {shownUnrecognized.length > 0 && (
-            <ul className="divide-y border-t">
-              {shownUnrecognized.map((u) => (
-                <UnrecognizedRow
-                  key={`u:${u.key}`}
-                  u={u}
-                  onAssign={() => setRuleTarget({ kind: 'unrecognized', view: u })}
-                  onReset={() => u.rule && resetRule.mutate(u.rule)}
-                  resetting={resetting(u.rule)}
-                />
-              ))}
-            </ul>
+            <div className="border-t px-3 py-2">
+              <UnclarifiedTable
+                rows={shownUnrecognized}
+                actions={(u) => (
+                  <>
+                    <Button variant="outline" size="xs" onClick={() => setRuleTarget({ kind: 'unrecognized', view: u })}>
+                      Assign
+                    </Button>
+                    {u.rule && <ResetButton onReset={() => resetRule.mutate(u.rule!)} resetting={resetting(u.rule)} />}
+                  </>
+                )}
+              />
+            </div>
           )}
           {shownContains.length > 0 && (
             <div className="border-t">
@@ -807,38 +810,17 @@ function NameRow({
       </div>
       </div>
       {open && unrecognized && (
-        <ul className="mt-2 ml-13 flex flex-col gap-1 rounded-lg bg-muted/40 p-2">
-          {unrecognized.map((u) => (
-            <li
-              key={u.key}
-              {...descriptionDragProps(u.key, u.sampleDescription)}
-              title="Drag onto a name to give these rows that name"
-              className={cn(
-                'flex cursor-grab items-center gap-3 rounded px-2 py-1 text-sm active:cursor-grabbing',
-                matched({ key: u.key, description: u.sampleDescription }) && 'bg-amber-100/70',
-              )}
-            >
-              <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={u.sampleDescription}>
-                {u.sampleDescription}
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground">{u.category}</span>
-              <span className="w-14 shrink-0 text-right text-xs text-muted-foreground/80 tabular-nums">
-                {u.rows.toLocaleString()} row{u.rows === 1 ? '' : 's'}
-              </span>
-              <span
-                className={cn(
-                  'w-20 shrink-0 text-right text-xs font-medium tabular-nums',
-                  u.total < 0 ? 'text-red-600' : 'text-emerald-700',
-                )}
-              >
-                {money(u.total)}
-              </span>
+        <div className="mt-2 ml-13 rounded-lg bg-muted/40 p-2">
+          <UnclarifiedTable
+            rows={unrecognized}
+            highlighted={(u) => matched({ key: u.key, description: u.sampleDescription })}
+            actions={(u) => (
               <Button variant="outline" size="xs" onClick={() => onAssign(u)}>
                 Assign
               </Button>
-            </li>
-          ))}
-        </ul>
+            )}
+          />
+        </div>
       )}
       {open && !unrecognized && (
         <ul className="mt-2 ml-13 flex flex-col gap-1 rounded-lg bg-muted/40 p-2">
@@ -982,50 +964,6 @@ function AgencyPicker({
         </ul>
       </PopoverContent>
     </Popover>
-  )
-}
-
-/** Rows the AI found no name for: one line per description, to assign once. */
-function UnrecognizedRow({
-  u,
-  onAssign,
-  onReset,
-  resetting,
-}: {
-  u: UnrecognizedName
-  onAssign: () => void
-  onReset: () => void
-  resetting: boolean
-}) {
-  return (
-    <li className="flex items-center gap-4 px-5 py-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700">
-        <CircleHelp className="size-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-[#0B1C2C]" title={u.sampleDescription}>
-          {u.sampleDescription}
-        </p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-          <Badge className="bg-orange-100 text-orange-800">Unrecognized</Badge>
-          {u.rule && <Badge className="bg-brand/10 text-brand">Edited</Badge>}
-          <span className="truncate text-sm text-muted-foreground">
-            {u.category}
-            {u.otherCategories > 0 && ` +${u.otherCategories} more`}
-          </span>
-          <span className="text-xs text-muted-foreground/80 tabular-nums">
-            · {u.rows.toLocaleString()} row{u.rows === 1 ? '' : 's'}
-          </span>
-          <Total total={u.total} />
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button variant="outline" size="sm" onClick={onAssign}>
-          Assign
-        </Button>
-        {u.rule && <ResetButton onReset={onReset} resetting={resetting} />}
-      </div>
-    </li>
   )
 }
 
