@@ -24,3 +24,17 @@ export async function fetchFeatureRequests(token: string): Promise<FeatureReques
   if (!res.ok) throw await errorFrom(res)
   return res.json() as Promise<FeatureRequest[]>
 }
+
+/** A request typed on the My requests page (the AI files the others). */
+export async function createFeatureRequest(
+  token: string,
+  input: { summary: string; request?: string },
+): Promise<FeatureRequest> {
+  const res = await fetchWithAuth(token, '/api/feature-requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json() as Promise<FeatureRequest>
+}
