@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
 import {
   ASSISTANT_RULES_KEY,
+  ATTACHMENT_CHAT_KEY,
   ATTACHMENT_MESSAGES_KEY,
   CONVERSATION_KEY,
   CONVERSATIONS_KEY,
+  STATEMENT_CHAT_KEY,
 } from '@/api/assistant'
 import { BANK_FEEDS_KEY } from '@/api/bankFeeds'
 import { AI_SCHEDULES_KEY, SCHEDULES_KEY } from '@/api/schedules'
@@ -34,6 +36,9 @@ export function useRefreshEverything() {
         CONVERSATION_KEY,
         ASSISTANT_RULES_KEY,
         ATTACHMENT_MESSAGES_KEY,
+        // step2: a call asked for from a statement / file chat writes into that chat.
+        STATEMENT_CHAT_KEY,
+        ATTACHMENT_CHAT_KEY,
       ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
     )
 }

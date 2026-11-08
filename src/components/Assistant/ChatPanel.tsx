@@ -136,6 +136,7 @@ export function ChatPanel({
   disabled,
   allowFiles,
   initialDraft = '',
+  extraAction,
 }: {
   messages: AssistantMessage[]
   loading?: boolean
@@ -150,6 +151,8 @@ export function ChatPanel({
   allowFiles?: boolean
   /** step8: text already in the box when the panel opens (the floating chat's "Ask AI"). */
   initialDraft?: string
+  /** step2: one more button beside the mic — "Call me" in a statement's / file's chat. */
+  extraAction?: ReactNode
 }) {
   const [draft, setDraft] = useState(initialDraft)
   const [files, setFiles] = useState<File[]>([])
@@ -302,6 +305,7 @@ export function ChatPanel({
               disabled={!!pending}
               onText={(t) => setDraft((d) => (d.trim() ? `${d.trim()} ${t}` : t).slice(0, 2000))}
             />
+            {extraAction}
             <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

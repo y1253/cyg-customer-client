@@ -48,12 +48,14 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBook } from '@/hooks/useBook'
 import { useDeleteStatement } from '@/hooks/useDeleteStatement'
+import { useRenameAccount } from '@/hooks/useMerge'
 import { useMoveStatement } from '@/hooks/useMoveStatement'
 import { useRetryStatement } from '@/hooks/useRetryStatement'
 import { cn } from '@/lib/utils'
 import { statementHelp } from '@/lib/statement-errors'
 import { StatementChat } from '@/components/Assistant/StatementChat'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
+import { InlineRename } from './InlineRename'
 import { statementDragProps, useFolderDrop } from './statement-drag'
 import { folderKey, folderOf, groupByAccount, isFiled, startsByFolder, type StatementFolder } from './statement-folders'
 import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
@@ -159,6 +161,7 @@ export function StatementsList({ statements, loading }: { statements: Statement[
   const remove = useDeleteStatement()
   const retry = useRetryStatement()
   const move = useMoveStatement()
+  const rename = useRenameAccount()
   const [confirm, setConfirm] = useState<Statement | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
   const [closed, setClosed] = useState<Set<string>>(new Set())
@@ -166,7 +169,13 @@ export function StatementsList({ statements, loading }: { statements: Statement[
   const [newName, setNewName] = useState('')
   // step8: one "Ask AI" chat / one "Details" open at a time, under its statement.
   const [asking, setAsking] = useState<number | null>(null)
+  // step2: the chat opened from a folder's starting-dates warning starts with this text.
+  const [askDraft, setAskDraft] = useState<string | undefined>(undefined)
   const [details, setDetails] = useState<number | null>(null)
+  const ask = (id: number, draft?: string) => {
+    setAskDraft(draft)
+    setAsking(asking === id && !draft ? null : id)
+  }
   const assistant = useAssistantEnabled()
   const home = useCurrency().data?.home
 
@@ -270,6 +279,26 @@ export function StatementsList({ statements, loading }: { statements: Statement[
               open={!closed.has(key)}
               onToggle={() => toggle(key)}
               onDrop={f.account ? (id) => moveTo(id, f.account!) : undefined}
+              onRename={f.account ? (to) => rename.mutateAsync({ from: f.account!, to }) : undefined}
+              onAskStarts={
+                assistant
+                  ? () => {
+                      // The account's first statement read: its chat sees the whole chain.
+                      const first = startsChatStatement(f.statements)
+                      if (!first) return
+                      setClosed((c) => {
+                        const next = new Set(c)
+                        next.delete(key)
+                        return next
+                      })
+                      const dates = startingNote(starts.get(f.account!) ?? [], f.from)?.text.replace(/^Starting dates: /, '')
+                      ask(
+                        first.id,
+                        `${f.account} has more than one starting date (${dates}). Why don't its balances carry over, and how do we fix it?`,
+                      )
+                    }
+                  : undefined
+              }
             >
               {f.statements.map((s) => {
                 const failed = s.status === 'FAILED' || s.status === 'NEEDS_REVIEW'
@@ -323,23 +352,25 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                       {subtitle(s, home)}
                       {s.movedByCustomer && ' · moved by you'}
                     </p>
-                    {failed && (
+                    {(failed || (assistant && !isBusy(s) && s.status !== 'UPLOADED')) && (
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                        <button
-                          type="button"
-                          className="font-medium text-brand hover:underline"
-                          onClick={() => setDetails(details === s.id ? null : s.id)}
-                        >
-                          {details === s.id ? 'Hide details' : 'Details'}
-                        </button>
+                        {failed && (
+                          <button
+                            type="button"
+                            className="font-medium text-brand hover:underline"
+                            onClick={() => setDetails(details === s.id ? null : s.id)}
+                          >
+                            {details === s.id ? 'Hide details' : 'Details'}
+                          </button>
+                        )}
                         {assistant && (
                           <button
                             type="button"
                             className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
-                            onClick={() => setAsking(asking === s.id ? null : s.id)}
+                            onClick={() => ask(s.id)}
                           >
                             <Sparkles className="size-3.5" />
-                            {asking === s.id ? 'Close the chat' : 'Ask AI to fix it'}
+                            {asking === s.id ? 'Close the chat' : failed ? 'Ask AI to fix it' : 'Ask AI about it'}
                           </button>
                         )}
                       </div>
@@ -412,9 +443,9 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                   </div>
                   </div>
                   {failed && details === s.id && <StatementDetails s={s} />}
-                  {failed && asking === s.id && (
+                  {asking === s.id && (
                     <div className="mt-3 border-t pt-3">
-                      <StatementChat statementId={s.id} />
+                      <StatementChat key={askDraft ?? ''} statementId={s.id} initialDraft={askDraft} />
                     </div>
                   )}
                 </li>
@@ -495,6 +526,8 @@ function Folder({
   open,
   onToggle,
   onDrop,
+  onRename,
+  onAskStarts,
   children,
 }: {
   folder: StatementFolder
@@ -504,6 +537,10 @@ function Folder({
   onToggle: () => void
   /** Undefined for the "Not sorted yet" folder — nothing can be dropped there. */
   onDrop?: (statementId: number) => void
+  /** step2: rename the account (pencil beside the header); throws to keep the field open. */
+  onRename?: (to: string) => Promise<unknown>
+  /** step2: open the AI chat about the starting dates (undefined = the assistant is off). */
+  onAskStarts?: () => void
   children: ReactNode
 }) {
   const drop = useFolderDrop(onDrop)
@@ -522,58 +559,109 @@ function Folder({
       )}
     >
       <div className="flex items-center gap-1 rounded-lg pr-2 hover:bg-black/5">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left"
-        >
-          <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
-          {folder.account ? (
-            open ? (
-              <FolderOpen className="size-4 shrink-0 text-brand" />
+        <FolderRename account={folder.account} onRename={onRename}>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left"
+          >
+            <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+            {folder.account ? (
+              open ? (
+                <FolderOpen className="size-4 shrink-0 text-brand" />
+              ) : (
+                <Folder2 className="size-4 shrink-0 text-brand" />
+              )
             ) : (
-              <Folder2 className="size-4 shrink-0 text-brand" />
-            )
-          ) : (
-            <FileClock className="size-4 shrink-0 text-muted-foreground" />
-          )}
-          <span className="flex min-w-0 flex-col">
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
-              {note?.warn && <span className="size-2 shrink-0 rounded-full bg-red-500" title={STARTS_WARNING} />}
-            </span>
-            {note && (
-              <span
-                className={cn('truncate text-xs', note.warn ? 'font-medium text-red-600' : 'text-muted-foreground')}
-                title={note.warn ? STARTS_WARNING : undefined}
-              >
-                {note.text}
-              </span>
+              <FileClock className="size-4 shrink-0 text-muted-foreground" />
             )}
-          </span>
-          {folder.card && (
-            <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
-              <CreditCard className="size-3" /> Card
-            </Badge>
-          )}
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-            {range && <span className="hidden sm:inline">{range} · </span>}
-            {folder.statements.length} statement{folder.statements.length === 1 ? '' : 's'}
-          </span>
-        </button>
+            <span className="flex min-w-0 flex-col">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
+                {note?.warn && <span className="size-2 shrink-0 rounded-full bg-red-500" title={STARTS_WARNING} />}
+              </span>
+              {note && (
+                <span className={cn('text-xs', note.warn ? 'font-medium text-red-600' : 'truncate text-muted-foreground')}>
+                  {note.text}
+                </span>
+              )}
+            </span>
+            {folder.card && (
+              <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
+                <CreditCard className="size-3" /> Card
+              </Badge>
+            )}
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              {range && <span className="hidden sm:inline">{range} · </span>}
+              {folder.statements.length} statement{folder.statements.length === 1 ? '' : 's'}
+            </span>
+          </button>
+        </FolderRename>
         {folder.account && currencies.size > 0 && <AccountCurrency account={folder.account} currency={currency} />}
       </div>
+      {note?.warn && (
+        // step2: the whole warning, never cut off or hidden in a hover — and a way to fix it.
+        <p className="px-8 pb-1 text-xs text-red-600/80">
+          {STARTS_WARNING}
+          {onAskStarts && (
+            <button
+              type="button"
+              className="ml-2 inline-flex items-center gap-1 font-medium text-brand hover:underline"
+              onClick={onAskStarts}
+            >
+              <Sparkles className="size-3.5" /> Ask AI to fix it
+            </button>
+          )}
+        </p>
+      )}
       {open && <ul className="mt-1 flex flex-col gap-2">{children}</ul>}
     </section>
   )
 }
 
+/**
+ * step2 (2026-11-08): the folder header's name renamed in place — the account everywhere (rows,
+ * rules, the connected bank), through `POST accounts/rename`. The pencil sits beside the
+ * header's toggle button, never inside it.
+ */
+function FolderRename({
+  account,
+  onRename,
+  children,
+}: {
+  account: string | null
+  onRename?: (to: string) => Promise<unknown>
+  children: ReactNode
+}) {
+  if (!account || !onRename) return <>{children}</>
+  return (
+    <InlineRename value={account} onSave={onRename} label={`Rename ${account}`} className="flex-1">
+      {children}
+    </InlineRename>
+  )
+}
+
+/**
+ * step2: the statement a folder's starting-dates chat opens on — the account's first one
+ * that was read (its chat lists the account's other statements with their balances).
+ */
+function startsChatStatement(statements: Statement[]): Statement | undefined {
+  return [...statements]
+    .filter((s) => s.status === 'DONE')
+    .sort((a, b) => (a.periodStart ?? '').localeCompare(b.periodStart ?? ''))[0]
+}
 
 /** step8: the full story of a statement we could not read — the checks, what it means, what to do. */
 function StatementDetails({ s }: { s: Statement }) {
   const help = statementHelp(s)
   return (
     <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-[#0B1C2C]/90">
+      {s.errorDetail && (
+        <>
+          <p className="font-semibold">What went wrong, exactly</p>
+          <p className="mt-0.5 mb-2 font-mono text-[11px] break-words whitespace-pre-wrap">{s.errorDetail}</p>
+        </>
+      )}
       {!!s.checks?.length && (
         <>
           <p className="font-semibold">What did not match the bank's totals</p>

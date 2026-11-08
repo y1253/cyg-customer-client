@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Sparkles } from 'lucide-react'
 import type { AccountType, Reports, ReportLine } from '@/api/bookkeeping'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -8,6 +9,8 @@ import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
 import { ForeignAmount } from './AccountCurrency'
 import { DropSection, MoveMenu } from './AccountMove'
 import { dragProps, useAccountDrop } from './account-move'
+import { InlineRename } from './InlineRename'
+import { canRenameAccount } from '@/lib/account-names'
 
 /** Net income to date — a figure, not an account: never opened or moved. */
 export const RETAINED_EARNINGS = 'Retained Earnings'
@@ -42,6 +45,8 @@ export function ReportSection({
   onMove,
   moved,
   onMerge,
+  onRename,
+  onAskStarts,
 }: {
   title: string
   lines: ReportLine[]
@@ -55,6 +60,10 @@ export function ReportSection({
   moved?: ReadonlySet<string>
   /** step8: an account dropped on another's row is merged into it (after a confirm). */
   onMerge?: (from: string, into: string, bank: boolean) => void
+  /** step2: rename an account in place (its pencil); throws to keep the field open. */
+  onRename?: (from: string, to: string) => Promise<unknown>
+  /** step2: an account with more than one starting date gets "Ask AI" (its statements' chat). */
+  onAskStarts?: (account: string, note: string) => void
 }) {
   return (
     <section className="mb-6 last:mb-0">
@@ -63,6 +72,19 @@ export function ReportSection({
         {lines.length ? (
           lines.map((l) => {
             const account = l.name !== RETAINED_EARNINGS
+            const note = l.starts ? (startingNote(l.starts) ?? undefined) : undefined
+            const ask =
+              note?.warn && onAskStarts ? (
+                <button
+                  type="button"
+                  title="Ask AI to fix the starting dates"
+                  aria-label="Ask AI to fix the starting dates"
+                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-brand hover:bg-brand/10"
+                  onClick={() => onAskStarts(l.name, note.text)}
+                >
+                  <Sparkles className="size-4" />
+                </button>
+              ) : null
             return (
               <ReportRow
                 key={l.name}
@@ -70,7 +92,7 @@ export function ReportSection({
                 amount={l.amount}
                 foreign={l.currency !== undefined && l.foreignAmount !== undefined ? { currency: l.currency, amount: l.foreignAmount } : undefined}
                 byName={l.byName}
-                note={l.starts ? (startingNote(l.starts) ?? undefined) : undefined}
+                note={note}
                 onClick={account && onOpen ? () => onOpen(l) : undefined}
                 drag={account && type && onMove ? dragProps(l.name, !!l.bank) : undefined}
                 merge={
@@ -78,16 +100,22 @@ export function ReportSection({
                     ? { bank: !!l.bank, onMerge: (from) => onMerge(from, l.name, !!l.bank) }
                     : undefined
                 }
+                rename={account && onRename && canRenameAccount(l) ? (to) => onRename(l.name, to) : undefined}
                 action={
                   account && type && onMove ? (
-                    <MoveMenu
-                      account={l.name}
-                      current={type}
-                      bank={!!l.bank}
-                      moved={moved?.has(l.name)}
-                      onMove={onMove}
-                    />
-                  ) : undefined
+                    <>
+                      {ask}
+                      <MoveMenu
+                        account={l.name}
+                        current={type}
+                        bank={!!l.bank}
+                        moved={moved?.has(l.name)}
+                        onMove={onMove}
+                      />
+                    </>
+                  ) : (
+                    (ask ?? undefined)
+                  )
                 }
               />
             )
@@ -138,6 +166,7 @@ export function ReportRow({
   foreign,
   note,
   merge,
+  rename,
 }: {
   label: string
   amount: number
@@ -156,6 +185,8 @@ export function ReportRow({
   action?: ReactNode
   /** step8: this row takes another account dropped on it — merged into this one. */
   merge?: { bank: boolean; onMerge: (from: string) => void }
+  /** step2: a pencil beside the name renames the account in place. */
+  rename?: (to: string) => Promise<unknown>
 }) {
   const drop = useAccountDrop(label, merge?.bank ?? false, merge?.onMerge)
   const body = (
@@ -198,22 +229,30 @@ export function ReportRow({
   ) : (
     <span className="flex min-w-0 flex-1 items-baseline gap-4">{body}</span>
   )
+  const main =
+    byName?.length && onClick ? (
+      <Tooltip>
+        <TooltipTrigger
+          render={<div className="flex min-w-0 flex-1" />}
+          delay={150}
+        >
+          {button}
+        </TooltipTrigger>
+        <TooltipContent side="right" align="start" className="block max-w-none">
+          <ByName lines={byName} />
+        </TooltipContent>
+      </Tooltip>
+    ) : (
+      button
+    )
   return (
     <div className={rowClass} {...drag} {...drop.props}>
-      {byName?.length && onClick ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={<div className="flex min-w-0 flex-1" />}
-            delay={150}
-          >
-            {button}
-          </TooltipTrigger>
-          <TooltipContent side="right" align="start" className="block max-w-none">
-            <ByName lines={byName} />
-          </TooltipContent>
-        </Tooltip>
+      {rename ? (
+        <InlineRename value={label} onSave={rename} label={`Rename ${label}`} className="flex-1">
+          {main}
+        </InlineRename>
       ) : (
-        button
+        main
       )}
       {action}
     </div>

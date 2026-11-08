@@ -5,6 +5,7 @@ import {
   CircleHelp,
   Landmark,
   ListFilter,
+  Paperclip,
   Pencil,
   Plus,
   RotateCcw,
@@ -16,6 +17,8 @@ import {
 } from 'lucide-react'
 import {
   TAX_KIND_LABEL,
+  UNCLARIFIED_NAME,
+  ruleConflictOf,
   type ContainsRule,
   type LedgerName,
   type NameGroup,
@@ -42,16 +45,21 @@ import { Switch } from '@/components/ui/switch'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
+import { useAttachments } from '@/hooks/useAttachments'
+import { fileCountsByName, nameFolderKey } from '@/lib/attachment-folders'
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
 import { useDeleteNameGroup, useNameSearch, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useTax } from '@/hooks/useTax'
 import { useMergeNames } from '@/hooks/useMerge'
+import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { AgencyDialog } from './AgencyDialog'
 import { ContainsRuleDialog } from './ContainsRuleDialog'
+import { InlineRename } from './InlineRename'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
+import { RuleConflictDialog } from './RuleConflictDialog'
 import { UnclarifiedTable } from './UnclarifiedTable'
 import { descriptionDragProps, nameDragProps, useGroupDrop, useNameDrop } from './name-drag'
 
@@ -126,14 +134,24 @@ const rowId = (name: string) => `name-row-${name.toLowerCase().replace(/[^a-z0-9
  * finds a name by its name, category or bank description. Click a name for its ledger.
  * Edits are the customer's own rules: applied at once and to every statement from now on.
  */
-export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
+export function Names({
+  onOpenName,
+  onOpenFiles,
+}: {
+  onOpenName?: (name: string) => void
+  /** step2: open a name's folder on the Attachments tab (By name). */
+  onOpenFiles?: (name: string) => void
+}) {
   const tax = useTax()
   const names = useNames()
+  const attachments = useAttachments()
+  const fileCounts = useMemo(() => fileCountsByName(attachments.data ?? []), [attachments.data])
   const save = useSaveAgency()
   const remove = useDeleteAgency()
   const setNameTax = useNameAgencies()
   const resetRule = useResetNameRule()
   const saveRule = useSaveNameRule()
+  const conflict = useRuleConflict()
   const setGroup = useSetNameGroup()
   const saveGroup = useSaveNameGroup()
   const deleteGroup = useDeleteNameGroup()
@@ -237,9 +255,15 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
     setTimeout(() => document.getElementById(rowId(name))?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
     setTimeout(() => setHighlight((h) => (h === name.toLowerCase() ? null : h)), 2500)
   }
-  /** step9: a description dropped on a name — every row of it gets that name, now and later. */
-  const moveDescription = (target: string, d: { key: string }) =>
-    saveRule.mutate({ matchType: 'DESCRIPTION', matchKey: d.key, name: target, category: null, scope: 'ALWAYS' })
+  /**
+   * step9: a description dropped on a name — every row of it gets that name, now and later.
+   * step2: one already linked to another name asks first (RuleConflictDialog).
+   */
+  const moveDescription = (target: string, d: { key: string }, replace = false): void =>
+    saveRule.mutate(
+      { matchType: 'DESCRIPTION', matchKey: d.key, name: target, category: null, scope: 'ALWAYS', replace },
+      { onError: (e) => conflict.offer(e, target, () => moveDescription(target, d, true)) },
+    )
 
   const open = (agency: TaxAgency | null) => {
     setEditing(agency)
@@ -268,6 +292,14 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
       pending={setNameTax.isPending && setNameTax.variables?.name === n.name}
       onAgencies={(agencyIds) => setNameTax.mutate({ name: n.name, agencyIds })}
       onOpen={onOpenName && (() => onOpenName(n.name))}
+      files={fileCounts.get(nameFolderKey(n.name, UNCLARIFIED_NAME)) ?? 0}
+      onFiles={onOpenFiles && (() => onOpenFiles(n.name))}
+      onRename={
+        mergeable(n)
+          ? (to) =>
+              saveRule.mutateAsync({ matchType: 'NAME', matchKey: n.ruleKey, name: to, category: null, scope: 'ALWAYS' })
+          : undefined
+      }
       onEdit={() => setRuleTarget({ kind: 'name', view: n })}
       onReset={() => n.rule && resetRule.mutate(n.rule)}
       resetting={resetting(n.rule)}
@@ -479,7 +511,8 @@ export function Names({ onOpenName }: { onOpenName?: (name: string) => void }) {
           )}
         </div>
       )}
-      {error && <p className="px-5 pb-4 text-sm text-destructive">{error.message}</p>}
+      {error && !ruleConflictOf(error) && <p className="px-5 pb-4 text-sm text-destructive">{error.message}</p>}
+      <RuleConflictDialog conflict={conflict} />
 
       <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} />
       <NameRuleDialog target={ruleTarget} onOpenChange={(o) => !o && setRuleTarget(null)} />
@@ -644,6 +677,9 @@ function NameRow({
   pending,
   onAgencies,
   onOpen,
+  files = 0,
+  onFiles,
+  onRename,
   onEdit,
   onReset,
   resetting,
@@ -665,6 +701,11 @@ function NameRow({
   pending: boolean
   onAgencies: (agencyIds: number[]) => void
   onOpen?: () => void
+  /** step2: how many attachments its "By name" folder holds, and opening that folder. */
+  files?: number
+  onFiles?: () => void
+  /** step2: rename it in place (a NAME rule, like the Edit dialog); throws to keep the field open. */
+  onRename?: (to: string) => Promise<unknown>
   onEdit: () => void
   onReset: () => void
   resetting: boolean
@@ -715,21 +756,23 @@ function NameRow({
         <TypeIcon type={group} />
       )}
       <div className="min-w-0 flex-1">
-        {onOpen ? (
-          <button
-            type="button"
-            onClick={onOpen}
-            title={`See every transaction of ${n.name}`}
-            className={cn(
-              'max-w-full truncate text-left font-medium text-[#0B1C2C] hover:text-brand hover:underline',
-              n.unclarified && 'italic',
-            )}
-          >
-            {n.name}
-          </button>
-        ) : (
-          <p className="truncate font-medium text-[#0B1C2C]">{n.name}</p>
-        )}
+        <RenameName name={n.name} onRename={onRename}>
+          {onOpen ? (
+            <button
+              type="button"
+              onClick={onOpen}
+              title={`See every transaction of ${n.name}`}
+              className={cn(
+                'max-w-full truncate text-left font-medium text-[#0B1C2C] hover:text-brand hover:underline',
+                n.unclarified && 'italic',
+              )}
+            >
+              {n.name}
+            </button>
+          ) : (
+            <p className="truncate font-medium text-[#0B1C2C]">{n.name}</p>
+          )}
+        </RenameName>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {n.unclarified ? (
             <Badge className="bg-orange-100 text-orange-800">Unrecognized</Badge>
@@ -790,6 +833,18 @@ function NameRow({
         <AgencyPicker name={n.name} type={n.type} agencies={agencies} picked={n.agencyIds} pending={pending} onChange={onAgencies} />
       )}
       <div className="flex shrink-0 gap-1">
+        {files > 0 && onFiles && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 px-2 text-muted-foreground"
+            title={`Open the attachments of ${n.name}`}
+            onClick={onFiles}
+          >
+            <Paperclip />
+            <span className="text-xs tabular-nums">{files}</span>
+          </Button>
+        )}
         {many > 0 && (
           <Button
             variant="ghost"
@@ -1033,5 +1088,23 @@ function ResetButton({ onReset, resetting }: { onReset: () => void; resetting: b
     >
       <RotateCcw />
     </Button>
+  )
+}
+
+/** step2: a payee's name with a pencil beside it — renamed in place; as is when it cannot be. */
+function RenameName({
+  name,
+  onRename,
+  children,
+}: {
+  name: string
+  onRename?: (to: string) => Promise<unknown>
+  children: ReactNode
+}) {
+  if (!onRename) return <>{children}</>
+  return (
+    <InlineRename value={name} onSave={onRename} label={`Rename ${name}`}>
+      {children}
+    </InlineRename>
   )
 }

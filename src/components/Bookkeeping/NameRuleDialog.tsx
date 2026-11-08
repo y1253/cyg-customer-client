@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   CONTAINS_MIN,
+  ruleConflictOf,
   type EditScope,
   type LedgerName,
   type LedgerTransaction,
@@ -23,11 +24,13 @@ import { useClosingValue } from '@/hooks/useClosingValue'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
 import { useSaveNameRule } from '@/hooks/useNameRule'
 import { useNames } from '@/hooks/useNames'
+import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { cn } from '@/lib/utils'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
 import { CategoryField } from './CategoryField'
 import { NameDescriptionsEditor } from './NameDescriptionsEditor'
 import { NamePicker } from './NamePicker'
+import { RuleConflictDialog } from './RuleConflictDialog'
 
 /** What is being edited: a payee, a group of rows the AI could not name, or one ledger row. */
 export type NameRuleTarget =
@@ -73,6 +76,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const create = useCreateAccount()
   const saveRule = useSaveNameRule()
   const editRow = useEditTransaction()
+  const conflict = useRuleConflict()
 
   const initialName = target.kind === 'unrecognized' ? '' : (target.view.name ?? '')
   const initialCategory = target.kind === 'transaction' ? target.view.offsetAccount : target.view.category
@@ -145,16 +149,19 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       // typed — the row's own name would otherwise rename every matching transaction.
       const category = choiceReady(choice) ? await resolveChoice(choice, create) : null
       if (choiceReady(choice) && !category) return
-      saveRule.mutate(
-        {
-          matchType: 'CONTAINS',
-          matchKey: containsTrimmed,
-          name: nameChanged ? trimmed : null,
-          category,
-          scope: 'ALWAYS',
-        },
-        { onSuccess: onDone },
-      )
+      const run = (replace: boolean) =>
+        saveRule.mutate(
+          {
+            matchType: 'CONTAINS',
+            matchKey: containsTrimmed,
+            name: nameChanged ? trimmed : null,
+            category,
+            scope: 'ALWAYS',
+            replace,
+          },
+          { onSuccess: onDone, onError: (e) => conflict.offer(e, trimmed, () => run(true)) },
+        )
+      run(false)
       return
     }
     const chosen = categoryChanged ? await resolveChoice(choice, create) : null
@@ -164,18 +171,21 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       category: chosen,
       scope: target.kind === 'name' || scope === 'CONTAINS' ? ('ALWAYS' as const) : scope,
     }
+    // step2: a description already linked to another name asks first (RuleConflictDialog).
+    const onError = (retry: () => void) => (e: Error) => conflict.offer(e, trimmed, retry)
     if (target.kind === 'transaction') {
-      editRow.mutate({ id: target.view.id, ...values }, { onSuccess: onDone })
+      const id = target.view.id
+      const run = (replace: boolean) =>
+        editRow.mutate({ id, ...values, replace }, { onSuccess: onDone, onError: onError(() => run(true)) })
+      run(false)
     } else {
-      saveRule.mutate(
-        {
-          ...(target.kind === 'name'
-            ? { matchType: 'NAME' as const, matchKey: target.view.ruleKey }
-            : { matchType: 'DESCRIPTION' as const, matchKey: target.view.key }),
-          ...values,
-        },
-        { onSuccess: onDone },
-      )
+      const ref =
+        target.kind === 'name'
+          ? { matchType: 'NAME' as const, matchKey: target.view.ruleKey }
+          : { matchType: 'DESCRIPTION' as const, matchKey: target.view.key }
+      const run = (replace: boolean) =>
+        saveRule.mutate({ ...ref, ...values, replace }, { onSuccess: onDone, onError: onError(() => run(true)) })
+      run(false)
     }
   }
 
@@ -298,7 +308,8 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       {/* step9: the descriptions this name follows, and its group — saved as they change. */}
       {target.kind === 'name' && <NameDescriptionsEditor name={target.view.name} />}
 
-      {error && <p className="text-sm text-destructive">{error.message}</p>}
+      {error && !ruleConflictOf(error) && <p className="text-sm text-destructive">{error.message}</p>}
+      <RuleConflictDialog conflict={conflict} />
 
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>

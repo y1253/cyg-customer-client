@@ -4,6 +4,7 @@ import type { Statement } from '@/api/bookkeeping'
 import { applyTable } from './table-sort'
 import {
   FILE_COLUMNS,
+  fileCountsByName,
   fileFolders,
   fileFoldersByName,
   fileSize,
@@ -11,6 +12,7 @@ import {
   itemAmount,
   itemDate,
   itemName,
+  nameFolderKey,
   UNCLARIFIED_FOLDER,
   UNFILED,
 } from './attachment-folders'
@@ -138,5 +140,28 @@ describe('fileFoldersByName', () => {
       [UNCLARIFIED_FOLDER, 'Unclarified name'],
       [UNFILED, null],
     ])
+  })
+})
+
+describe('name folders from the Names tab (step2)', () => {
+  const tx = (name: string | null) =>
+    ({ id: 1, name, description: 'POS', amount: -10, date: null, statementId: 1, statementLabel: '', splitCount: 0 }) as Attachment['transaction']
+
+  it('finds the folder fileFoldersByName made for a name', () => {
+    const folders = fileFoldersByName([a(1, { transaction: tx('Walmart') }), a(2, { transaction: tx(null) })], 'Unclarified name')
+    expect(folders.map((f) => f.key)).toContain(nameFolderKey('WALMART', 'Unclarified name'))
+    expect(nameFolderKey('Unclarified name', 'Unclarified name')).toBe(UNCLARIFIED_FOLDER)
+  })
+
+  it('counts the files of each name', () => {
+    const counts = fileCountsByName([
+      a(1, { transaction: tx('Walmart') }),
+      a(2, { transaction: tx('walmart') }),
+      a(3, { transaction: tx(null) }),
+      a(4, { transaction: null }),
+    ])
+    expect(counts.get(nameFolderKey('Walmart', 'U'))).toBe(2)
+    expect(counts.get(UNCLARIFIED_FOLDER)).toBe(1)
+    expect(counts.size).toBe(2)
   })
 })

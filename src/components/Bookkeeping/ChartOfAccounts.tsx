@@ -1,6 +1,8 @@
 import type { AccountBalance, AccountType, Reports } from '@/api/bookkeeping'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useRenameAccount } from '@/hooks/useMerge'
 import { useMoveAccount } from '@/hooks/useMoveAccount'
+import { canRenameAccount } from '@/lib/account-names'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { periodLabel } from '@/lib/period'
@@ -8,6 +10,7 @@ import { AccountCurrency, ForeignAmount } from './AccountCurrency'
 import { MoveMenu } from './AccountMove'
 import { dragProps, SECTION_LABEL, useAccountDrop, useDropTarget } from './account-move'
 import { useAccountMerge } from './AccountMerge'
+import { InlineRename } from './InlineRename'
 import { ReportCard, UncategorizedNote } from './ReportParts'
 
 const GROUPS: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE']
@@ -23,6 +26,8 @@ export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; 
   const moved = new Set(reports.moved ?? [])
   const onMove = (account: string, type: AccountType | null) => move.mutate({ account, type })
   const merge = useAccountMerge()
+  const rename = useRenameAccount()
+  const onRename = (from: string, to: string) => rename.mutateAsync({ from, to })
   return (
     <ReportCard title="Chart of accounts" subtitle={periodLabel(reports.from, reports.to)}>
       <UncategorizedNote reports={reports} />
@@ -44,6 +49,7 @@ export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; 
               onOpen={onOpenAccount}
               onMove={onMove}
               onMerge={merge.ask}
+              onRename={onRename}
             />
           ))}
         </Table>
@@ -69,6 +75,7 @@ function Group({
   onOpen,
   onMove,
   onMerge,
+  onRename,
 }: {
   type: AccountType
   accounts: AccountBalance[]
@@ -76,6 +83,7 @@ function Group({
   onOpen: (name: string) => void
   onMove: (account: string, type: AccountType | null) => void
   onMerge: (from: string, into: string, bank: boolean) => void
+  onRename: (from: string, to: string) => Promise<unknown>
 }) {
   const drop = useDropTarget(type, onMove)
   const total = accounts.reduce((c, a) => c + Math.round(a.balance * 100), 0) / 100
@@ -105,6 +113,7 @@ function Group({
           onOpen={onOpen}
           onMove={onMove}
           onMerge={(from) => onMerge(from, a.name, a.bank)}
+          onRename={canRenameAccount(a) ? (to) => onRename(a.name, to) : undefined}
         />
       ))}
     </TableBody>
@@ -117,6 +126,7 @@ function AccountRow({
   onOpen,
   onMove,
   onMerge,
+  onRename,
 }: {
   account: AccountBalance
   moved: boolean
@@ -124,6 +134,8 @@ function AccountRow({
   onMove: (account: string, type: AccountType | null) => void
   /** step8: another account was dropped on this row — merge it into this one. */
   onMerge: (from: string) => void
+  /** step2: rename it in place (the pencil beside its name). */
+  onRename?: (to: string) => Promise<unknown>
 }) {
   const active = a.count > 0
   const drop = useAccountDrop(a.name, a.bank, onMerge)
@@ -140,7 +152,13 @@ function AccountRow({
     >
       <TableCell className="pl-8">
         <span className="flex items-center gap-2">
-          <span className={cn(active && 'font-medium text-[#0B1C2C]')}>{a.name}</span>
+          {onRename ? (
+            <InlineRename value={a.name} onSave={onRename} label={`Rename ${a.name}`}>
+              <span className={cn(active && 'font-medium text-[#0B1C2C]')}>{a.name}</span>
+            </InlineRename>
+          ) : (
+            <span className={cn(active && 'font-medium text-[#0B1C2C]')}>{a.name}</span>
+          )}
           {a.bank && (
             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
               {a.type === 'LIABILITY' ? 'Card' : 'Bank'}

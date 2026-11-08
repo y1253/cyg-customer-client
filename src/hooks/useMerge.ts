@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ACCOUNTS_KEY, mergeAccounts, mergeNames, NAMES_KEY } from '@/api/bookkeeping'
+import { ACCOUNTS_KEY, mergeAccounts, mergeNames, NAMES_KEY, renameAccount } from '@/api/bookkeeping'
 import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
@@ -21,7 +21,18 @@ export function useMergeAccounts() {
   const book = useBook()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (values: { from: string; into: string }) => mergeAccounts(book.auth, values),
+    mutationFn: (values: { from: string; into: string; name?: string }) => mergeAccounts(book.auth, values),
     onSettled: () => Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY })]),
+  })
+}
+
+/** step2: rename an account (reports, Bank feeds folder) — every place naming it refetches. */
+export function useRenameAccount() {
+  const queryClient = useQueryClient()
+  const book = useBook()
+  const invalidate = useInvalidateBookkeeping()
+  return useMutation({
+    mutationFn: (values: { from: string; to: string }) => renameAccount(book.auth, values),
+    onSuccess: () => Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY })]),
   })
 }

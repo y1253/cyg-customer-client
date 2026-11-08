@@ -23,7 +23,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   type Attachment,
 } from '@/api/attachments'
-import { openOriginal, UNCLARIFIED_NAME, type Statement } from '@/api/bookkeeping'
+import { openOriginal, UNCLARIFIED_NAME, unreadable, type Statement } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -41,6 +41,7 @@ import {
   fileSize,
   folderItems,
   itemAmount,
+  nameFolderKey,
   itemDate,
   itemName,
   itemSize,
@@ -78,9 +79,15 @@ function readGrouping(): Grouping {
 export function AttachmentsPanel({
   statements,
   onViewTransaction,
+  openName,
 }: {
   statements: Statement[]
   onViewTransaction: (transactionId: number) => void
+  /**
+   * step2 (2026-11-08): open this payee's "By name" folder (the Names tab's paperclip). `seq`
+   * changes on every click, so the same name opens again after the customer moved away.
+   */
+  openName?: { name: string; seq: number } | null
 }) {
   const attachments = useAttachments()
   const { attach } = useAttachmentActions()
@@ -107,6 +114,13 @@ export function AttachmentsPanel({
     [grouping, statements, list],
   )
   const [chosen, setChosen] = useState<string | null>(null)
+  // A new request from the Names tab: switch to By name on that payee (set during render, once per click).
+  const [openedSeq, setOpenedSeq] = useState<number | null>(null)
+  if (openName && openName.seq !== openedSeq) {
+    setOpenedSeq(openName.seq)
+    setGrouping('name')
+    setChosen(nameFolderKey(openName.name, UNCLARIFIED_NAME))
+  }
   // The chosen folder, else the first — a folder that emptied falls back by itself.
   const folder = folders.find((f) => f.key === chosen) ?? folders[0] ?? null
 
@@ -314,7 +328,13 @@ function FolderTable({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-[#0B1C2C]">{itemName(item)}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
+                        <span
+                          className={cn(
+                            'block text-xs text-muted-foreground',
+                            // step2: a statement we could not read shows its whole reason.
+                            !(item.type === 'statement' && unreadable(item.statement)) && 'truncate',
+                          )}
+                        >
                           {a ? subtitle(a) : item.type === 'statement' ? statementSubtitle(item.statement) : ''}
                         </span>
                       </span>
@@ -447,7 +467,7 @@ function statementSubtitle(s: Statement): string {
       : s.status === 'UPLOADED'
         ? 'not read yet — click Generate'
         : s.status === 'FAILED' || s.status === 'NEEDS_REVIEW'
-          ? 'could not be read'
+          ? (s.error ?? 'could not be read')
           : 'reading…'
   return `${s.filename} · ${state}`
 }

@@ -167,3 +167,22 @@ export function fileFoldersByName(attachments: Attachment[], unclarified: string
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
   })
 }
+
+/**
+ * step2 (2026-11-08): the "By name" folder of a payee — the Names tab's paperclip opens it.
+ * `unclarified` = the name the nameless rows go by ("Unclarified name").
+ */
+export function nameFolderKey(name: string, unclarified: string): string {
+  return name.trim().toLowerCase() === unclarified.toLowerCase() ? UNCLARIFIED_FOLDER : `name:${name.trim().toLowerCase()}`
+}
+
+/** step2: how many attachments each "By name" folder holds, by `nameFolderKey` (the Names tab). */
+export function fileCountsByName(attachments: Attachment[]): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const a of attachments) {
+    const payee = payeeOf(a)
+    const key = payee ? `name:${payee.toLowerCase()}` : a.transaction ? UNCLARIFIED_FOLDER : null
+    if (key) out.set(key, (out.get(key) ?? 0) + 1)
+  }
+  return out
+}

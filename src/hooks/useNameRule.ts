@@ -19,7 +19,12 @@ export function useSaveNameRule() {
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
     mutationFn: (
-      values: NameRuleRef & { name: string | null; category: string | null; scope: EditScope },
+      values: NameRuleRef & {
+        name: string | null
+        category: string | null
+        scope: EditScope
+        replace?: boolean
+      },
     ) => saveNameRule(book.auth, values),
     onSuccess: (data) => queryClient.setQueryData(book.key(NAMES_KEY), data),
     onSettled: invalidate,

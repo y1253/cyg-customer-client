@@ -1,13 +1,16 @@
+import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import type { AccountType, Reports } from '@/api/bookkeeping'
 import { openFloatingChat } from '@/components/Assistant/FloatingChat'
 import { Button } from '@/components/ui/button'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
+import { useRenameAccount } from '@/hooks/useMerge'
 import { useMoveAccount } from '@/hooks/useMoveAccount'
 import { money } from '@/lib/money'
 import { fmtDay } from '@/lib/period'
 import { useAccountMerge } from './AccountMerge'
 import { ReportCard, ReportRow, ReportSection, UncategorizedNote } from './ReportParts'
+import { StartsChatDialog } from './StartsChatDialog'
 
 /**
  * Assets = liabilities + equity, as of the end of the period (a balance sheet has no
@@ -30,8 +33,14 @@ export function BalanceSheet({
   const bs = reports.balanceSheet
   const move = useMoveAccount()
   const merge = useAccountMerge()
+  const rename = useRenameAccount()
+  const assistant = useAssistantEnabled()
+  // step2: the account whose starting dates the AI chat is about.
+  const [startsChat, setStartsChat] = useState<{ account: string; note: string } | null>(null)
   const section = {
+    onAskStarts: assistant ? (account: string, note: string) => setStartsChat({ account, note }) : undefined,
     onMerge: merge.ask,
+    onRename: (from: string, to: string) => rename.mutateAsync({ from, to }),
     onOpen: onOpenAccount && ((l: { name: string }) => onOpenAccount(l.name)),
     onMove: (account: string, type: AccountType | null) => move.mutate({ account, type }),
     moved: new Set(reports.moved ?? []),
@@ -81,7 +90,8 @@ export function BalanceSheet({
       {move.error && <p className="mt-4 text-sm text-destructive">{move.error.message}</p>}
       {merge.error && <p className="mt-4 text-sm text-destructive">{merge.error.message}</p>}
       {merge.dialog}
-      {!bs.balanced && <OffBy reports={reports} unread={unread} onOpenStatements={onOpenStatements} />}
+      <StartsChatDialog target={startsChat} onClose={() => setStartsChat(null)} />
+      {!bs.balanced &&<OffBy reports={reports} unread={unread} onOpenStatements={onOpenStatements} />}
     </ReportCard>
   )
 }

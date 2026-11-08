@@ -69,6 +69,13 @@ export function BookkeepingPage({
   useFloatingChatBook({ hidden: tab === 'assistant' })
   // Attachments has two sub-tabs (step12): the files, and every conversation with us.
   const [attachView, setAttachView] = useState<'files' | 'communication'>('files')
+  // step2: the Names tab's paperclip — that payee's folder on Attachments, By name.
+  const [filesOf, setFilesOf] = useState<{ name: string; seq: number } | null>(null)
+  const openFiles = (name: string) => {
+    setFilesOf((f) => ({ name, seq: (f?.seq ?? 0) + 1 }))
+    setAttachView('files')
+    setTab('attachments')
+  }
   const [period, setPeriod] = useState<Period>({ from: null, to: null })
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [ledgerAccount, setLedgerAccount] = useState<string | null>(null)
@@ -261,7 +268,7 @@ export function BookkeepingPage({
               </TabsTrigger>
             </TabsList>
             <TabsContent value="files">
-              <AttachmentsPanel statements={list} onViewTransaction={openTransaction} />
+              <AttachmentsPanel statements={list} onViewTransaction={openTransaction} openName={filesOf} />
             </TabsContent>
             <TabsContent value="communication">
               <CommunicationPanel onOpenAssistant={assistant ? () => setTab('assistant') : undefined} />
@@ -288,7 +295,7 @@ export function BookkeepingPage({
           ))}
         </TabsContent>
         <TabsContent value="names">
-          <Names onOpenName={(name) => openLedger({ name })} />
+          <Names onOpenName={(name) => openLedger({ name })} onOpenFiles={openFiles} />
         </TabsContent>
         <TabsContent value="products">
           <Products />

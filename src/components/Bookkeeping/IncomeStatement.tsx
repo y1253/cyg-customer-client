@@ -1,4 +1,5 @@
 import type { AccountType, Reports } from '@/api/bookkeeping'
+import { useRenameAccount } from '@/hooks/useMerge'
 import { useMoveAccount } from '@/hooks/useMoveAccount'
 import { periodLabel } from '@/lib/period'
 import { BY_NAME, type LedgerScope } from './ledger-scope'
@@ -13,7 +14,9 @@ export function IncomeStatement({ reports, onOpen }: { reports: Reports; onOpen?
   const is = reports.incomeStatement
   const profit = is.netIncome >= 0
   const move = useMoveAccount()
+  const rename = useRenameAccount()
   const section = {
+    onRename: (from: string, to: string) => rename.mutateAsync({ from, to }),
     onOpen: onOpen && ((l: { name: string }) => onOpen({ account: l.name, sort: BY_NAME })),
     onMove: (account: string, type: AccountType | null) => move.mutate({ account, type }),
     moved: new Set(reports.moved ?? []),

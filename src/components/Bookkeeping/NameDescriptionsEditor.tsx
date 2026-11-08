@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, ListFilter, Pencil, Plus, Trash2, X } from 'lucide-react'
-import { CONTAINS_MIN, type NameDescription } from '@/api/bookkeeping'
+import { CONTAINS_MIN, ruleConflictOf, type NameDescription } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSetNameGroup } from '@/hooks/useNameGroups'
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
 import { useNames } from '@/hooks/useNames'
+import { useRuleConflict } from '@/hooks/useRuleConflict'
+import { RuleConflictDialog } from './RuleConflictDialog'
 
 /**
  * step9: inside a name's Edit dialog — the bank descriptions this name follows, and its
@@ -23,6 +25,7 @@ export function NameDescriptionsEditor({ name }: { name: string }) {
   const save = useSaveNameRule()
   const reset = useResetNameRule()
   const setGroup = useSetNameGroup()
+  const conflict = useRuleConflict()
   const [narrowing, setNarrowing] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [adding, setAdding] = useState(false)
@@ -30,14 +33,26 @@ export function NameDescriptionsEditor({ name }: { name: string }) {
   const busy = save.isPending || reset.isPending
   const error = save.error ?? reset.error ?? setGroup.error
 
-  /** Save `value` as this name's contains rule — replacing `replace` (an exact or older contains rule). */
-  const saveContains = async (value: string, replace?: { matchType: 'DESCRIPTION' | 'CONTAINS'; matchKey: string }) => {
+  /**
+   * Save `value` as this name's contains rule — replacing `old` (an exact or older contains
+   * rule). The new rule is saved FIRST: when its text is linked to another name the
+   * customer is asked (RuleConflictDialog) and, on Cancel, `old` is still there. Removing
+   * `old` afterwards re-files its rows through the rules left, the new one included.
+   */
+  const saveContains = async (
+    value: string,
+    old?: { matchType: 'DESCRIPTION' | 'CONTAINS'; matchKey: string },
+    replace = false,
+  ) => {
     const trimmed = value.trim()
     if (trimmed.length < CONTAINS_MIN) return
-    // An exact description rule wins over a contains rule, so it goes first.
-    if (replace && !(replace.matchType === 'CONTAINS' && replace.matchKey === trimmed.toLowerCase()))
-      await reset.mutateAsync(replace)
-    await save.mutateAsync({ matchType: 'CONTAINS', matchKey: trimmed, name: live.name, category: null, scope: 'ALWAYS' })
+    try {
+      await save.mutateAsync({ matchType: 'CONTAINS', matchKey: trimmed, name: live.name, category: null, scope: 'ALWAYS', replace })
+    } catch (e) {
+      conflict.offer(e, live.name, () => void saveContains(value, old, true))
+      return
+    }
+    if (old && !(old.matchType === 'CONTAINS' && old.matchKey === trimmed.toLowerCase())) await reset.mutateAsync(old)
     setNarrowing(null)
     setAdding(false)
     setText('')
@@ -212,7 +227,8 @@ export function NameDescriptionsEditor({ name }: { name: string }) {
           Drag a description from one name to another on the Names tab to move it there.
         </p>
       </div>
-      {error && <p className="text-sm text-destructive">{error.message}</p>}
+      {error && !ruleConflictOf(error) && <p className="text-sm text-destructive">{error.message}</p>}
+      <RuleConflictDialog conflict={conflict} />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useAttachmentChat, useSendAttachmentChat } from '@/hooks/useAssistant'
+import { CallMeButton } from './CallMeButton'
 import { ChatPanel } from './ChatPanel'
 
 /**
@@ -18,7 +19,8 @@ export function AttachmentChat({ attachmentId }: { attachmentId: number }) {
       loading={chat.isLoading}
       onSend={(text) => send.mutateAsync(text)}
       placeholder="e.g. “It’s the Amazon charge on March 3” or “There are two cheques in this image”"
-      empty="Tell the AI where this belongs, or what is wrong with it."
+      empty="Tell the AI where this belongs, or what is wrong with it — or press the phone to talk it through."
+      extraAction={<CallMeButton target={{ attachmentId }} />}
     />
   )
 }

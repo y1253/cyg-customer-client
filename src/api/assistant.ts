@@ -165,3 +165,25 @@ export async function transcribeDictation(
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
+
+export const CALL_ME_KEY = ['call-me'] as const
+
+/** step2: can the AI phone the customer now (a phone on the account, calls set up)? */
+export async function fetchCallMe(auth: BookAuth): Promise<{ available: boolean }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/call-me')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/**
+ * step2: "Call me" in a statement's / attachment's chat — the AI phones the customer about
+ * it; what is said is added to that chat after the call. `ok: false` = not placed (`message` says why).
+ */
+export async function requestCallMe(
+  auth: BookAuth,
+  target: { statementId: number } | { attachmentId: number },
+): Promise<{ ok: boolean; message: string }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/call-me', json('POST', target))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}

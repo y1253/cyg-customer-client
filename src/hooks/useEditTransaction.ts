@@ -16,6 +16,7 @@ export function useEditTransaction() {
       name: string | null
       category: string | null
       scope: EditScope
+      replace?: boolean
     }) => editTransaction(book.auth, id, values),
     onSettled: invalidate,
   })

@@ -1,4 +1,4 @@
-import { errorFrom, fetchWithAuth, handleUnauthorized } from './client'
+import { ApiError, errorFrom, fetchWithAuth, handleUnauthorized } from './client'
 
 /**
  * A bookkeeping call's credentials AND its book. step12c: `bookId` = one of the customer's
@@ -40,6 +40,8 @@ export type Statement = {
   sizeBytes: number
   status: StatementStatus
   error: string | null
+  /** step2: the raw failure behind `error` (FAILED only) — shown under Details. */
+  errorDetail?: string | null
   /** step8: the checks against the bank's totals that failed, in words (NEEDS_REVIEW only). */
   checks?: string[]
   /** step8: what the customer said was wrong with it (its chat) — used on every re-read. */
@@ -465,6 +467,27 @@ export type ChartAccount = { name: string; type: AccountType; custom: boolean }
 /** How far an edit reaches: saved for the future, or only the rows changed now. */
 export type EditScope = 'ALWAYS' | 'ONCE'
 
+/** One link a rule save would take from another name (step2, the server's `LinkConflict`). */
+export interface RuleConflictLink {
+  matchType: 'DESCRIPTION' | 'CONTAINS'
+  /** The description as printed, or the contained text as typed. */
+  text: string
+  /** The name it is linked to now. */
+  name: string
+}
+
+/**
+ * The 409 `RULE_CONFLICT` of a name rule save: the description (or text) is already linked
+ * to another name. Saving again with `replace: true` moves it. Null for any other error
+ * (a conflict with no links — two saves at once — is just its message).
+ */
+export function ruleConflictOf(error: unknown): RuleConflictLink[] | null {
+  if (!(error instanceof ApiError) || error.status !== 409) return null
+  const body = error.body as { code?: string; conflicts?: RuleConflictLink[] } | null
+  if (body?.code !== 'RULE_CONFLICT' || !body.conflicts?.length) return null
+  return body.conflicts
+}
+
 /** The shortest text a "description contains" rule may look for — the server's `CONTAINS_MIN`. */
 export const CONTAINS_MIN = 3
 
@@ -557,7 +580,13 @@ export async function setNameAgencies(
  */
 export async function saveNameRule(
   auth: BookAuth,
-  values: NameRuleRef & { name: string | null; category: string | null; scope: EditScope },
+  values: NameRuleRef & {
+    name: string | null
+    category: string | null
+    scope: EditScope
+    /** step2: take the description from the name it is linked to now (after a RULE_CONFLICT). */
+    replace?: boolean
+  },
 ): Promise<NamesData> {
   const res = await bookFetch(auth, '/api/bookkeeping/names/rule', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
@@ -608,9 +637,21 @@ export async function mergeNames(auth: BookAuth, values: { from: string; into: s
   return res.json()
 }
 
-/** step8: merge account `from` into `into` — its rows, rules and (for two folders) statements. */
-export async function mergeAccounts(auth: BookAuth, values: { from: string; into: string }): Promise<void> {
+/**
+ * step8: merge account `from` into `into` — its rows, rules and (for two folders) statements.
+ * step2: `name` = what the merged account is called (default `into`).
+ */
+export async function mergeAccounts(
+  auth: BookAuth,
+  values: { from: string; into: string; name?: string },
+): Promise<void> {
   const res = await bookFetch(auth, '/api/bookkeeping/accounts/merge', json('POST', values))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** step2: rename an account everywhere (rows, rules, its Bank feeds folder, the connected bank). */
+export async function renameAccount(auth: BookAuth, values: { from: string; to: string }): Promise<void> {
+  const res = await bookFetch(auth, '/api/bookkeeping/accounts/rename', json('POST', values))
   if (!res.ok) throw await errorFrom(res)
 }
 
@@ -651,7 +692,7 @@ export async function resetProductRule(auth: BookAuth, values: { itemKey: string
 export async function editTransaction(
   auth: BookAuth,
   id: number,
-  values: { name: string | null; category: string | null; scope: EditScope },
+  values: { name: string | null; category: string | null; scope: EditScope; replace?: boolean },
 ): Promise<void> {
   const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}`, json('PATCH', values))
   if (!res.ok) throw await errorFrom(res)
