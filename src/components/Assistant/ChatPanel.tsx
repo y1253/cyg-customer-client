@@ -175,7 +175,7 @@ export function ChatPanel({
     setFiles((prev) => [...prev, ...ok].slice(0, MAX_FILES))
     setError(
       refused
-        ? `${refused} file${refused === 1 ? ' was' : 's were'} not added — use a photo (JPG, PNG), a PDF or a voice note under 25 MB.`
+        ? `${refused} file${refused === 1 ? ' was' : 's were'} not added — use a photo (JPG, PNG), a PDF, a spreadsheet (XLSX, CSV) or a voice note under 25 MB.`
         : null,
     )
   }

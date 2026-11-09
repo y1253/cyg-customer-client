@@ -3,6 +3,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  FileSpreadsheet,
   FileText,
   Landmark,
   Loader2,
@@ -14,7 +15,7 @@ import {
   SearchX,
   Wallet,
 } from 'lucide-react'
-import type { Attachment } from '@/api/attachments'
+import { isSpreadsheetMime, type Attachment } from '@/api/attachments'
 import type { AttachmentKind } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { useAttachmentUrl } from '@/hooks/useAttachments'
@@ -120,6 +121,18 @@ function FilePreview({ a, whole }: { a: Previewed; whole: boolean }) {
   }
   if (a.mimeType.startsWith('audio/')) {
     return <audio controls src={file.url} className="w-full" />
+  }
+  if (isSpreadsheetMime(a.mimeType)) {
+    return (
+      <a
+        href={file.url}
+        download={a.filename}
+        className="flex items-center gap-2 rounded-xl border bg-muted/30 px-3 py-4 text-sm font-medium text-brand hover:underline"
+      >
+        <FileSpreadsheet className="size-5" />
+        Download {a.filename}
+      </a>
+    )
   }
   return <iframe src={file.url} title={a.filename} className="h-[50vh] w-full rounded-xl border" />
 }

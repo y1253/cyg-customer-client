@@ -131,7 +131,7 @@ export function AttachmentsPanel({
           <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Add</h2>
           <AttachmentDropzone />
           <p className="mt-3 text-sm text-muted-foreground">
-            Photos of receipts or cheques, PDFs, or a voice note (“paid Home Depot $45 for lumber yesterday”). We find the
+            Photos of receipts or cheques, PDFs, spreadsheets, or a voice note (“paid Home Depot $45 for lumber yesterday”). We find the
             transaction it belongs to and file it in that bank account’s folder (or, by name, under who you paid) —
             upload the bank statement first.
           </p>

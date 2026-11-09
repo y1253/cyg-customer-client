@@ -87,8 +87,12 @@ export type Attachment = {
 /** Mirrors the server's `MAX_ATTACHMENT_BYTES` and `ATTACHMENT_UPLOAD_OPTIONS`. */
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
 export const ATTACHMENT_ACCEPT =
-  '.pdf,.jpg,.jpeg,.png,.webp,.gif,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.oga,application/pdf,image/jpeg,image/png,image/webp,image/gif,audio/*'
-export const isAcceptedAttachment = (f: File) => /\.(pdf|jpe?g|png|webp|gif|mp3|m4a|mp4|wav|webm|ogg|oga)$/i.test(f.name)
+  '.pdf,.jpg,.jpeg,.png,.webp,.gif,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.oga,.xlsx,.csv,application/pdf,image/jpeg,image/png,image/webp,image/gif,audio/*,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+/** step2 (2026-11-08): spreadsheets (.xlsx, .csv) too — the server reads them as text. */
+export const isAcceptedAttachment = (f: File) => /\.(pdf|jpe?g|png|webp|gif|mp3|m4a|mp4|wav|webm|ogg|oga|xlsx|csv)$/i.test(f.name)
+/** A spreadsheet: no preview in the browser, only a download. */
+export const isSpreadsheetMime = (mime: string) =>
+  mime.startsWith('text/csv') || mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 export const isBusyAttachment = (a: Attachment) => a.status === 'PENDING' || a.status === 'PROCESSING'
 
 /** `GET /api/bookkeeping/intake` — the numbers to text receipts to, and how this customer is matched. */
