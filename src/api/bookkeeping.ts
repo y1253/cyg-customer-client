@@ -390,6 +390,8 @@ export type LedgerName = {
   exceptionOf?: Array<{ main: string; key: string; description: string; rows: number }>
   /** step9: its Names-tab group key (CUSTOMER | SUPPLIER | OTHER | g<id>). */
   group?: string
+  /** step2 (2026-11-09): the customer's own profile fields (phone, email, address, …). */
+  fields?: NameField[]
   /** What an edit of this name saves under (a NAME rule with this key). */
   ruleKey: string
   /** The customer's own change behind this row — what "Reset to default" removes. */
@@ -438,6 +440,12 @@ export type NamesData = {
   /** step9: the Names-tab groups — Suppliers, Customers, Other, then the customer's own. */
   groups?: NameGroup[]
 }
+
+/** step2 (2026-11-09): what a name's profile field holds. */
+export type NameFieldKind = 'PHONE' | 'EMAIL' | 'ADDRESS' | 'WEBSITE' | 'NOTE' | 'TEXT'
+
+/** step2 (2026-11-09): one field of a name's profile; `label` may be '' (the kind's own label). */
+export type NameField = { kind: NameFieldKind; label: string; value: string }
 
 /** step9: a Names-tab group; `id` is set on one the customer made. */
 export type NameGroup = { key: string; label: string; id?: number }
@@ -606,6 +614,16 @@ export async function setNameGroup(
   values: { name: string; group: string | null },
 ): Promise<NamesData> {
   const res = await bookFetch(auth, '/api/bookkeeping/names/group', json('PUT', values))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** step2 (2026-11-09): a name's whole profile ([] clears it). A phone comes back in E.164. */
+export async function setNameFields(
+  auth: BookAuth,
+  values: { name: string; fields: NameField[] },
+): Promise<NamesData> {
+  const res = await bookFetch(auth, '/api/bookkeeping/names/fields', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }

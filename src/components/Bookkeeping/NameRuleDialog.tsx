@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { ChevronDown, TriangleAlert } from 'lucide-react'
 import {
   CONTAINS_MIN,
+  UNCLARIFIED_NAME,
   ruleConflictOf,
   type EditScope,
   type LedgerName,
   type LedgerTransaction,
+  type NameField,
   type UnrecognizedName,
 } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
@@ -22,13 +25,20 @@ import { Label } from '@/components/ui/label'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useClosingValue } from '@/hooks/useClosingValue'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
+import { useNameAgencies } from '@/hooks/useNameAgencies'
+import { useNameFields } from '@/hooks/useNameFields'
+import { useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveNameRule } from '@/hooks/useNameRule'
 import { useNames } from '@/hooks/useNames'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
+import { useTax } from '@/hooks/useTax'
 import { cn } from '@/lib/utils'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
+import { AgencyPicker } from './AgencyPicker'
 import { CategoryField } from './CategoryField'
+import { GroupPicker } from './GroupPicker'
 import { NameDescriptionsEditor } from './NameDescriptionsEditor'
+import { NameFieldsEditor } from './NameFieldsEditor'
 import { NamePicker } from './NamePicker'
 import { RuleConflictDialog } from './RuleConflictDialog'
 
@@ -58,7 +68,8 @@ export function NameRuleDialog({
   const shown = useClosingValue(target)
   return (
     <Dialog open={!!target} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      {/* step2 (2026-11-09): wide enough for every setting, never scrolls sideways. */}
+      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-xl">
         {/* Keyed so the form starts from the row's own values every time it opens. */}
         {shown && <NameRuleForm key={keyOf(shown)} target={shown} onDone={() => onOpenChange(false)} />}
       </DialogContent>
@@ -135,12 +146,52 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const categoryChanged =
     choiceReady(choice) &&
     (choice.category === NEW_CATEGORY || choice.category !== initialCategory || toExistingName)
-  const pending = create.isPending || saveRule.isPending || editRow.isPending
+  // step2 (2026-11-09): the name's own settings (group, tax, profile) from this dialog. For a
+  // name that exists they save at once (NameDescriptionsEditor); for a NEW name they are
+  // held here and saved right after the name itself.
+  const setGroup = useSetNameGroup()
+  const setTax = useNameAgencies()
+  const setFields = useNameFields()
+  const tax = useTax()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [draftGroup, setDraftGroup] = useState<string | null>(null)
+  const [draftAgencies, setDraftAgencies] = useState<number[]>([])
+  const [draftFields, setDraftFields] = useState<NameField[]>([])
+  const owner = !isSplit && finalName ? existingName(finalName) : undefined
+  const newName = nameChanged && !owner && trimmed.toLowerCase() !== UNCLARIFIED_NAME.toLowerCase()
+  const groups = names.data?.groups ?? []
+  const applyDraft = async () => {
+    if (!newName) return
+    if (draftGroup) await setGroup.mutateAsync({ name: trimmed, group: draftGroup })
+    if (draftAgencies.length) await setTax.mutateAsync({ name: trimmed, agencyIds: draftAgencies })
+    if (draftFields.length) await setFields.mutateAsync({ name: trimmed, fields: draftFields })
+  }
+  const finish = () =>
+    void applyDraft().then(onDone, () => {
+      // The error shows in the dialog; the name itself is saved.
+    })
+  // step2 (2026-11-09): saving a category other than the name's own moves the name's
+  // default — every row of it — so it is said before Save.
+  const chosenCategory = choice.category === NEW_CATEGORY ? choice.newName.trim() : (choice.category ?? '')
+  const overriding =
+    target.kind !== 'name' &&
+    !!owner &&
+    categoryChanged &&
+    !!chosenCategory &&
+    chosenCategory.toLowerCase() !== owner.category.toLowerCase()
+
+  const pending =
+    create.isPending ||
+    saveRule.isPending ||
+    editRow.isPending ||
+    setGroup.isPending ||
+    setTax.isPending ||
+    setFields.isPending
   const containsTrimmed = containsText.trim()
   const canSave = contains
     ? containsTrimmed.length >= CONTAINS_MIN && (nameChanged || choiceReady(choice)) && !nameMissing && !pending
     : (nameChanged || categoryChanged) && !nameMissing && !pending
-  const error = create.error ?? saveRule.error ?? editRow.error
+  const error = create.error ?? saveRule.error ?? editRow.error ?? setGroup.error ?? setTax.error ?? setFields.error
 
   const submit = async () => {
     if (!canSave) return
@@ -159,7 +210,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
             scope: 'ALWAYS',
             replace,
           },
-          { onSuccess: onDone, onError: (e) => conflict.offer(e, trimmed, () => run(true)) },
+          { onSuccess: finish, onError: (e) => conflict.offer(e, trimmed, () => run(true)) },
         )
       run(false)
       return
@@ -176,7 +227,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
     if (target.kind === 'transaction') {
       const id = target.view.id
       const run = (replace: boolean) =>
-        editRow.mutate({ id, ...values, replace }, { onSuccess: onDone, onError: onError(() => run(true)) })
+        editRow.mutate({ id, ...values, replace }, { onSuccess: finish, onError: onError(() => run(true)) })
       run(false)
     } else {
       const ref =
@@ -184,7 +235,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
           ? { matchType: 'NAME' as const, matchKey: target.view.ruleKey }
           : { matchType: 'DESCRIPTION' as const, matchKey: target.view.key }
       const run = (replace: boolean) =>
-        saveRule.mutate({ ...ref, ...values, replace }, { onSuccess: onDone, onError: onError(() => run(true)) })
+        saveRule.mutate({ ...ref, ...values, replace }, { onSuccess: finish, onError: onError(() => run(true)) })
       run(false)
     }
   }
@@ -198,7 +249,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         e.preventDefault()
         void submit()
       }}
-      className="flex flex-col gap-4"
+      className="flex min-w-0 flex-col gap-4"
     >
       <DialogHeader>
         <DialogTitle>
@@ -286,10 +337,20 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       <div className="flex flex-col gap-1.5">
         <Label>Category</Label>
         <CategoryField value={choice} onChange={onCategoryChange} />
-        {adopted && (
-          <p className="text-xs text-brand">
-            “{adopted.name}” is already in {adopted.category} — its category is filled in for you.
+        {overriding && owner ? (
+          <p className="flex gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-900 ring-1 ring-amber-600/20">
+            <TriangleAlert className="mt-px size-3.5 shrink-0" />
+            <span>
+              “{owner.name}” is in <b>{owner.category}</b>. Saving moves its default to <b>{chosenCategory}</b> —
+              all {owner.rows.toLocaleString()} of its row{owner.rows === 1 ? '' : 's'}, and new ones from now on.
+            </span>
           </p>
+        ) : (
+          adopted && (
+            <p className="text-xs text-brand">
+              “{adopted.name}” is in {adopted.category} — filled in above. Pick another category to change its default.
+            </p>
+          )
         )}
         {otherCategories > 0 && !categoryChanged && (
           <p className="text-xs text-muted-foreground">
@@ -308,13 +369,66 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       {/* step9: the descriptions this name follows, and its group — saved as they change. */}
       {target.kind === 'name' && <NameDescriptionsEditor name={target.view.name} />}
 
+      {/* step2 (2026-11-09): the name's settings right from a ledger row / an Assign. */}
+      {target.kind !== 'name' && !isSplit && (owner || newName) && (
+        <div className="flex flex-col rounded-lg ring-1 ring-black/10">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((v) => !v)}
+            aria-expanded={settingsOpen}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[#0B1C2C] hover:bg-muted/40"
+          >
+            <ChevronDown className={cn('size-4 shrink-0 transition-transform', settingsOpen && 'rotate-180')} />
+            <span className="min-w-0 flex-1 truncate">Settings of “{owner?.name ?? trimmed}”</span>
+            <span className="hidden shrink-0 text-xs font-normal text-muted-foreground sm:inline">
+              group · tax · descriptions · phone &amp; more
+            </span>
+          </button>
+          {settingsOpen && (
+            <div className="flex flex-col gap-3 px-3 pt-1 pb-3">
+              {owner ? (
+                <NameDescriptionsEditor name={owner.name} withTax />
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">A new name — these are saved with it.</p>
+                  {groups.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Group</Label>
+                      <GroupPicker groups={groups} value={draftGroup} onChange={setDraftGroup} />
+                      <p className="text-xs text-muted-foreground">Left empty, it follows its category.</p>
+                    </div>
+                  )}
+                  {draftGroup !== 'OTHER' && (tax.data?.agencies.length ?? 0) > 0 && (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col">
+                        <Label>Taxes</Label>
+                        <span className="text-xs text-muted-foreground">Which agencies tax {trimmed}.</span>
+                      </div>
+                      <AgencyPicker
+                        name={trimmed}
+                        type={draftGroup === 'CUSTOMER' ? 'CUSTOMER' : 'SUPPLIER'}
+                        agencies={tax.data?.agencies ?? []}
+                        picked={draftAgencies}
+                        pending={false}
+                        onChange={setDraftAgencies}
+                      />
+                    </div>
+                  )}
+                  <NameFieldsEditor fields={draftFields} onChange={setDraftFields} />
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {error && !ruleConflictOf(error) && <p className="text-sm text-destructive">{error.message}</p>}
       <RuleConflictDialog conflict={conflict} />
 
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
         <Button type="submit" disabled={!canSave} className="bg-brand text-white hover:bg-brand/85">
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? 'Saving…' : overriding ? 'Save & change default' : 'Save'}
         </Button>
       </DialogFooter>
     </form>

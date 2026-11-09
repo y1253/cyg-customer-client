@@ -181,9 +181,20 @@ export async function fetchCallMe(auth: BookAuth): Promise<{ available: boolean 
  */
 export async function requestCallMe(
   auth: BookAuth,
-  target: { statementId: number } | { attachmentId: number },
+  /** step2 (2026-11-09): `{}` = the chat bubble's general "Call me" from the website. */
+  target: { statementId: number } | { attachmentId: number } | Record<string, never>,
 ): Promise<{ ok: boolean; message: string }> {
   const res = await bookFetch(auth, '/api/bookkeeping/call-me', json('POST', target))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/**
+ * step2 (2026-11-09): "Text me a welcome" on the chat bubble — our AI number texts the
+ * customer's own phone so they have it saved. `ok: false` = not sent (`message` says why).
+ */
+export async function requestWelcomeText(auth: BookAuth): Promise<{ ok: boolean; message: string }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/welcome-text', { method: 'POST' })
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }

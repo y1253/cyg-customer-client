@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Sparkles } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react'
 import type { AccountType, Reports, ReportLine } from '@/api/bookkeeping'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -129,19 +129,79 @@ export function ReportSection({
   )
 }
 
+/** step2 (2026-11-09): how the By-name card is sorted — kept for the next card (this browser). */
+type ByNameSort = { key: 'name' | 'amount'; dir: 'asc' | 'desc' }
+const BY_NAME_SORT_KEY = 'by-name-sort'
+const DEFAULT_BY_NAME_SORT: ByNameSort = { key: 'amount', dir: 'desc' }
+
+function readByNameSort(): ByNameSort {
+  try {
+    const v = JSON.parse(localStorage.getItem(BY_NAME_SORT_KEY) ?? 'null') as ByNameSort | null
+    if (v && (v.key === 'name' || v.key === 'amount') && (v.dir === 'asc' || v.dir === 'desc')) return v
+  } catch {
+    // Storage blocked or bad JSON: the default order.
+  }
+  return DEFAULT_BY_NAME_SORT
+}
+
 /**
  * The hover card of an income-statement line: its total per payee — EVERY name (step8),
  * scrolling inside the card when there are more than fit (the card stays open while the
- * pointer is on it).
+ * pointer is on it). step2 (2026-11-09): the Name and Amount headers sort it (click again
+ * to reverse); the server's order is amount, largest first.
  */
 function ByName({ lines }: { lines: ReportLine[] }) {
+  const [sort, setSort] = useState(readByNameSort)
+  const sorted = useMemo(() => {
+    const out = [...lines].sort((a, b) =>
+      sort.key === 'name'
+        ? a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        : Math.abs(a.amount) - Math.abs(b.amount) || a.name.localeCompare(b.name),
+    )
+    return sort.dir === 'desc' ? out.reverse() : out
+  }, [lines, sort])
+  const pick = (key: ByNameSort['key']) => {
+    const next: ByNameSort =
+      sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'name' ? 'asc' : 'desc' }
+    setSort(next)
+    try {
+      localStorage.setItem(BY_NAME_SORT_KEY, JSON.stringify(next))
+    } catch {
+      // Not remembered — still sorted now.
+    }
+  }
+  const header = (key: ByNameSort['key'], label: string) => {
+    const on = sort.key === key
+    const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          pick(key)
+        }}
+        title={`Sort by ${label.toLowerCase()}`}
+        className={cn(
+          'inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold tracking-wide uppercase transition-colors hover:bg-white/15',
+          on ? 'opacity-100' : 'opacity-60 hover:opacity-90',
+        )}
+      >
+        {label}
+        {on && <Arrow className="size-3" />}
+      </button>
+    )
+  }
   return (
     <div className="flex w-72 flex-col py-0.5">
-      <span className="mb-1 text-[11px] font-semibold tracking-wide uppercase opacity-70">
-        By name{lines.length > 1 ? ` · ${lines.length}` : ''}
+      <span className="mb-1 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1">
+          {header('name', 'By name')}
+          {lines.length > 1 && <span className="text-[11px] opacity-60">· {lines.length}</span>}
+        </span>
+        {header('amount', 'Amount')}
       </span>
       <div className="-mr-2 flex max-h-[60vh] flex-col gap-0.5 overflow-y-auto overscroll-contain pr-2">
-        {lines.map((l) => (
+        {sorted.map((l) => (
           <span key={l.name} className="flex justify-between gap-3">
             <span className="truncate" title={l.name}>
               {l.name}

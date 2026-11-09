@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
+  Check,
   ChevronDown,
   CircleDashed,
   CircleHelp,
@@ -40,7 +41,15 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
@@ -56,8 +65,10 @@ import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { AgencyDialog } from './AgencyDialog'
+import { AgencyPicker } from './AgencyPicker'
 import { ContainsRuleDialog } from './ContainsRuleDialog'
 import { InlineRename } from './InlineRename'
+import { FIELD_KIND_ICON, FIELD_KIND_LABEL, fieldHref } from '@/lib/name-fields'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 import { RuleConflictDialog } from './RuleConflictDialog'
 import { UnclarifiedTable } from './UnclarifiedTable'
@@ -168,7 +179,8 @@ export function Names({
   const merge = useMergeNames()
   const [merging, setMerging] = useState<{ from: string; into: string } | null>(null)
   // step9: a group being created (id undefined) or renamed; the name an exception link went to.
-  const [groupEdit, setGroupEdit] = useState<{ id?: number; name: string } | null>(null)
+  // step2 (2026-11-09): `assign` = the name whose group chip asked for the new group — it joins it.
+  const [groupEdit, setGroupEdit] = useState<{ id?: number; name: string; assign?: string } | null>(null)
   const [highlight, setHighlight] = useState<string | null>(null)
   const search = useNameSearch(query)
 
@@ -282,12 +294,21 @@ export function Names({
     saveGroup.error ??
     deleteGroup.error
 
+  /** step2 (2026-11-09): a name dropped on a group (its section or its filter chip) joins it. */
+  const dropOnGroup = (key: string) => (name: string) => {
+    const n = clarified.find((x) => x.name.toLowerCase() === name.toLowerCase())
+    if (n && groupOf(n) !== key) setGroup.mutate({ name: n.name, group: key })
+  }
   const nameRow = (n: LedgerName) => (
     <NameRow
       key={`n:${n.name}`}
       n={n}
       label={n.unclarified ? 'Unrecognized' : groupLabel(groupOf(n))}
       group={groupOf(n)}
+      groups={groups}
+      groupPending={setGroup.isPending && setGroup.variables?.name === n.name}
+      onGroup={(key) => key !== groupOf(n) && setGroup.mutate({ name: n.name, group: key })}
+      onNewGroup={() => setGroupEdit({ name: '', assign: n.name })}
       agencies={allAgencies}
       pending={setNameTax.isPending && setNameTax.variables?.name === n.name}
       onAgencies={(agencyIds) => setNameTax.mutate({ name: n.name, agencyIds })}
@@ -329,8 +350,9 @@ export function Names({
           <p className="text-sm text-muted-foreground">
             Every name on your ledger, in its group — click one for its transactions. Edit a name to change its
             category or the bank descriptions it follows; it is saved for this ledger and every statement from now
-            on. Drag a name onto another to merge them, onto a group to move it there, or drag a description onto
-            another name. A name is taxed only by the agencies you pick for it.
+            on. Drag a name onto another to merge them, onto a group (or its chip below) to move it there — or click
+            its group tag — and drag a description onto another name. A name is taxed only by the agencies you pick
+            for it.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -367,19 +389,14 @@ export function Names({
             { id: 'AGENCY', label: 'Tax agencies' },
             { id: 'UNRECOGNIZED', label: 'Unrecognized' },
           ].map((f) => (
-            <button
+            <FilterChip
               key={f.id}
-              type="button"
+              label={f.label}
+              count={count(f.id)}
+              active={filter === f.id}
               onClick={() => setFilter(f.id)}
-              className={cn(
-                'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
-                filter === f.id
-                  ? 'bg-[#0B1C2C] text-white'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
-              )}
-            >
-              {f.label} <span className="opacity-70 tabular-nums">{count(f.id)}</span>
-            </button>
+              onDropName={groups.some((g) => g.key === f.id) ? dropOnGroup(f.id) : undefined}
+            />
           ))}
         </div>
       </div>
@@ -458,10 +475,7 @@ export function Names({
                   key={g.key}
                   group={g}
                   count={members.length}
-                  onDrop={(name) => {
-                    const n = clarified.find((x) => x.name.toLowerCase() === name.toLowerCase())
-                    if (n && groupOf(n) !== g.key) setGroup.mutate({ name: n.name, group: g.key })
-                  }}
+                  onDrop={dropOnGroup(g.key)}
                   onRename={g.id ? () => setGroupEdit({ id: g.id, name: g.label }) : undefined}
                   onDelete={g.id ? () => deleteGroup.mutate(g.id!) : undefined}
                 >
@@ -526,11 +540,22 @@ export function Names({
               e.preventDefault()
               const name = groupEdit?.name.trim()
               if (!groupEdit || !name) return
-              saveGroup.mutate({ id: groupEdit.id, name }, { onSuccess: () => setGroupEdit(null) })
+              saveGroup.mutate(
+                { id: groupEdit.id, name },
+                {
+                  onSuccess: (data) => {
+                    const made = data.groups?.find((g) => g.label.toLowerCase() === name.toLowerCase())
+                    if (groupEdit.assign && made) setGroup.mutate({ name: groupEdit.assign, group: made.key })
+                    setGroupEdit(null)
+                  },
+                },
+              )
             }}
           >
             <DialogHeader>
-              <DialogTitle>{groupEdit?.id ? 'Rename group' : 'Add a group'}</DialogTitle>
+              <DialogTitle>
+                {groupEdit?.id ? 'Rename group' : groupEdit?.assign ? `New group for ${groupEdit.assign}` : 'Add a group'}
+              </DialogTitle>
               <DialogDescription>
                 A group of your own next to Suppliers, Customers and Other — e.g. “Employees”. Drag names onto it.
                 It only changes where a name is listed: its categories and tax stay as they are.
@@ -598,6 +623,108 @@ export function Names({
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/**
+ * One filter chip above the list (All, a group, Tax agencies, Unrecognized). step2
+ * (2026-11-09): a group's chip is also a drop target — drag a name onto "Customers" to move it.
+ */
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+  onDropName,
+}: {
+  label: string
+  count: number
+  active: boolean
+  onClick: () => void
+  onDropName?: (name: string) => void
+}) {
+  const drop = useGroupDrop(onDropName)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      {...drop.props}
+      title={onDropName ? `Show ${label} — or drop a name here to move it into ${label}` : undefined}
+      className={cn(
+        'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all',
+        active ? 'bg-[#0B1C2C] text-white' : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+        drop.over && 'scale-105 bg-brand text-white ring-2 ring-brand/40 ring-offset-1',
+      )}
+    >
+      {label} <span className="opacity-70 tabular-nums">{count}</span>
+    </button>
+  )
+}
+
+/**
+ * step2 (2026-11-09): a name's group tag — click it to move the name to another group, or to
+ * a new one, without opening the Edit dialog.
+ */
+function GroupChip({
+  name,
+  group,
+  label,
+  groups,
+  pending,
+  onGroup,
+  onNewGroup,
+}: {
+  name: string
+  group: string
+  label: string
+  groups: NameGroup[]
+  pending: boolean
+  onGroup: (key: string) => void
+  onNewGroup: () => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={pending}
+        draggable={false}
+        onMouseDown={(e) => e.stopPropagation()}
+        title={`${name} is in ${label} — click to move it`}
+        className={cn(
+          'inline-flex h-5 shrink-0 cursor-pointer items-center gap-0.5 rounded-4xl px-2 text-xs font-medium transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none',
+          isBuiltin(group) ? TYPE_BADGE[group] : OWN_GROUP_BADGE,
+        )}
+      >
+        {pending ? 'Moving…' : label}
+        <ChevronDown className="size-3 opacity-70" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 w-52 overflow-y-auto">
+        {/* base-ui throws when a GroupLabel (DropdownMenuLabel) is not inside a Group. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Move {name} to</DropdownMenuLabel>
+          {groups.map((g) => (
+            <DropdownMenuItem key={g.key} onClick={() => onGroup(g.key)} className={cn(g.key === group && 'font-semibold')}>
+              <TypeDot group={g.key} />
+              <span className="min-w-0 flex-1 truncate">{g.label}</span>
+              {g.key === group && <Check className="ml-auto size-4" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onNewGroup} className="text-brand">
+          <Plus className="size-4" /> New group…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The small colour dot of a group in menus. */
+function TypeDot({ group }: { group: string }) {
+  return (
+    <span
+      className={cn('size-2.5 shrink-0 rounded-full', isBuiltin(group) ? TYPE_BADGE[group] : OWN_GROUP_BADGE)}
+      aria-hidden
+    />
   )
 }
 
@@ -673,6 +800,10 @@ function NameRow({
   n,
   label,
   group,
+  groups,
+  groupPending,
+  onGroup,
+  onNewGroup,
   agencies,
   pending,
   onAgencies,
@@ -697,6 +828,11 @@ function NameRow({
   /** Its group's label ("Suppliers", "Employees"). */
   label: string
   group: string
+  /** step2 (2026-11-09): every group, for the clickable group tag. */
+  groups: NameGroup[]
+  groupPending: boolean
+  onGroup: (key: string) => void
+  onNewGroup: () => void
   agencies: TaxAgency[]
   pending: boolean
   onAgencies: (agencyIds: number[]) => void
@@ -777,7 +913,15 @@ function NameRow({
           {n.unclarified ? (
             <Badge className="bg-orange-100 text-orange-800">Unrecognized</Badge>
           ) : (
-            <Badge className={isBuiltin(group) ? TYPE_BADGE[group] : OWN_GROUP_BADGE}>{label}</Badge>
+            <GroupChip
+              name={n.name}
+              group={group}
+              label={label}
+              groups={groups}
+              pending={groupPending}
+              onGroup={onGroup}
+              onNewGroup={onNewGroup}
+            />
           )}
           {n.rule && <Badge className="bg-brand/10 text-brand">Edited</Badge>}
           <span className="truncate text-sm text-muted-foreground">
@@ -788,6 +932,24 @@ function NameRow({
             · {n.rows.toLocaleString()} row{n.rows === 1 ? '' : 's'}
           </span>
           <Total total={n.total} />
+          {(n.fields ?? [])
+            .filter((f) => f.kind === 'PHONE' || f.kind === 'EMAIL')
+            .slice(0, 3)
+            .map((f, i) => {
+              const Icon = FIELD_KIND_ICON[f.kind]
+              return (
+                <a
+                  key={`${i}:${f.value}`}
+                  href={fieldHref(f) ?? undefined}
+                  draggable={false}
+                  title={`${f.label || FIELD_KIND_LABEL[f.kind]}: ${f.value}`}
+                  className="inline-flex max-w-44 items-center gap-1 truncate text-xs text-muted-foreground hover:text-brand"
+                >
+                  <Icon className="size-3 shrink-0" />
+                  <span className="truncate">{f.value}</span>
+                </a>
+              )
+            })}
           {exceptionCount > 0 && (
             <button
               type="button"
@@ -953,72 +1115,6 @@ function NameRow({
         </ul>
       )}
     </li>
-  )
-}
-
-/**
- * The agencies that tax one name: a chip with what is picked ("No tax" by default), opening
- * a list with a switch per agency. A Customer name pays each agency's sales rate, a Supplier
- * its purchase rate — an agency with no rate of that kind is shown but cannot tax it.
- */
-function AgencyPicker({
-  name,
-  type,
-  agencies,
-  picked,
-  pending,
-  onChange,
-}: {
-  name: string
-  type: NameType
-  agencies: TaxAgency[]
-  picked: number[]
-  pending: boolean
-  onChange: (agencyIds: number[]) => void
-}) {
-  const kind = type === 'CUSTOMER' ? 'SALES' : type === 'SUPPLIER' ? 'PURCHASE' : null
-  const chosen = agencies.filter((a) => picked.includes(a.id))
-  return (
-    <Popover>
-      <PopoverTrigger
-        disabled={pending}
-        title={`Which taxes apply to ${name}`}
-        className={cn(
-          'inline-flex max-w-44 shrink-0 items-center gap-1 truncate rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
-          chosen.length
-            ? 'bg-amber-50 text-amber-800 ring-amber-600/20 hover:bg-amber-100'
-            : 'text-muted-foreground ring-black/10 hover:bg-muted',
-        )}
-      >
-        <Landmark className="size-3.5 shrink-0" />
-        <span className="truncate">{chosen.length ? chosen.map((a) => a.name).join(', ') : 'No tax'}</span>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-64">
-        <p className="text-xs font-medium text-muted-foreground">Taxes on {name}</p>
-        <ul className="flex flex-col gap-1">
-          {agencies.map((a) => {
-            const rate = kind ? a.rates.find((r) => r.kind === kind) : a.rates[0]
-            const on = picked.includes(a.id)
-            return (
-              <li key={a.id}>
-                <label className={cn('flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm', !a.active && 'opacity-60')}>
-                  <Switch
-                    checked={on}
-                    disabled={pending}
-                    onCheckedChange={(v) => onChange(v ? [...picked, a.id] : picked.filter((id) => id !== a.id))}
-                    className="data-checked:bg-brand"
-                  />
-                  <span className="min-w-0 flex-1 truncate">{a.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {rate ? `${TAX_KIND_LABEL[rate.kind]} ${pct(rate.rate)}` : kind ? `no ${TAX_KIND_LABEL[kind].toLowerCase()} rate` : ''}
-                  </span>
-                </label>
-              </li>
-            )
-          })}
-        </ul>
-      </PopoverContent>
-    </Popover>
   )
 }
 

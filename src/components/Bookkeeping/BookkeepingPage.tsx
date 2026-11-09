@@ -1,13 +1,15 @@
 import { useState, type ReactNode } from 'react'
-import { FileSpreadsheet, FileText, Loader2, Sparkles } from 'lucide-react'
+import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
 import { UNCLARIFIED_NAME, unreadable, type ExportFormat, type Period, type Reports } from '@/api/bookkeeping'
-import { AssistantPanel } from '@/components/Assistant/AssistantPanel'
+import { openFloatingChat } from '@/components/Assistant/FloatingChat'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useExportLedger } from '@/hooks/useExportLedger'
+import { useStuck } from '@/hooks/useStuck'
 import { useFloatingChatBook } from '@/lib/floating-chat'
+import { cn } from '@/lib/utils'
 import { useReports } from '@/hooks/useReports'
 import { useStatements } from '@/hooks/useStatements'
 import { useTransactions } from '@/hooks/useTransactions'
@@ -41,7 +43,6 @@ type Tab =
   | 'names'
   | 'products'
   | 'schedules'
-  | 'assistant'
 
 /**
  * Bookkeeping: upload statements → the AI posts every transaction as a double entry →
@@ -65,8 +66,11 @@ export function BookkeepingPage({
   const assistant = useAssistantEnabled()
   const exporter = useExportLedger()
   const [tab, setTab] = useState<Tab>('statements')
-  // step8: the floating chat talks to this book; hidden on the Assistant tab (it IS the chat).
-  useFloatingChatBook({ hidden: tab === 'assistant' })
+  // step8: the floating chat talks to this book. step2 (2026-11-09): it is the only chat —
+  // the Assistant tab is gone.
+  useFloatingChatBook({})
+  // step2 (2026-11-09): the tab bar stays at the top of the window while scrolling.
+  const { sentinel: tabBarTop, stuck: tabBarStuck, scrollToStart } = useStuck()
   // Attachments has two sub-tabs (step12): the files, and every conversation with us.
   const [attachView, setAttachView] = useState<'files' | 'communication'>('files')
   // step2: the Names tab's paperclip — that payee's folder on Attachments, By name.
@@ -179,7 +183,21 @@ export function BookkeepingPage({
         </p>
       )}
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="gap-6">
+      <Tabs
+        value={tab}
+        onValueChange={(v) => {
+          setTab(v as Tab)
+          scrollToStart()
+        }}
+        className="gap-6"
+      >
+        <div ref={tabBarTop} aria-hidden className="-mb-6 h-0" />
+        <div
+          className={cn(
+            'sticky top-16 z-20 -mx-4 -my-2 px-4 py-2 transition-[background-color,box-shadow] sm:-mx-8 sm:px-8 lg:top-0',
+            tabBarStuck && 'bg-[#F5F7F7]/85 shadow-[0_8px_16px_-12px_rgba(11,28,44,0.25)] backdrop-blur-md',
+          )}
+        >
         <TabsList className="h-auto! w-full flex-wrap justify-start gap-1 rounded-xl bg-white p-1.5 ring-1 ring-black/5 sm:w-fit">
           <TabsTrigger value="statements" className="h-9 flex-none gap-1.5 px-4">
             Bank feeds
@@ -216,12 +234,8 @@ export function BookkeepingPage({
           <TabsTrigger value="schedules" className="h-9 flex-none px-4">
             Schedules
           </TabsTrigger>
-          {assistant && (
-            <TabsTrigger value="assistant" className="h-9 flex-none gap-1.5 px-4">
-              <Sparkles className="size-4" /> Assistant
-            </TabsTrigger>
-          )}
         </TabsList>
+        </div>
 
         <TabsContent value="statements">
           <GenerateBar statements={list} />
@@ -271,7 +285,7 @@ export function BookkeepingPage({
               <AttachmentsPanel statements={list} onViewTransaction={openTransaction} openName={filesOf} />
             </TabsContent>
             <TabsContent value="communication">
-              <CommunicationPanel onOpenAssistant={assistant ? () => setTab('assistant') : undefined} />
+              <CommunicationPanel onOpenAssistant={assistant ? () => openFloatingChat() : undefined} />
             </TabsContent>
           </Tabs>
         </TabsContent>
@@ -303,11 +317,6 @@ export function BookkeepingPage({
         <TabsContent value="schedules">
           <SchedulesPanel />
         </TabsContent>
-        {assistant && (
-          <TabsContent value="assistant">
-            <AssistantPanel />
-          </TabsContent>
-        )}
       </Tabs>
 
       <LedgerDialog

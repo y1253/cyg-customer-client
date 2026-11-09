@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AccountPage } from '@/components/Account/AccountPage'
-import { AssistantPage } from '@/components/Assistant/AssistantPage'
 import { ForgotPasswordPage } from '@/components/Auth/ForgotPasswordPage'
 import { LoginPage } from '@/components/Auth/LoginPage'
 import { SignupPage } from '@/components/Auth/SignupPage'
@@ -8,7 +7,6 @@ import { BookkeepingRoute } from '@/components/Bookkeeping/BookkeepingRoute'
 import { ContactsPage } from '@/components/Contacts/ContactsPage'
 import { PlaidOAuthPage } from '@/components/Bookkeeping/PlaidOAuthPage'
 import { ConnectResultPage } from '@/components/Connect/ConnectResultPage'
-import { DashboardHome } from '@/components/Dashboard/DashboardHome'
 import { DashboardLayout } from '@/components/Dashboard/DashboardLayout'
 import { HomePage } from '@/components/Home/HomePage'
 import { PrivacyPage } from '@/components/Legal/PrivacyPage'
@@ -43,12 +41,14 @@ export const router = createBrowserRouter([
         path: '/dashboard',
         element: <DashboardLayout />,
         children: [
-          { index: true, element: <DashboardHome /> },
+          // step2 (2026-11-09): the Overview and AI assistant pages are gone — both open
+          // Bookkeeping (old links and bookmarks keep working); the AI is the chat bubble.
+          { index: true, element: <Navigate to="/dashboard/bookkeeping" replace /> },
           { path: 'bookkeeping', element: <BookkeepingRoute /> },
           { path: 'contacts', element: <ContactsPage /> },
           { path: 'requests', element: <RequestsPage /> },
           { path: 'account', element: <AccountPage /> },
-          { path: 'assistant', element: <AssistantPage /> },
+          { path: 'assistant', element: <Navigate to="/dashboard/bookkeeping" replace /> },
           { path: 'register', element: <RegistrationsPage /> },
           { path: 'register/:id', element: <RegisterWizardPage /> },
           { path: 'businesses/:id', element: <CompanyPortalPage /> },

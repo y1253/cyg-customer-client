@@ -25,7 +25,16 @@ import { cn } from '@/lib/utils'
  * ⚠️ The microphone is released on stop, on error AND on unmount — a live track leaves the
  * browser's recording indicator on.
  */
-export function DictateButton({ onText, disabled }: { onText: (text: string) => void; disabled?: boolean }) {
+export function DictateButton({
+  onText,
+  disabled,
+  autoStart = false,
+}: {
+  onText: (text: string) => void
+  disabled?: boolean
+  /** step2 (2026-11-09): start recording as soon as it shows (the chat bubble's "Dictate"). */
+  autoStart?: boolean
+}) {
   const book = useBook()
   const [phase, setPhase] = useState<'idle' | 'recording' | 'working'>('idle')
   const [elapsed, setElapsed] = useState(0)
@@ -53,6 +62,15 @@ export function DictateButton({ onText, disabled }: { onText: (text: string) => 
   }
 
   useEffect(() => release, [])
+
+  // Once only (StrictMode mounts twice in dev; a second start would open the mic twice).
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoStart || autoStarted.current) return
+    autoStarted.current = true
+    void start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart])
 
   // A mic error or "nothing was picked up" is a passing note, not a state.
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { BookOpenCheck, BookUser, Building2, LayoutDashboard, Lightbulb, Sparkles, UserRound } from 'lucide-react'
+import { BookOpenCheck, BookUser, Building2, Lightbulb, UserRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type NavItem = {
@@ -14,13 +14,13 @@ export type NavItem = {
 }
 
 /** The modules a customer can open. Add a module here and give it a route. */
+// step2 (2026-11-09, user's request): no Overview and no AI assistant page — /dashboard
+// opens Bookkeeping, and the AI is the chat bubble on every page.
 export const MODULES: NavItem[] = [
-  { label: 'Overview', to: '/dashboard', icon: LayoutDashboard, end: true },
   // Parked 2026-10-23 (step12c): registering businesses comes back later — its routes and
   // components are untouched, only the entry is hidden.
   { label: 'My businesses', to: '/dashboard/register', icon: Building2, hidden: true },
   { label: 'Bookkeeping', to: '/dashboard/bookkeeping', icon: BookOpenCheck },
-  { label: 'AI assistant', to: '/dashboard/assistant', icon: Sparkles, assistant: true },
   { label: 'Contacts', to: '/dashboard/contacts', icon: BookUser },
   // step12e: what they asked the AI for that we don't do yet.
   { label: 'My requests', to: '/dashboard/requests', icon: Lightbulb, assistant: true },

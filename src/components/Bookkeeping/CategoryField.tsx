@@ -28,6 +28,13 @@ export function CategoryField({
   const accounts = useChartAccounts()
   const creating = value.category === NEW_CATEGORY
   const [query, setQuery] = useState(creating ? value.newName : (value.category ?? ''))
+  // step2 (2026-11-09): a category set from outside (the dialog filling in an existing
+  // name's own) shows in the box at once — not only the one picked here.
+  const [shownCategory, setShownCategory] = useState(value.category)
+  if (value.category !== shownCategory) {
+    setShownCategory(value.category)
+    if (!creating) setQuery(value.category ?? '')
+  }
 
   const ownType = useMemo(
     () => new Map((accounts.data ?? []).filter((a) => a.custom).map((a) => [a.name, a.type])),

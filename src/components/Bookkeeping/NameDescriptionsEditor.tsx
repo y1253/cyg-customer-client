@@ -4,11 +4,16 @@ import { CONTAINS_MIN, ruleConflictOf, type NameDescription } from '@/api/bookke
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useNameAgencies } from '@/hooks/useNameAgencies'
+import { useNameFields } from '@/hooks/useNameFields'
 import { useSetNameGroup } from '@/hooks/useNameGroups'
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
 import { useNames } from '@/hooks/useNames'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
+import { useTax } from '@/hooks/useTax'
+import { AgencyPicker } from './AgencyPicker'
+import { GroupPicker } from './GroupPicker'
+import { NameFieldsEditor } from './NameFieldsEditor'
 import { RuleConflictDialog } from './RuleConflictDialog'
 
 /**
@@ -17,21 +22,27 @@ import { RuleConflictDialog } from './RuleConflictDialog'
  * "contains …"); the customer can NARROW one to a few of its words (a contains rule for this
  * name, which then also catches the variants), change or remove a contains rule, or add one.
  * Every change is saved at once (the Save button below is for the name and category).
- * Reads the name live, so the list follows each change.
+ * Reads the name live, so the list follows each change. step2 (2026-11-09): also its
+ * profile fields (phone, email, …), a new group typed right here, and — `withTax`, from a
+ * ledger row — the agencies that tax it.
  */
-export function NameDescriptionsEditor({ name }: { name: string }) {
+export function NameDescriptionsEditor({ name, withTax = false }: { name: string; withTax?: boolean }) {
   const names = useNames()
   const live = names.data?.names.find((n) => n.name.toLowerCase() === name.toLowerCase())
   const save = useSaveNameRule()
   const reset = useResetNameRule()
   const setGroup = useSetNameGroup()
+  const setFields = useNameFields()
+  const setTax = useNameAgencies()
+  const tax = useTax()
   const conflict = useRuleConflict()
   const [narrowing, setNarrowing] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [adding, setAdding] = useState(false)
   if (!live) return null
   const busy = save.isPending || reset.isPending
-  const error = save.error ?? reset.error ?? setGroup.error
+  const error = save.error ?? reset.error ?? setGroup.error ?? setTax.error
+  const agencies = tax.data?.agencies ?? []
 
   /**
    * Save `value` as this name's contains rule — replacing `old` (an exact or older contains
@@ -110,23 +121,42 @@ export function NameDescriptionsEditor({ name }: { name: string }) {
       {groups.length > 0 && !live.unclarified && (
         <div className="flex flex-col gap-1.5">
           <Label>Group</Label>
-          <Select
+          <GroupPicker
+            groups={groups}
             value={live.group ?? live.type}
-            onValueChange={(v) => v && v !== live.group && setGroup.mutate({ name: live.name, group: v })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue>{(v: string | null) => groups.find((g) => g.key === v)?.label ?? v}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((g) => (
-                <SelectItem key={g.key} value={g.key}>
-                  {g.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">Where it is listed on the Names tab — its categories and tax stay as they are.</p>
+            disabled={setGroup.isPending}
+            onChange={(v) => v !== (live.group ?? live.type) && setGroup.mutate({ name: live.name, group: v })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Where it is listed on the Names tab — its categories and tax stay as they are. Type a new one to add it.
+          </p>
         </div>
+      )}
+
+      {withTax && !live.unclarified && live.type !== 'OTHER' && agencies.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col">
+            <Label>Taxes</Label>
+            <span className="text-xs text-muted-foreground">Which agencies tax {live.name}.</span>
+          </div>
+          <AgencyPicker
+            name={live.name}
+            type={live.type}
+            agencies={agencies}
+            picked={live.agencyIds}
+            pending={setTax.isPending}
+            onChange={(agencyIds) => setTax.mutate({ name: live.name, agencyIds })}
+          />
+        </div>
+      )}
+
+      {!live.unclarified && (
+        <NameFieldsEditor
+          fields={live.fields ?? []}
+          pending={setFields.isPending}
+          error={setFields.error}
+          onChange={(fields) => setFields.mutateAsync({ name: live.name, fields })}
+        />
       )}
 
       <div className="flex flex-col gap-1.5">

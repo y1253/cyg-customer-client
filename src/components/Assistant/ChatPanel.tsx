@@ -137,6 +137,7 @@ export function ChatPanel({
   allowFiles,
   initialDraft = '',
   extraAction,
+  autoDictate = false,
 }: {
   messages: AssistantMessage[]
   loading?: boolean
@@ -153,6 +154,8 @@ export function ChatPanel({
   initialDraft?: string
   /** step2: one more button beside the mic — "Call me" in a statement's / file's chat. */
   extraAction?: ReactNode
+  /** step2 (2026-11-09): open with the mic already recording (the chat bubble's "Dictate"). */
+  autoDictate?: boolean
 }) {
   const [draft, setDraft] = useState(initialDraft)
   const [files, setFiles] = useState<File[]>([])
@@ -302,6 +305,7 @@ export function ChatPanel({
               </>
             )}
             <DictateButton
+              autoStart={autoDictate}
               disabled={!!pending}
               onText={(t) => setDraft((d) => (d.trim() ? `${d.trim()} ${t}` : t).slice(0, 2000))}
             />
