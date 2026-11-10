@@ -80,7 +80,7 @@ export function ReportSection({
                   title="Ask AI to fix the starting dates"
                   aria-label="Ask AI to fix the starting dates"
                   className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-brand hover:bg-brand/10"
-                  onClick={() => onAskStarts(l.name, note.text)}
+                  onClick={() => onAskStarts(l.name, [note.text, ...(note.reasons ?? [])].join('. '))}
                 >
                   <Sparkles className="size-4" />
                 </button>
@@ -231,7 +231,7 @@ export function ReportRow({
   label: string
   amount: number
   /** A small line under the label (a statement account's start dates); `warn` = red. */
-  note?: { text: string; warn: boolean }
+  note?: { text: string; warn: boolean; reasons?: string[] }
   /** A foreign statement account: the amount before conversion, shown small underneath. */
   foreign?: { currency: string; amount: number }
   strong?: boolean
@@ -257,7 +257,17 @@ export function ReportRow({
           <span className={cn('text-xs font-normal', note.warn ? 'text-red-600' : 'truncate text-muted-foreground')}>
             {note.text}
             {/* step8: the whole list of dates, and why more than one is a problem — never cut off. */}
-            {note.warn && <span className="block text-red-600/80">{STARTS_WARNING}</span>}
+            {/* Why each later start is there; the general warning only when no reason is known. */}
+            {note.warn &&
+              (note.reasons?.length ? (
+                note.reasons.map((r) => (
+                  <span key={r} className="block text-red-600/80">
+                    {r}
+                  </span>
+                ))
+              ) : (
+                <span className="block text-red-600/80">{STARTS_WARNING}</span>
+              ))}
           </span>
         </span>
       ) : (

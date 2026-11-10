@@ -1,4 +1,5 @@
 import type { Statement } from '@/api/bookkeeping'
+import type { StartingDate } from '@/lib/starting-dates'
 
 /**
  * Statements filed in one folder per bank / card account. An account IS its name in the
@@ -40,7 +41,8 @@ export function groupByAccount(statements: Statement[]): StatementFolder[] {
     byName.set(k, [...(byName.get(k) ?? []), s])
   }
   const folders = [...byName.entries()].map(([account, list]): StatementFolder => {
-    const starts = list.map((s) => s.periodStart).filter((d): d is string => !!d).sort()
+    // A statement that printed only its last day (BMO) still counts where it sits.
+    const starts = list.map((s) => s.periodStart ?? s.periodEnd).filter((d): d is string => !!d).sort()
     const ends = list.map((s) => s.periodEnd).filter((d): d is string => !!d).sort()
     return {
       account,
@@ -64,12 +66,13 @@ export const folderKey = (f: StatementFolder): string => f.account ?? '\u0000uns
  * Each account's starting balances, from every statement (not just the filtered ones), so
  * a folder's "Starts …" line never changes with the status chips.
  */
-export function startsByFolder(statements: Statement[]): Map<string, Array<{ date: string | null }>> {
-  const out = new Map<string, Array<{ date: string | null }>>()
+export function startsByFolder(statements: Statement[]): Map<string, StartingDate[]> {
+  const out = new Map<string, StartingDate[]>()
   for (const s of statements) {
     const account = folderOf(s)
     if (!s.startingBalance || account === null) continue
-    out.set(account, [...(out.get(account) ?? []), { date: s.startingBalance.date }])
+    const { date, reason } = s.startingBalance
+    out.set(account, [...(out.get(account) ?? []), reason ? { date, reason } : { date }])
   }
   return out
 }

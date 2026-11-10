@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { startingNote } from './starting-dates'
+import { startingNote, startReasonText } from './starting-dates'
 import { fmtDay } from './period'
 
 describe('startingNote', () => {
@@ -33,5 +33,30 @@ describe('startingNote', () => {
     const note = startingNote([{ date: null }, { date: '2024-01-01' }])
     expect(note?.warn).toBe(true)
     expect(note?.text).toContain('an undated statement')
+  })
+
+  it('says why each later start is there: a missing month', () => {
+    const note = startingNote([
+      { date: '2026-01-01' },
+      { date: '2026-07-01', reason: { kind: 'MISSING', previousStatementId: 1, from: '2026-06-01', to: '2026-06-30' } },
+    ])
+    expect(note?.reasons).toEqual([`${fmtDay('2026-07-01')}: missing statement ${fmtDay('2026-06-01')} – ${fmtDay('2026-06-30')}`])
+  })
+
+  it('says why: the balances do not carry over, with both amounts', () => {
+    const text = startReasonText('2025-03-01', {
+      kind: 'MISMATCH',
+      previousStatementId: 1,
+      previousEnd: '2025-02-28',
+      previousClosing: 100,
+      opening: 905.16,
+    })
+    expect(text).toBe(
+      `${fmtDay('2025-03-01')}: balances don't carry over — the statement ending ${fmtDay('2025-02-28')} closes at 100.00, this one opens at 905.16`,
+    )
+  })
+
+  it('gives no reasons for a single start', () => {
+    expect(startingNote([{ date: '2026-01-01' }])?.reasons).toBeUndefined()
   })
 })

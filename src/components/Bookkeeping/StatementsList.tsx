@@ -58,7 +58,7 @@ import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { InlineRename } from './InlineRename'
 import { statementDragProps, useFolderDrop } from './statement-drag'
 import { folderKey, folderOf, groupByAccount, isFiled, startsByFolder, type StatementFolder } from './statement-folders'
-import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
+import { STARTS_WARNING, startingNote, type StartingDate } from '@/lib/starting-dates'
 
 // The check against the bank's own totals happens on the server and is kept there; the
 // customer only sees the outcome — Done, or Needs review with the reason.
@@ -291,10 +291,12 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                         next.delete(key)
                         return next
                       })
-                      const dates = startingNote(starts.get(f.account!) ?? [], f.from)?.text.replace(/^Starting dates: /, '')
+                      const note = startingNote(starts.get(f.account!) ?? [], f.from)
+                      const dates = note?.text.replace(/^Starting dates: /, '')
+                      const why = note?.reasons?.length ? ` ${note.reasons.join('. ')}.` : ''
                       ask(
                         first.id,
-                        `${f.account} has more than one starting date (${dates}). Why don't its balances carry over, and how do we fix it?`,
+                        `${f.account} has more than one starting date (${dates}).${why} Why don't its balances carry over, and how do we fix it?`,
                       )
                     }
                   : undefined
@@ -532,7 +534,7 @@ function Folder({
 }: {
   folder: StatementFolder
   /** Where the account's books start (its Starting balance rows); two or more = a break. */
-  starts?: Array<{ date: string | null }>
+  starts?: StartingDate[]
   open: boolean
   onToggle: () => void
   /** Undefined for the "Not sorted yet" folder — nothing can be dropped there. */
@@ -585,6 +587,12 @@ function Folder({
                   {note.text}
                 </span>
               )}
+              {/* Why each later start is there: a missing statement, or balances that don't carry over. */}
+              {note?.reasons?.map((r) => (
+                <span key={r} className="text-xs text-red-600/80">
+                  {r}
+                </span>
+              ))}
             </span>
             {folder.card && (
               <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">

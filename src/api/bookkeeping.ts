@@ -69,8 +69,23 @@ export type Statement = {
    * Set when this statement STARTS its account's books — a "Starting balance" row in the
    * ledger. Only the statements list carries it.
    */
-  startingBalance?: { date: string | null; amount: number } | null
+  startingBalance?: { date: string | null; amount: number; reason?: StartReason } | null
 }
+
+/**
+ * Why an account starts again at a statement (the server's `StartReason`): MISSING = no
+ * statement covers `from` – `to` (`to` null = up to a statement that printed no start);
+ * MISMATCH = the periods touch, but the previous closing is not this opening.
+ */
+export type StartReason =
+  | { kind: 'MISSING'; previousStatementId: number; from: string; to: string | null }
+  | {
+      kind: 'MISMATCH'
+      previousStatementId: number
+      previousEnd: string | null
+      previousClosing: number | null
+      opening: number
+    }
 
 export type LedgerTransaction = {
   /** Unique per row (`t:`, `s:` split, `o:` starting balance, `x:` tax line) — use as the React key. */
@@ -173,7 +188,7 @@ export type ReportLine = {
   currency?: string
   foreignAmount?: number
   /** Balance sheet, statement accounts: the dates its books start. More than one = a break. */
-  starts?: Array<{ date: string | null }>
+  starts?: Array<{ date: string | null; reason?: StartReason }>
 }
 
 /** `GET /api/bookkeeping/reports` — chart of accounts + income statement for the period, balance sheet as of its end. */
