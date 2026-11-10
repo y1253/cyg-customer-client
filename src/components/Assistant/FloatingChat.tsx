@@ -305,8 +305,8 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
  * bottom-right corner that opens the chat in a side sheet, without leaving the page. It
  * talks to the book the page has open (`useFloatingChatBook`), else the default book.
  * step2 (2026-11-09): the bubble says "AI" and flips over every few seconds; hovering it
- * (tapping, on a phone) shows every way to reach the AI — `ReachCard`. A click on a
- * computer still opens the chat at once.
+ * (tapping, on a phone) shows every way to reach the AI — `ReachCard`. 2026-11-10: a click
+ * shows the same card too; the chat opens from the card.
  */
 export function FloatingChat() {
   const enabled = useAssistantEnabled()
@@ -345,18 +345,7 @@ export function FloatingChat() {
   return (
     <>
       {!hidden && !open && (
-        <Popover
-          open={card}
-          onOpenChange={(next, details) => {
-            // A click on a computer opens the chat itself; hovering shows the card. On a
-            // touch screen (no hover) the tap shows the card.
-            if (next && details.reason === 'trigger-press' && window.matchMedia('(hover: hover)').matches) {
-              startChat(false)
-              return
-            }
-            setCard(next)
-          }}
-        >
+        <Popover open={card} onOpenChange={setCard}>
           <PopoverTrigger
             openOnHover
             delay={120}
