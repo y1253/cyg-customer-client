@@ -31,8 +31,9 @@ export function statementHelp(
   if (problem === 'NO_BALANCES')
     return {
       what:
-        "We read every transaction, but not the statement's opening or closing balance, so we could not check that nothing was missed or misread. The transactions are in your books as read.",
+        "We read the transactions, but nothing on the statement we read (opening or closing balance, totals, running balance) could check them, so some may be missing or misread. They are in your books as read.",
       todo: [
+        'Try again — it is read once more with our strongest reader.',
         'Ask AI and tell it the opening and closing balance printed on the statement; it checks the transactions against them.',
         'If the PDF is a scan or a photo, upload a clearer copy, or the one downloaded from your bank.',
       ],
