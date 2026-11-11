@@ -1,10 +1,42 @@
-import type { Statement } from '@/api/bookkeeping'
+import type { Statement, StatementProblemKind } from '@/api/bookkeeping'
 
 /**
  * step8: what a statement we could not read MEANS and what the customer can do — shown
  * under "Details" next to the exact reason (`error`) and the checks that failed (`checks`).
  */
-export function statementHelp(s: Pick<Statement, 'status' | 'error'>): { what: string; todo: string[] } | null {
+export function statementHelp(
+  s: Pick<Statement, 'status' | 'error'>,
+  problem?: StatementProblemKind,
+): { what: string; todo: string[] } | null {
+  // step2 (2026-11-11): a read statement whose balances don't carry over / have a gap.
+  if (problem === 'MISMATCH')
+    return {
+      what:
+        "Each statement should start at the balance the one before it ended with. This one doesn't, so one of the two was read wrong or the bank changed something. We re-read both with our strongest reader. Until it is fixed, your books start again at this statement's opening balance.",
+      todo: [
+        'Open both PDFs and compare the ending balance of the earlier one with the opening balance of this one.',
+        'Ask AI and tell it the right balance, or what was read wrong; it corrects it and checks again.',
+        'If a statement was put in the wrong account, move it to the right folder.',
+      ],
+    }
+  if (problem === 'MISSING')
+    return {
+      what:
+        "There is a gap between the statement before this one and this one, so the transactions in that gap are missing from your books. Your books start again at this statement's opening balance.",
+      todo: [
+        'Upload the missing statement(s) — the gap closes by itself once they are read.',
+        'If there was really no statement for that time, Ask AI and tell it.',
+      ],
+    }
+  if (problem === 'NO_BALANCES')
+    return {
+      what:
+        "We read every transaction, but not the statement's opening or closing balance, so we could not check that nothing was missed or misread. The transactions are in your books as read.",
+      todo: [
+        'Ask AI and tell it the opening and closing balance printed on the statement; it checks the transactions against them.',
+        'If the PDF is a scan or a photo, upload a clearer copy, or the one downloaded from your bank.',
+      ],
+    }
   if (s.status === 'NEEDS_REVIEW')
     return {
       what:

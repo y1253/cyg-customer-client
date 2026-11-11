@@ -21,7 +21,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react'
-import { isBusy, openOriginal, unreadable, type Statement } from '@/api/bookkeeping'
+import { hasProblem, isBusy, openOriginal, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { useCurrency } from '@/hooks/useCurrency'
 import { AccountCurrency } from './AccountCurrency'
@@ -63,6 +63,20 @@ import { STARTS_WARNING, startingNote, type StartingDate } from '@/lib/starting-
 // The check against the bank's own totals happens on the server and is kept there; the
 // customer only sees the outcome — Done, or Needs review with the reason.
 function StatusBadge({ s }: { s: Statement }) {
+  // step2: a problem is named instead of "Done" / "Needs review".
+  if (s.problem) {
+    const soft = s.problem.kind === 'NO_BALANCES'
+    return (
+      <Badge
+        className={cn(
+          'gap-1 ring-1',
+          soft ? 'bg-amber-50 text-amber-800 ring-amber-600/25' : 'bg-red-50 text-red-700 ring-red-600/20',
+        )}
+      >
+        {soft ? <AlertTriangle className="size-3" /> : <AlertCircle className="size-3" />} {s.problem.title}
+      </Badge>
+    )
+  }
   if (s.status === 'DONE') {
     return (
       <Badge className="gap-1 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20">
@@ -107,6 +121,7 @@ function StatusBadge({ s }: { s: Statement }) {
 
 /** The second line under a statement: what it is, or what is happening to it. */
 function subtitle(s: Statement, home?: string): string {
+  if (s.problem) return s.problem.text
   switch (s.status) {
     case 'FAILED':
       return s.error ?? 'We could not read this statement.'
@@ -135,7 +150,7 @@ type Filter = 'all' | 'done' | 'unread' | 'waiting'
 const FILTERS: Array<{ id: Filter; label: string; test: (s: Statement) => boolean }> = [
   { id: 'all', label: 'All', test: () => true },
   { id: 'done', label: 'Done', test: (s) => s.status === 'DONE' },
-  { id: 'unread', label: "Couldn't read", test: unreadable },
+  { id: 'unread', label: 'Problems', test: hasProblem },
   { id: 'waiting', label: 'Waiting', test: (s) => s.status === 'UPLOADED' || isBusy(s) },
 ]
 
@@ -312,7 +327,7 @@ export function StatementsList({
               }
             >
               {f.statements.map((s) => {
-                const failed = s.status === 'FAILED' || s.status === 'NEEDS_REVIEW'
+                const failed = hasProblem(s)
                 // Not draggable while its chat is open — the text box must take the mouse.
                 const draggable = isFiled(s) && asking !== s.id
                 return (
@@ -363,9 +378,9 @@ export function StatementsList({
                       className={cn(
                         'text-xs',
                         // The reason is the customer's only explanation — never cut it off.
-                        s.status === 'NEEDS_REVIEW'
+                        s.problem?.kind === 'NO_BALANCES'
                           ? 'mt-0.5 text-amber-800'
-                          : s.status === 'FAILED'
+                          : failed
                             ? 'mt-0.5 text-red-700'
                             : 'truncate text-muted-foreground',
                       )}
@@ -431,7 +446,7 @@ export function StatementsList({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
-                    {(s.status === 'FAILED' || s.status === 'NEEDS_REVIEW') && (
+                    {failed && s.source !== 'PLAID' && (
                       <Button
                         variant="ghost"
                         size="icon-sm"
@@ -681,7 +696,7 @@ function startsChatStatement(statements: Statement[]): Statement | undefined {
 
 /** step8: the full story of a statement we could not read — the checks, what it means, what to do. */
 function StatementDetails({ s }: { s: Statement }) {
-  const help = statementHelp(s)
+  const help = statementHelp(s, s.problem?.kind)
   return (
     <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-[#0B1C2C]/90">
       {s.errorDetail && (

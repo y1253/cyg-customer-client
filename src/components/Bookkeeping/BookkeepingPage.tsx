@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
-import { UNCLARIFIED_NAME, unreadable, type ExportFormat, type Period, type Reports } from '@/api/bookkeeping'
+import { UNCLARIFIED_NAME, hasProblem, type ExportFormat, type Period, type Reports } from '@/api/bookkeeping'
 import { openFloatingChat } from '@/components/Assistant/FloatingChat'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -93,7 +93,7 @@ export function BookkeepingPage({
   const done = list.filter((s) => s.status === 'DONE')
   const rowCount = done.reduce((n, s) => n + s.transactionCount, 0)
   const busy = list.some((s) => s.status === 'PENDING' || s.status === 'PROCESSING')
-  const unread = list.filter(unreadable).length
+  const unread = list.filter(hasProblem).length
 
   // The reports are fetched only once a report tab is opened.
   const periodValid = !period.from || !period.to || period.from <= period.to
@@ -222,7 +222,7 @@ export function BookkeepingPage({
             {unread > 0 && (
               <span
                 className="rounded-full bg-red-600 px-1.5 text-[11px] leading-[18px] font-semibold text-white"
-                title={`${unread} statement${unread === 1 ? '' : 's'} we could not read`}
+                title={`${unread} statement${unread === 1 ? '' : 's'} with a problem`}
               >
                 {unread}
               </span>

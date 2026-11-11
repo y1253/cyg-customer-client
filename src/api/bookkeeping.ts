@@ -70,7 +70,16 @@ export type Statement = {
    * ledger. Only the statements list carries it.
    */
   startingBalance?: { date: string | null; amount: number; reason?: StartReason } | null
+  /**
+   * step2 (2026-11-11): what is wrong with it, said plainly (null = nothing): its rows don't
+   * match its balance, it doesn't carry over from the previous statement, statements are
+   * missing before it, or no balance could be read.
+   */
+  problem?: StatementProblem | null
 }
+
+export type StatementProblemKind = 'BALANCE' | 'MISMATCH' | 'MISSING' | 'NO_BALANCES'
+export type StatementProblem = { kind: StatementProblemKind; title: string; text: string }
 
 /**
  * Why an account starts again at a statement (the server's `StartReason`): MISSING = no
@@ -229,6 +238,9 @@ export const UPLOAD_BATCH = 10
 
 /** Statements we could not read: failed outright, or read but not adding up (needs review). */
 export const unreadable = (s: Statement): boolean => s.status === 'FAILED' || s.status === 'NEEDS_REVIEW'
+
+/** step2: could not be read, or read with a problem the customer should fix (`problem`). */
+export const hasProblem = (s: Statement): boolean => unreadable(s) || !!s.problem
 
 /** How a row with no payee is listed (never stored — the DB keeps null). */
 export const UNCLARIFIED_NAME = 'Unclarified name'
