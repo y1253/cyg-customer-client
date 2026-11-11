@@ -42,7 +42,9 @@ export function RuleConflictDialog({ conflict }: { conflict: RuleConflictState }
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              To rename only one transaction without moving the link, cancel and choose “Only this row”.
+              Taking it away moves every transaction it reaches — now and on later statements — from{' '}
+              {from} to {shown.name}. To rename only one transaction without moving the link, cancel and
+              choose “Only this row”.
             </p>
             <DialogFooter>
               <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
@@ -54,7 +56,7 @@ export function RuleConflictDialog({ conflict }: { conflict: RuleConflictState }
                   shown.retry()
                 }}
               >
-                Move it
+                {names.length > 1 ? 'Take it away from them' : `Take it away from ${from}`}
               </Button>
             </DialogFooter>
           </>

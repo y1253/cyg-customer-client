@@ -169,7 +169,10 @@ export async function transcribeDictation(
 export const CALL_ME_KEY = ['call-me'] as const
 
 /** step2: can the AI phone the customer now (a phone on the account, calls set up)? */
-export async function fetchCallMe(auth: BookAuth): Promise<{ available: boolean }> {
+/** step8: `voice` = the AI phone is on; `hasPhone` = the account has a number to call. */
+export async function fetchCallMe(
+  auth: BookAuth,
+): Promise<{ available: boolean; voice?: boolean; hasPhone?: boolean }> {
   const res = await bookFetch(auth, '/api/bookkeeping/call-me')
   if (!res.ok) throw await errorFrom(res)
   return res.json()

@@ -155,7 +155,16 @@ function folderRange(f: StatementFolder): string | null {
  * is that account's statement from then on — its rows, balances and reports follow, and
  * Try again keeps it there. The chips narrow the statements down by status.
  */
-export function StatementsList({ statements, loading }: { statements: Statement[]; loading: boolean }) {
+export function StatementsList({
+  statements,
+  loading,
+  onOpenInLedger,
+}: {
+  statements: Statement[]
+  loading: boolean
+  /** step8 (2026-11-11): a read statement's name opens its transactions on the Ledger tab. */
+  onOpenInLedger?: (statementId: number) => void
+}) {
   const { auth } = useBook()
   const [filter, setFilter] = useState<Filter>('all')
   const remove = useDeleteStatement()
@@ -329,9 +338,20 @@ export function StatementsList({ statements, loading }: { statements: Statement[
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-[#0B1C2C]" title={s.filename}>
-                        {s.label}
-                      </p>
+                      {onOpenInLedger && s.status === 'DONE' ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenInLedger(s.id)}
+                          className="truncate text-left text-sm font-semibold text-[#0B1C2C] hover:text-brand hover:underline"
+                          title={`See its ${s.transactionCount} transaction${s.transactionCount === 1 ? '' : 's'} in the ledger — ${s.filename}`}
+                        >
+                          {s.label}
+                        </button>
+                      ) : (
+                        <p className="truncate text-sm font-semibold text-[#0B1C2C]" title={s.filename}>
+                          {s.label}
+                        </p>
+                      )}
                       <StatusBadge s={s} />
                       {s.source === 'PLAID' && (
                         <Badge variant="outline" className="shrink-0 text-brand">

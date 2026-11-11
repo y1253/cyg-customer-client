@@ -41,3 +41,9 @@ export function useFloatingChatBook({ hidden = false }: { hidden?: boolean } = {
 
 /** The event the floating chat listens for; `detail.text` is put in its message box. */
 export const OPEN_CHAT_EVENT = 'cyg:open-chat'
+
+/**
+ * step2 (2026-11-11): the paperclip button (dashboard shell) asks the Bookkeeping page to show
+ * one transaction in its ledger popup; `detail` = the transaction id. No page open = nothing.
+ */
+export const OPEN_TRANSACTION_EVENT = 'cyg:open-transaction'

@@ -5,6 +5,13 @@ import { errorFrom, handleUnauthorized } from './client'
  * PENDING/PROCESSING = being read; UNMATCHED = read, the customer picks the transaction;
  * DOCUMENT (step11b) = read and not a payment (a letter, a request, a screenshot) — kept.
  */
+/**
+ * step2 (2026-11-11): RELATED = on a transaction · DOCUMENT = not a transaction (a contract, a
+ * letter) · ERROR = a payment we could not match, could not read, or that has no name yet ·
+ * READING = still being read (not counted).
+ */
+export type FileBucket = 'RELATED' | 'DOCUMENT' | 'ERROR' | 'READING'
+
 export type AttachmentStatus = 'PENDING' | 'PROCESSING' | 'MATCHED' | 'UNMATCHED' | 'FAILED' | 'DOCUMENT'
 
 /** step11b: what the AI decided a file IS before matching it. */
@@ -40,6 +47,8 @@ export type AttachmentReading = {
 
 export type Attachment = {
   id: number
+  /** step8: the statement a cheque image was cut out of — its "from statement" badge opens it. */
+  fromStatementId: number | null
   kind: AttachmentKind
   status: AttachmentStatus
   filename: string
@@ -72,6 +81,18 @@ export type Attachment = {
   cropped?: boolean
   /** step9: the other documents read off the same image (only on a single fetch). */
   siblings?: number[]
+  /**
+   * step2 (2026-11-11): the Names-tab name it is filed under (null = Unsorted) and which of
+   * the three counts it is in. Decided by the server (`attachment-name.util.ts`).
+   */
+  name: string | null
+  bucket: FileBucket
+  /** step2: the customer's subfolder inside that name's folder; null = the top. */
+  folderId: number | null
+  /** step2: the customer's own name for the file; null = not renamed. */
+  displayName: string | null
+  /** step2: came by email — "View full email". */
+  hasEmail: boolean
   transaction: {
     id: number
     name: string | null
@@ -132,10 +153,14 @@ export function uploadAttachments(
   files: File[],
   transactionId: number | null,
   onProgress: (fraction: number) => void,
+  /** step2: uploaded inside a name's folder (and subfolder) on the Names tab — it stays there. */
+  place: FilePlace = {},
 ): Promise<Attachment[]> {
   return new Promise((resolve, reject) => {
     const form = new FormData()
     if (transactionId != null) form.append('transactionId', String(transactionId))
+    if (place.name) form.append('name', place.name)
+    if (place.folderId != null) form.append('folderId', String(place.folderId))
     files.forEach((f) => form.append('files', f, f.name))
     const xhr = new XMLHttpRequest()
     xhr.open('POST', bookUrl(auth, '/api/bookkeeping/attachments'))
@@ -210,4 +235,132 @@ export async function attachmentObjectUrl(auth: BookAuth, id: number, original =
   const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/file${original ? '?original=1' : ''}`)
   if (!res.ok) throw await errorFrom(res)
   return URL.createObjectURL(await res.blob())
+}
+
+// ── step2 (2026-11-11): files live in the Names tab ─────────────────────────
+
+/** Where a file goes: a name's folder (none = Unsorted, the AI files it) and a subfolder. */
+export type FilePlace = { name?: string | null; folderId?: number | null }
+
+/** A customer's subfolder inside a name's folder. `nameKey` '' = Unsorted. */
+export type NameFolder = { id: number; nameKey: string; parentId: number | null; title: string }
+
+export const NAME_FOLDERS_KEY = ['bookkeeping', 'name-folders'] as const
+
+/** Move a file to another name ('' = back to what was read), into a subfolder, or rename it. */
+export async function placeAttachment(
+  auth: BookAuth,
+  id: number,
+  body: { name?: string | null; folderId?: number | null; displayName?: string | null },
+): Promise<Attachment> {
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/place`, json('PATCH', body))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function fetchNameFolders(auth: BookAuth): Promise<NameFolder[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/name-folders')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function createNameFolder(
+  auth: BookAuth,
+  body: { name: string | null; parentId: number | null; title: string },
+): Promise<NameFolder[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/name-folders', json('POST', body))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function renameNameFolder(auth: BookAuth, id: number, title: string): Promise<NameFolder[]> {
+  const res = await bookFetch(auth, `/api/bookkeeping/name-folders/${id}`, json('PATCH', { title }))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** Its files and subfolders move up a level. */
+export async function deleteNameFolder(auth: BookAuth, id: number): Promise<NameFolder[]> {
+  const res = await bookFetch(auth, `/api/bookkeeping/name-folders/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** A name added by hand — listed from now on, with or without transactions. */
+export async function addName(auth: BookAuth, name: string, group: string | null): Promise<{ name: string }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/names', json('POST', { name, group }))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** The email a file came in. `partial` = only its words were kept (it came before step2). */
+export type AttachmentEmail = {
+  from: string | null
+  to: string | null
+  subject: string | null
+  receivedAt: string | null
+  text: string | null
+  html: string | null
+  partial: boolean
+  files: Array<{ id: number; filename: string; mimeType: string }>
+}
+
+export async function fetchAttachmentEmail(auth: BookAuth, id: number): Promise<AttachmentEmail> {
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/email`)
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** A 30-minute link a phone opens (by QR code) to send files into this book. */
+export async function phoneUploadLink(
+  auth: BookAuth,
+  place: FilePlace = {},
+): Promise<{ url: string; expiresInMinutes: number }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/phone-upload-link', json('POST', place))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** "Send a welcome email": our inbox emails `to` how to send documents in. */
+export async function sendWelcomeEmail(auth: BookAuth, to: string): Promise<{ ok: boolean; message: string }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/welcome-email', json('POST', { to }))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** The QR page (no sign-in): which book the link sends to. */
+export async function fetchPhoneUpload(token: string): Promise<{ bookName: string; name: string | null }> {
+  const res = await fetch(`/api/phone-upload/${encodeURIComponent(token)}`)
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** The QR page's upload — XHR for progress, like `uploadAttachments`, with no sign-in. */
+export function phoneUpload(
+  token: string,
+  files: File[],
+  onProgress: (fraction: number) => void,
+): Promise<Array<{ id: number; filename: string }>> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    files.forEach((f) => form.append('files', f, f.name))
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `/api/phone-upload/${encodeURIComponent(token)}`)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total)
+    }
+    xhr.onload = () => {
+      let body: unknown = null
+      try {
+        body = JSON.parse(xhr.responseText)
+      } catch {
+        /* non-JSON error page */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(body as Array<{ id: number; filename: string }>)
+      const message = (body as { message?: string | string[] } | null)?.message
+      reject(new Error((Array.isArray(message) ? message[0] : message) ?? 'The upload failed. Please try again.'))
+    }
+    xhr.onerror = () => reject(new Error('The upload failed — check your connection and try again.'))
+    xhr.send(form)
+  })
 }

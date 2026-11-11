@@ -9,6 +9,7 @@ import {
   retryAttachment,
   setAttachmentTransaction,
   uploadAttachments,
+  type FilePlace,
 } from '@/api/attachments'
 import { ATTACHMENTS_KEY, TRANSACTIONS_KEY } from '@/api/bookkeeping'
 import { useBook } from './useBook'
@@ -47,14 +48,23 @@ export function useUploadAttachments() {
   const invalidate = useInvalidateBookkeeping()
   const [progress, setProgress] = useState(0)
   const mutation = useMutation({
-    mutationFn: async ({ files, transactionId = null }: { files: File[]; transactionId?: number | null }) => {
+    mutationFn: async ({
+      files,
+      transactionId = null,
+      place = {},
+    }: {
+      files: File[]
+      transactionId?: number | null
+      /** step2: into a name's folder (and subfolder) on the Names tab. */
+      place?: FilePlace
+    }) => {
       setProgress(0)
       const total = files.reduce((s, f) => s + f.size, 0) || 1
       let done = 0
       for (let i = 0; i < files.length; i += UPLOAD_BATCH) {
         const batch = files.slice(i, i + UPLOAD_BATCH)
         const size = batch.reduce((s, f) => s + f.size, 0)
-        await uploadAttachments(book.auth, batch, transactionId, (f) => setProgress((done + f * size) / total))
+        await uploadAttachments(book.auth, batch, transactionId, (f) => setProgress((done + f * size) / total), place)
         done += size
       }
       setProgress(1)

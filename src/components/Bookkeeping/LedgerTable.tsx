@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties, type DragEvent, type PointerEvent, type ReactNode } from 'react'
 import {
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  Columns3,
   CornerDownRight,
   Folder,
+  RotateCcw,
   Paperclip,
   Search,
   Split,
@@ -23,17 +25,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import type { CustomColumn, CustomColumnsData } from '@/api/customColumns'
 import { useBook } from '@/hooks/useBook'
+import { useCustomColumns } from '@/hooks/useCustomColumns'
+import { useLedgerColumns, type LedgerColumns } from '@/hooks/useLedgerColumns'
 import { useIncrementalRows } from '@/hooks/useIncrementalRows'
 import { money } from '@/lib/money'
 import { applyTable, useTableControls, type ColumnDef, type SortState } from '@/lib/table-sort'
+import { rulesText } from '@/lib/custom-columns'
 import { cn } from '@/lib/utils'
 import { ColumnHeader } from './ColumnHeader'
+import { CustomCell } from './CustomCell'
+import { CustomColumnsDialog } from './CustomColumnsDialog'
 import { NameRuleDialog } from './NameRuleDialog'
 import { SplitDialog, type SplitTarget } from './SplitDialog'
 import { TaxLineNameDialog } from './TaxLineNameDialog'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
-import { groupByAccount } from './statement-folders'
+import { folderOf, groupByAccount } from './statement-folders'
 
 /** A row's payee as the Name column shows it; a starting balance has none. */
 const nameOf = (t: LedgerTransaction): string | null =>
@@ -52,39 +60,46 @@ const fmtDate = (iso: string | null) =>
 const toCents = (n: number) => Math.round(n * 100)
 
 /**
- * Which columns a screen size shows. The table is `table-fixed`, so it is never wider than
- * the dialog: what does not fit folds into a neighbouring cell instead of scrolling.
- * - xl+: every column (Date · Name · Description · Amount · Debit · Credit · Statement);
- * - md–xl: Debit and Credit share one stacked cell, the statement chip and the row's
- *   buttons sit under the description;
- * - phone: Date · Name · Amount — the description, accounts and statement under the name.
- * Every row kind (transaction, tax line, split) and the footer use the same classes.
+ * step8 (2026-11-11): from md up every column is shown in the customer's own order and
+ * widths (`useLedgerColumns`: drag a header to move it, its right edge to resize — kept in
+ * this browser) and the table scrolls sideways INSIDE its card when they add up to more than
+ * the screen (user's decision; it used to never scroll). A phone keeps Date · Name · Amount,
+ * with the description, accounts and statement folded under the name.
  */
-const SHOW = {
-  desc: 'hidden md:table-cell',
-  stacked: 'hidden md:table-cell xl:hidden',
-  wide: 'hidden xl:table-cell',
-}
+const MD = 'hidden md:table-cell'
+/** The columns a phone shows, and their widths there. */
+const PHONE: Record<string, string> = { date: 'w-[5.5rem]', name: '', amount: 'w-[7.5rem]' }
+const isCustom = (id: string) => id.startsWith('c')
+const customIdOf = (id: string) => Number(id.slice(1))
 
-/** Pending date, with the posting date under it when the bank printed a different one. */
+/** step8 (user's rule): the POSTING date is the date; the pending one, when different, under it. */
 function DateStack({ t }: { t: LedgerTransaction }) {
   const pending = fmtDate(t.pendingDate)
   const posting = fmtDate(t.postingDate)
   return (
     <span className="flex flex-col whitespace-normal text-muted-foreground">
-      <span>{pending || posting}</span>
+      <span>{posting || pending}</span>
       {pending && posting && posting !== pending && (
-        <span className="text-[11px] leading-tight text-muted-foreground/80" title="Posting date">
-          posted {posting}
+        <span className="text-[11px] leading-tight text-muted-foreground/70" title="Pending (authorized) date">
+          pending {pending}
         </span>
       )}
     </span>
   )
 }
 
+/** A custom column's answer as text (the option's label for a dropdown) — for sorting and filtering. */
+function answerText(col: CustomColumn, data: CustomColumnsData | undefined, transactionId: number): string | null {
+  const a = data?.answers[transactionId]?.[col.id]
+  if (!a) return null
+  if (col.type === 'DROPDOWN') return col.options.find((o) => o.id === a.dropDownId)?.label ?? null
+  return a.value
+}
+
 /**
- * The ledger in the firm's own columns: date (pending, with the posting date under it), name,
- * description, amount, debit, credit — never wider than the screen (`SHOW`). The bank account sits on one side of every row and the AI-chosen
+ * The ledger in the firm's own columns: date (posting, with the pending date under it), name,
+ * description, amount, debit, credit, statement — plus the customer's own columns (step8) —
+ * in the customer's order and widths (see `MD`). The bank account sits on one side of every row and the AI-chosen
  * account on the other (the offset), shown as a chip.
  * A transaction's NAME and its CATEGORY (the offset chip) can be clicked to change them —
  * for that row only, or always for that payee (`NameRuleDialog`).
@@ -122,6 +137,7 @@ export function LedgerTable({
   from = null,
   to = null,
   onClearRange,
+  statementId: initialStatementId = null,
 }: {
   transactions: LedgerTransaction[]
   statements: Statement[]
@@ -139,6 +155,8 @@ export function LedgerTable({
   from?: string | null
   to?: string | null
   onClearRange?: () => void
+  /** step2 (2026-11-11): open on one statement's rows (a statement clicked on the Names tab). */
+  statementId?: number | null
 }) {
   const [query, setQuery] = useState('')
   const ranged = !!(from || to)
@@ -153,9 +171,12 @@ export function LedgerTable({
     const day = (t.postingDate ?? t.pendingDate)?.slice(0, 10) ?? periodEnd.get(t.statementId) ?? null
     return !!day && (!from || day >= from) && (!to || day <= to)
   }
-  const [statementId, setStatementId] = useState<number | 'all'>('all')
+  const [statementId, setStatementId] = useState<number | 'all'>(initialStatementId ?? 'all')
   // The account folder picked above the ledger; its statements' chips show under it.
-  const [folderName, setFolderName] = useState<string | 'all'>('all')
+  const [folderName, setFolderName] = useState<string | 'all'>(() => {
+    const s = initialStatementId == null ? null : statements.find((x) => x.id === initialStatementId)
+    return (s && folderOf(s)) ?? 'all'
+  })
   const controls = useTableControls(defaultSort)
   // The transactions whose split rows are folded away.
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set())
@@ -230,19 +251,36 @@ export function LedgerTable({
     })
   }
 
+  const custom = useCustomColumns()
+  const customColumns = useMemo(() => custom.data?.columns ?? [], [custom.data])
+  const customById = useMemo(() => new Map(customColumns.map((c) => [c.id, c])), [customColumns])
+  const customIds = useMemo(() => customColumns.map((c) => c.id), [customColumns])
+  const layout = useLedgerColumns(customIds)
+  const [columnsOpen, setColumnsOpen] = useState(false)
+
   const columns = useMemo<ColumnDef<LedgerTransaction>[]>(
     () => [
-      { key: 'date', kind: 'date', value: (t) => t.pendingDate ?? t.postingDate },
+      // step8: the posting date is THE date (sorted by it, like the reports).
+      { key: 'date', kind: 'date', value: (t) => t.postingDate ?? t.pendingDate },
       { key: 'name', kind: 'text', value: nameOf },
       { key: 'description', kind: 'text', value: (t) => [t.description, t.itemName ?? null] },
       { key: 'amount', kind: 'number', value: (t) => shownAmount(t) },
-      { key: 'drcr', kind: 'text', value: (t) => [t.debitAccount, t.creditAccount] },
       { key: 'debit', kind: 'text', value: (t) => t.debitAccount },
       { key: 'credit', kind: 'text', value: (t) => t.creditAccount },
       { key: 'statement', kind: 'text', value: (t) => t.statementLabel },
+      ...customColumns.map(
+        (c): ColumnDef<LedgerTransaction> => ({
+          key: `c${c.id}`,
+          kind: c.type === 'NUMBER' ? 'number' : 'text',
+          value: (t) => {
+            const v = t.kind ? null : answerText(c, custom.data, t.id)
+            return c.type === 'NUMBER' ? (v == null || v === '' ? null : Number(v.replace(',', '.'))) : v
+          },
+        }),
+      ),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [family, collapsed, isAgency],
+    [family, collapsed, isAgency, customColumns, custom.data],
   )
 
   const rows = useMemo(() => {
@@ -438,12 +476,33 @@ export function LedgerTable({
             )}
           </div>
         )}
+        <div className="flex shrink-0 flex-wrap gap-2 sm:ml-auto">
+          {layout.customized && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={layout.reset}
+              className="hidden h-9 gap-1.5 text-muted-foreground md:inline-flex"
+              title="Put the columns back in their usual order and widths"
+            >
+              <RotateCcw className="size-4" /> Reset columns
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setColumnsOpen(true)}
+            className="h-9 gap-1.5"
+            title="Add your own columns (e.g. Business 1 / 2 / 3)"
+          >
+            <Columns3 className="size-4" /> Your columns
+          </Button>
         {family.size > 0 && !isAgency && (
           <Button
             variant="outline"
             size="sm"
             onClick={() => setCollapsed(anyOpen ? new Set(family.keys()) : new Set())}
-            className="h-9 shrink-0 gap-1.5 sm:ml-auto"
+            className="h-9 shrink-0 gap-1.5"
             title={
               anyOpen
                 ? 'Fold every split away — each transaction at its full bank amount'
@@ -454,6 +513,7 @@ export function LedgerTable({
             {anyOpen ? 'Collapse all splits' : 'Expand all splits'}
           </Button>
         )}
+        </div>
       </div>
       {openError && <p className="border-b px-3 py-2 text-sm text-destructive sm:px-5">{openError}</p>}
 
@@ -471,30 +531,22 @@ export function LedgerTable({
           </p>
         </div>
       ) : (
-        <Table className="table-fixed">
+        <Table
+          className="table-fixed md:w-(--tw) md:min-w-full"
+          style={{ '--tw': `${layout.total}px` } as CSSProperties}
+        >
+          <colgroup>
+            {layout.order.map((id) => (
+              <col
+                key={id}
+                className={cn(id in PHONE ? PHONE[id] : 'hidden md:table-column', 'md:w-(--w)')}
+                style={{ '--w': `${layout.widthOf(id)}px` } as CSSProperties}
+              />
+            ))}
+          </colgroup>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <ColumnHeader column="date" label="Date" kind="date" controls={controls} className="w-[5.5rem] pl-3 sm:w-28 sm:pl-5" />
-              <ColumnHeader column="name" label="Name" kind="text" controls={controls} className="md:w-[18%]" />
-              <ColumnHeader column="description" label="Description" kind="text" controls={controls} className={SHOW.desc} />
-              <ColumnHeader
-                column="amount"
-                label="Amount"
-                kind="number"
-                align="end"
-                controls={controls}
-                className="w-[7.5rem] text-right sm:w-32 xl:w-36"
-              />
-              <ColumnHeader column="drcr" label="Debit / Credit" kind="text" controls={controls} className={cn(SHOW.stacked, 'w-44')} />
-              <ColumnHeader column="debit" label="Debit" kind="text" controls={controls} className={cn(SHOW.wide, 'w-40')} />
-              <ColumnHeader column="credit" label="Credit" kind="text" controls={controls} className={cn(SHOW.wide, 'w-40')} />
-              <ColumnHeader
-                column="statement"
-                label="Statement"
-                kind="text"
-                controls={controls}
-                className={cn(SHOW.wide, 'w-44 pr-5')}
-              />
+              <LedgerHeaders layout={layout} controls={controls} customById={customById} />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -502,7 +554,7 @@ export function LedgerTable({
               // Joined to its split rows: no divider between them.
               const joined = page[i + 1]?.kind === 'tax' || page[i + 1]?.kind === 'split'
               if (t.kind === 'tax') {
-                return <TaxRow key={t.key} t={t} joined={joined} onRename={() => setRenaming(t)} />
+                return <TaxRow key={t.key} t={t} joined={joined} order={layout.order} onRename={() => setRenaming(t)} />
               }
               if (t.kind === 'split') {
                 return (
@@ -510,6 +562,7 @@ export function LedgerTable({
                     key={t.key}
                     t={t}
                     joined={joined}
+                    order={layout.order}
                     onEdit={() => setEditing(t)}
                     onSplit={() => openSplit(t.splitOfId!)}
                   />
@@ -517,8 +570,6 @@ export function LedgerTable({
               }
               const kids = t.kind ? 0 : (family.get(t.id)?.rows.length ?? 0)
               const open = isOpen(t.id)
-              // Each is placed once per screen size: in its own column when there is room,
-              // else folded under the description (tablet) or the name (phone).
               const splitChip = kids > 0 && (
                 <button
                   type="button"
@@ -546,7 +597,7 @@ export function LedgerTable({
                 </span>
               )
               const extras = (
-                <span className="flex max-w-full min-w-0 items-center gap-1.5">
+                <span className="flex max-w-full min-w-0 flex-wrap items-center gap-1.5">
                   {t.statementId > 0 ? (
                     <button
                       type="button"
@@ -554,14 +605,14 @@ export function LedgerTable({
                         setOpenError(null)
                         openOriginal(auth, t.statementId).catch((e: Error) => setOpenError(e.message))
                       }}
-                      className="min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:underline"
+                      className="max-w-full min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:underline"
                       title={`Open the statement PDF — ${t.statementLabel}`}
                     >
                       {t.statementLabel}
                     </button>
                   ) : (
                     <span
-                      className="min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                      className="max-w-full min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
                       title={t.statementLabel}
                     >
                       {t.statementLabel}
@@ -571,15 +622,19 @@ export function LedgerTable({
                   {!t.kind && <SplitButton onClick={() => openSplit(t.id)} />}
                 </span>
               )
-              return (
-                <TableRow
-                  key={t.key}
-                  className={cn('group', (t.kind === 'opening' || t.kind === 'fx') && 'bg-muted/40', joined && 'border-b-0')}
-                >
-                  <TableCell className="pl-3 align-top sm:pl-5">
+              const edit = t.kind ? undefined : () => setEditing(t)
+              const cells: Record<string, ReactNode> = {
+                date: (
+                  <TableCell key="date" className={cn('align-top', edgeClass(layout.order, 'date'))}>
                     <DateStack t={t} />
                   </TableCell>
-                  <TableCell className="align-top font-medium whitespace-normal text-[#0B1C2C]" title={t.name ?? undefined}>
+                ),
+                name: (
+                  <TableCell
+                    key="name"
+                    className={cn('align-top font-medium whitespace-normal text-[#0B1C2C]', edgeClass(layout.order, 'name'))}
+                    title={t.name ?? undefined}
+                  >
                     <span className="block truncate">
                       {t.kind ? (
                         (t.name ?? <span className="text-muted-foreground">—</span>)
@@ -606,50 +661,74 @@ export function LedgerTable({
                     <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
                       {splitChip}
                       {description}
-                      <AccountStack t={t} onEdit={t.kind ? undefined : () => setEditing(t)} />
+                      <AccountStack t={t} onEdit={edit} />
                       {extras}
                     </span>
                   </TableCell>
-                  <TableCell className={cn(SHOW.desc, 'overflow-hidden align-top whitespace-normal text-[#0B1C2C]')} title={t.description}>
+                ),
+                description: (
+                  <TableCell
+                    key="description"
+                    className={cn(MD, 'overflow-hidden align-top whitespace-normal text-[#0B1C2C]', edgeClass(layout.order, 'description'))}
+                    title={t.description}
+                  >
                     <span className="flex min-w-0 flex-col items-start gap-1">
                       {splitChip}
                       {description}
-                      <span className="flex max-w-full min-w-0 xl:hidden">{extras}</span>
                     </span>
                   </TableCell>
+                ),
+                amount: (
                   <TableCell
+                    key="amount"
                     className={cn(
                       'pl-4 text-right align-top font-semibold tabular-nums',
                       t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
+                      edgeClass(layout.order, 'amount'),
                     )}
                   >
                     {t.kind === 'fx' ? '—' : money(shownAmount(t))}
                     <FxNote t={t} amount={shownAmount(t)} />
                   </TableCell>
-                  <TableCell className={cn(SHOW.stacked, 'align-top')}>
-                    <AccountStack t={t} onEdit={t.kind ? undefined : () => setEditing(t)} />
+                ),
+                debit: (
+                  <TableCell key="debit" className={cn(MD, 'overflow-hidden align-top', edgeClass(layout.order, 'debit'))}>
+                    <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} onEdit={edit} />
                   </TableCell>
-                  <TableCell className={cn(SHOW.wide, 'align-top')}>
-                    <AccountCell
-                      name={t.debitAccount}
-                      offset={t.debitAccount === t.offsetAccount}
-                      onEdit={t.kind ? undefined : () => setEditing(t)}
-                    />
+                ),
+                credit: (
+                  <TableCell key="credit" className={cn(MD, 'overflow-hidden align-top', edgeClass(layout.order, 'credit'))}>
+                    <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} onEdit={edit} />
                   </TableCell>
-                  <TableCell className={cn(SHOW.wide, 'align-top')}>
-                    <AccountCell
-                      name={t.creditAccount}
-                      offset={t.creditAccount === t.offsetAccount}
-                      onEdit={t.kind ? undefined : () => setEditing(t)}
-                    />
+                ),
+                statement: (
+                  <TableCell key="statement" className={cn(MD, 'overflow-hidden align-top', edgeClass(layout.order, 'statement'))}>
+                    {extras}
                   </TableCell>
-                  <TableCell className={cn(SHOW.wide, 'pr-5 align-top')}>{extras}</TableCell>
+                ),
+              }
+              return (
+                <TableRow
+                  key={t.key}
+                  className={cn('group', (t.kind === 'opening' || t.kind === 'fx') && 'bg-muted/40', joined && 'border-b-0')}
+                >
+                  {layout.order.map((id) => {
+                    if (!isCustom(id)) return cells[id]
+                    const col = customById.get(customIdOf(id))
+                    return (
+                      <TableCell key={id} className={cn(MD, 'overflow-hidden align-top', edgeClass(layout.order, id))}>
+                        {col && !t.kind && (
+                          <CustomCell column={col} answer={custom.data?.answers[t.id]?.[col.id]} transactionId={t.id} />
+                        )}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               )
             })}
             {hasMore && (
               <TableRow key={`more-${shown.length}`} ref={sentinelRef} className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-4 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={layout.order.length} className="py-4 text-center text-xs text-muted-foreground">
                   Showing {shown.length.toLocaleString()} of {rows.length.toLocaleString()} rows — loading more…
                 </TableCell>
               </TableRow>
@@ -657,38 +736,56 @@ export function LedgerTable({
           </TableBody>
           <TableFooter className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={2} className="pl-3 font-medium whitespace-normal sm:pl-5">
-                {txCount.toLocaleString()} transaction{txCount === 1 ? '' : 's'}
-                {txCount !== allTx && ` of ${allTx.toLocaleString()}`}
-                {splitCount > 0 && (
-                  <span className="font-normal text-muted-foreground">
-                    {' '}
-                    + {splitCount.toLocaleString()} split{splitCount === 1 ? '' : 's'}
-                  </span>
-                )}
-                {taxCount > 0 && (
-                  <span className="font-normal text-muted-foreground">
-                    {' '}
-                    + {taxCount.toLocaleString()} tax line{taxCount === 1 ? '' : 's'}
-                  </span>
-                )}
-              </TableCell>
-              <TableCell className={SHOW.desc} />
-              <TableCell
-                className={cn('pl-4 text-right font-bold tabular-nums', net < 0 ? 'text-red-600' : 'text-emerald-700')}
-                title="Net change"
-              >
-                {money(net)}
-                {homeNet !== null && (
-                  <span className="block text-[11px] font-medium text-muted-foreground" title="In your home currency">
-                    = {money(homeNet)}
-                  </span>
-                )}
-              </TableCell>
-              <TableCell className={cn(SHOW.stacked, 'text-sm text-muted-foreground')}>net change</TableCell>
-              <TableCell colSpan={3} className={cn(SHOW.wide, 'pr-5 text-sm text-muted-foreground')}>
-                net change
-              </TableCell>
+              {(() => {
+                // The count sits in the first phone column that is not the amount; "net change"
+                // right after the amount (when that column is there).
+                const countAt = layout.order.find((id) => id !== 'amount' && id in PHONE)
+                const afterAmount = layout.order[layout.order.indexOf('amount') + 1]
+                return layout.order.map((id) => {
+                  const base = cn(id in PHONE ? '' : MD, edgeClass(layout.order, id))
+                  if (id === 'amount') {
+                    return (
+                      <TableCell
+                        key={id}
+                        className={cn(base, 'pl-4 text-right font-bold tabular-nums', net < 0 ? 'text-red-600' : 'text-emerald-700')}
+                        title="Net change"
+                      >
+                        {money(net)}
+                        {homeNet !== null && (
+                          <span className="block text-[11px] font-medium text-muted-foreground" title="In your home currency">
+                            = {money(homeNet)}
+                          </span>
+                        )}
+                      </TableCell>
+                    )
+                  }
+                  if (id === countAt) {
+                    return (
+                      <TableCell key={id} className={cn(base, 'font-medium whitespace-normal')}>
+                        {txCount.toLocaleString()} transaction{txCount === 1 ? '' : 's'}
+                        {txCount !== allTx && ` of ${allTx.toLocaleString()}`}
+                        {splitCount > 0 && (
+                          <span className="font-normal text-muted-foreground">
+                            {' '}
+                            + {splitCount.toLocaleString()} split{splitCount === 1 ? '' : 's'}
+                          </span>
+                        )}
+                        {taxCount > 0 && (
+                          <span className="font-normal text-muted-foreground">
+                            {' '}
+                            + {taxCount.toLocaleString()} tax line{taxCount === 1 ? '' : 's'}
+                          </span>
+                        )}
+                      </TableCell>
+                    )
+                  }
+                  return (
+                    <TableCell key={id} className={cn(base, 'text-sm text-muted-foreground')}>
+                      {id === afterAmount && id !== countAt ? 'net change' : null}
+                    </TableCell>
+                  )
+                })
+              })()}
             </TableRow>
           </TableFooter>
         </Table>
@@ -701,6 +798,7 @@ export function LedgerTable({
       <TaxLineNameDialog line={renaming} onOpenChange={(o) => !o && setRenaming(null)} />
       <SplitDialog target={splitting} onOpenChange={(o) => !o && setSplitting(null)} />
       <TransactionAttachmentsDialog transaction={attaching} onOpenChange={(o) => !o && setAttaching(null)} />
+      <CustomColumnsDialog open={columnsOpen} onOpenChange={setColumnsOpen} />
 
     </div>
   )
@@ -719,24 +817,142 @@ function statementLabels(list: Statement[]): Array<{ id: number; label: string }
   }))
 }
 
+/** The outer padding of whichever column comes first / last in the customer's order. */
+function edgeClass(order: readonly string[], id: string): string {
+  return cn(order[0] === id && 'pl-3 sm:pl-5', order[order.length - 1] === id && 'md:pr-5')
+}
+
+const FIXED_LABELS: Record<string, { label: string; kind: 'text' | 'number' | 'date' }> = {
+  date: { label: 'Date', kind: 'date' },
+  name: { label: 'Name', kind: 'text' },
+  description: { label: 'Description', kind: 'text' },
+  amount: { label: 'Amount', kind: 'number' },
+  debit: { label: 'Debit', kind: 'text' },
+  credit: { label: 'Credit', kind: 'text' },
+  statement: { label: 'Statement', kind: 'text' },
+}
+const COLUMN_MIME = 'application/x-cyg-ledger-column'
+
+/**
+ * step8 (`custom.png`): the headers in the customer's order. Each sorts / filters as before
+ * (`ColumnHeader`); drag a header onto another to put it before that one; drag its right
+ * edge to make it wider or narrower. Both are remembered in this browser.
+ */
+function LedgerHeaders({
+  layout,
+  controls,
+  customById,
+}: {
+  layout: LedgerColumns
+  controls: ReturnType<typeof useTableControls>
+  customById: Map<number, CustomColumn>
+}) {
+  const [over, setOver] = useState<string | null>(null)
+  const resize = (id: string) => (e: PointerEvent<HTMLSpanElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startW = layout.widthOf(id)
+    const onMove = (ev: globalThis.PointerEvent) => layout.setWidth(id, startW + ev.clientX - startX)
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      document.body.style.removeProperty('cursor')
+    }
+    document.body.style.cursor = 'col-resize'
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+  const dragProps = (id: string) => ({
+    draggable: true,
+    onDragStart: (e: DragEvent<HTMLTableCellElement>) => {
+      e.dataTransfer.setData(COLUMN_MIME, id)
+      e.dataTransfer.effectAllowed = 'move'
+    },
+    onDragOver: (e: DragEvent<HTMLTableCellElement>) => {
+      if (!e.dataTransfer.types.includes(COLUMN_MIME)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      if (over !== id) setOver(id)
+    },
+    onDragLeave: () => setOver((o) => (o === id ? null : o)),
+    onDrop: (e: DragEvent<HTMLTableCellElement>) => {
+      const from = e.dataTransfer.getData(COLUMN_MIME)
+      setOver(null)
+      if (from && from !== id) {
+        e.preventDefault()
+        layout.move(from, id)
+      }
+    },
+  })
+  return (
+    <>
+      {layout.order.map((id) => {
+        const col = isCustom(id) ? customById.get(customIdOf(id)) : undefined
+        const fixed = FIXED_LABELS[id]
+        const label = col?.name ?? fixed?.label ?? ''
+        const kind = col ? (col.type === 'NUMBER' ? 'number' : 'text') : (fixed?.kind ?? 'text')
+        return (
+          <ColumnHeader
+            key={id}
+            column={id}
+            label={label}
+            kind={kind}
+            align={id === 'amount' ? 'end' : 'start'}
+            controls={controls}
+            title={`${col ? `${rulesText(col)} — ` : ''}Sort or filter by ${label.toLowerCase()}. Drag to move the column; drag its edge to resize.`}
+            className={cn(
+              'relative md:cursor-grab',
+              id in PHONE ? '' : MD,
+              id === 'amount' && 'text-right',
+              edgeClass(layout.order, id),
+              over === id && 'shadow-[inset_3px_0_0_var(--color-brand)]',
+            )}
+            thProps={dragProps(id)}
+          >
+            <span
+              onPointerDown={resize(id)}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute top-0 right-0 hidden h-full w-2 cursor-col-resize hover:bg-brand/30 md:block"
+              aria-hidden
+            />
+          </ColumnHeader>
+        )
+      })}
+    </>
+  )
+}
+
 /**
  * A tax line, under the row it taxes: same dates, lighter, indented with a hook arrow and the
  * agency + rate, the amount in neutral grey (the tax taken out of the row above). Its name —
  * the row's, until the customer gives it its own — can be clicked to change it.
  */
-function TaxRow({ t, joined, onRename }: { t: LedgerTransaction; joined: boolean; onRename: () => void }) {
+function TaxRow({
+  t,
+  joined,
+  order,
+  onRename,
+}: {
+  t: LedgerTransaction
+  joined: boolean
+  order: readonly string[]
+  onRename: () => void
+}) {
   const agency = (
     <span className="w-fit max-w-full shrink-0 truncate rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/20">
       {t.offsetAccount}
       {t.taxRate !== undefined && ` · ${t.taxRate.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`}
     </span>
   )
-  return (
-    <TableRow className={cn('bg-slate-50/80 text-slate-500 hover:bg-slate-100/70', joined && 'border-b-0')}>
-      <TableCell className="py-1.5 pl-3 align-top text-xs sm:pl-5">
+  const cells: Record<string, ReactNode> = {
+    date: (
+      <TableCell key="date" className={cn('py-1.5 align-top text-xs', edgeClass(order, 'date'))}>
         <DateStack t={t} />
       </TableCell>
-      <TableCell className="py-1.5 align-top text-xs whitespace-normal" title={t.name ?? undefined}>
+    ),
+    name: (
+      <TableCell key="name" className={cn('py-1.5 align-top text-xs whitespace-normal', edgeClass(order, 'name'))} title={t.name ?? undefined}>
         <span className="block truncate">
           {t.taxAgencyId !== undefined ? (
             <button
@@ -756,27 +972,40 @@ function TaxRow({ t, joined, onRename }: { t: LedgerTransaction; joined: boolean
           <AccountStack t={t} tax />
         </span>
       </TableCell>
-      <TableCell className={cn(SHOW.desc, 'overflow-hidden py-1.5 align-top')} title={`${t.offsetAccount} on: ${t.description}`}>
+    ),
+    description: (
+      <TableCell
+        key="description"
+        className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'description'))}
+        title={`${t.offsetAccount} on: ${t.description}`}
+      >
         <span className={cn('flex min-w-0 items-center gap-1.5', t.splitOfId ? 'pl-6' : 'pl-2')}>
           <CornerDownRight className="size-3.5 shrink-0 text-slate-400" />
           {agency}
           <span className="truncate text-xs">{t.description}</span>
         </span>
       </TableCell>
-      <TableCell className="py-1.5 pl-4 text-right align-top text-sm font-medium tabular-nums">
+    ),
+    amount: (
+      <TableCell key="amount" className={cn('py-1.5 pl-4 text-right align-top text-sm font-medium tabular-nums', edgeClass(order, 'amount'))}>
         {money(t.amount)}
         <FxNote t={t} amount={t.amount} />
       </TableCell>
-      <TableCell className={cn(SHOW.stacked, 'py-1.5 align-top')}>
-        <AccountStack t={t} tax />
-      </TableCell>
-      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
+    ),
+    debit: (
+      <TableCell key="debit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'debit'))}>
         <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} tax />
       </TableCell>
-      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
+    ),
+    credit: (
+      <TableCell key="credit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'credit'))}>
         <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} tax />
       </TableCell>
-      <TableCell className={cn(SHOW.wide, 'py-1.5 pr-5')} />
+    ),
+  }
+  return (
+    <TableRow className={cn('bg-slate-50/80 text-slate-500 hover:bg-slate-100/70', joined && 'border-b-0')}>
+      {order.map((id) => cells[id] ?? <TableCell key={id} className={cn(MD, 'py-1.5', edgeClass(order, id))} />)}
     </TableRow>
   )
 }
@@ -788,11 +1017,13 @@ function TaxRow({ t, joined, onRename }: { t: LedgerTransaction; joined: boolean
 function SplitRow({
   t,
   joined,
+  order,
   onEdit,
   onSplit,
 }: {
   t: LedgerTransaction
   joined: boolean
+  order: readonly string[]
   onEdit: () => void
   onSplit: () => void
 }) {
@@ -804,13 +1035,16 @@ function SplitRow({
     </span>
   )
   const edit = <SplitButton onClick={onSplit} label="Edit splits" />
-  return (
-    <TableRow className={cn('group bg-brand/[0.03] hover:bg-brand/[0.06]', joined && 'border-b-0')}>
-      <TableCell className="py-1.5 pl-3 align-top text-xs text-muted-foreground sm:pl-5">
+  const cells: Record<string, ReactNode> = {
+    date: (
+      <TableCell key="date" className={cn('py-1.5 align-top text-xs text-muted-foreground', edgeClass(order, 'date'))}>
         <DateStack t={t} />
       </TableCell>
+    ),
+    name: (
       <TableCell
-        className="py-1.5 align-top text-sm font-medium whitespace-normal text-[#0B1C2C]"
+        key="name"
+        className={cn('py-1.5 align-top text-sm font-medium whitespace-normal text-[#0B1C2C]', edgeClass(order, 'name'))}
         title={t.name ?? undefined}
       >
         <span className="block truncate">
@@ -829,32 +1063,47 @@ function SplitRow({
           {edit}
         </span>
       </TableCell>
-      <TableCell className={cn(SHOW.desc, 'overflow-hidden py-1.5 align-top')} title={t.description}>
+    ),
+    description: (
+      <TableCell key="description" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'description'))} title={t.description}>
         <span className="flex min-w-0 items-center gap-1.5 pl-2">
           <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
           {item}
         </span>
-        <span className="mt-1 flex pl-2 xl:hidden">{edit}</span>
       </TableCell>
+    ),
+    amount: (
       <TableCell
+        key="amount"
         className={cn(
           'py-1.5 pl-4 text-right align-top text-sm font-semibold tabular-nums',
           t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
+          edgeClass(order, 'amount'),
         )}
       >
         {money(t.amount)}
         <FxNote t={t} amount={t.amount} />
       </TableCell>
-      <TableCell className={cn(SHOW.stacked, 'py-1.5 align-top')}>
-        <AccountStack t={t} onEdit={onEdit} />
-      </TableCell>
-      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
+    ),
+    debit: (
+      <TableCell key="debit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'debit'))}>
         <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} onEdit={onEdit} />
       </TableCell>
-      <TableCell className={cn(SHOW.wide, 'py-1.5 align-top')}>
+    ),
+    credit: (
+      <TableCell key="credit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'credit'))}>
         <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} onEdit={onEdit} />
       </TableCell>
-      <TableCell className={cn(SHOW.wide, 'py-1.5 pr-5 align-top')}>{edit}</TableCell>
+    ),
+    statement: (
+      <TableCell key="statement" className={cn(MD, 'py-1.5 align-top', edgeClass(order, 'statement'))}>
+        {edit}
+      </TableCell>
+    ),
+  }
+  return (
+    <TableRow className={cn('group bg-brand/[0.03] hover:bg-brand/[0.06]', joined && 'border-b-0')}>
+      {order.map((id) => cells[id] ?? <TableCell key={id} className={cn(MD, 'py-1.5', edgeClass(order, id))} />)}
     </TableRow>
   )
 }

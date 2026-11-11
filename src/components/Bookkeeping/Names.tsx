@@ -6,7 +6,8 @@ import {
   CircleHelp,
   Landmark,
   ListFilter,
-  Paperclip,
+  CreditCard,
+  Inbox,
   Pencil,
   Plus,
   RotateCcw,
@@ -18,7 +19,6 @@ import {
 } from 'lucide-react'
 import {
   TAX_KIND_LABEL,
-  UNCLARIFIED_NAME,
   ruleConflictOf,
   type ContainsRule,
   type LedgerName,
@@ -27,6 +27,7 @@ import {
   type NameType,
   type TaxAgency,
   type UnrecognizedName,
+  type Statement,
 } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,7 +56,16 @@ import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
 import { useAttachments } from '@/hooks/useAttachments'
-import { fileCountsByName, nameFolderKey } from '@/lib/attachment-folders'
+import { useAddName } from '@/hooks/useNameFiles'
+import {
+  accountEntries,
+  countsByName,
+  EMPTY_COUNTS,
+  nameKey,
+  UNSORTED,
+  type BucketCounts,
+  type BucketFilter,
+} from '@/lib/name-files'
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
 import { useDeleteNameGroup, useNameSearch, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
@@ -73,6 +83,8 @@ import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 import { RuleConflictDialog } from './RuleConflictDialog'
 import { UnclarifiedTable } from './UnclarifiedTable'
 import { descriptionDragProps, nameDragProps, useGroupDrop, useNameDrop } from './name-drag'
+import { FolderButton } from './NameFiles/FileCounts'
+import { FilesDialog, type FilesTarget } from './NameFiles/FilesDialog'
 
 const pct = (n: number) => `${n.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`
 
@@ -147,16 +159,27 @@ const rowId = (name: string) => `name-row-${name.toLowerCase().replace(/[^a-z0-9
  */
 export function Names({
   onOpenName,
-  onOpenFiles,
+  statements = [],
+  onViewTransaction,
+  onOpenStatement,
 }: {
   onOpenName?: (name: string) => void
-  /** step2: open a name's folder on the Attachments tab (By name). */
-  onOpenFiles?: (name: string) => void
+  /** step2 (2026-11-11): the book's statements — each bank account is an entry holding them. */
+  statements?: Statement[]
+  /** A file's "View transaction". */
+  onViewTransaction?: (transactionId: number) => void
+  /** A statement clicked in a bank account's folder: its transactions. */
+  onOpenStatement?: (statementId: number) => void
 }) {
   const tax = useTax()
   const names = useNames()
+  // step2 (2026-11-11): every file lives in a name's folder — the counts per name.
   const attachments = useAttachments()
-  const fileCounts = useMemo(() => fileCountsByName(attachments.data ?? []), [attachments.data])
+  const fileCounts = useMemo(() => countsByName(attachments.data ?? []), [attachments.data])
+  const accounts = useMemo(() => accountEntries(statements), [statements])
+  const [files, setFiles] = useState<FilesTarget | null>(null)
+  const [adding, setAdding] = useState(false)
+  const unsorted = fileCounts.get(UNSORTED) ?? EMPTY_COUNTS
   const save = useSaveAgency()
   const remove = useDeleteAgency()
   const setNameTax = useNameAgencies()
@@ -313,8 +336,8 @@ export function Names({
       pending={setNameTax.isPending && setNameTax.variables?.name === n.name}
       onAgencies={(agencyIds) => setNameTax.mutate({ name: n.name, agencyIds })}
       onOpen={onOpenName && (() => onOpenName(n.name))}
-      files={fileCounts.get(nameFolderKey(n.name, UNCLARIFIED_NAME)) ?? 0}
-      onFiles={onOpenFiles && (() => onOpenFiles(n.name))}
+      files={fileCounts.get(nameKey(n.name)) ?? EMPTY_COUNTS}
+      onFiles={(filter) => setFiles({ kind: 'name', name: n.name, filter })}
       onRename={
         mergeable(n)
           ? (to) =>
@@ -335,7 +358,10 @@ export function Names({
       onGoTo={goTo}
     />
   )
+  const hasUnsorted = unsorted.error + unsorted.document + unsorted.related + unsorted.reading > 0
   const nothing =
+    !(filter === 'ALL' && !q && hasUnsorted) &&
+    !(filter === 'ALL' && accounts.length) &&
     !shownAgencies.length &&
     !payees.length &&
     !shownUnrecognized.length &&
@@ -356,6 +382,15 @@ export function Names({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setAdding(true)}
+            className="h-10 gap-2 rounded-lg px-4"
+            title="A name of your own — listed even with no transactions, ready for its files"
+          >
+            <UserRound className="size-4" />
+            Add name
+          </Button>
           <Button
             variant="outline"
             onClick={() => setGroupEdit({ name: '' })}
@@ -421,6 +456,40 @@ export function Names({
         </div>
       ) : (
         <div>
+          {filter === 'ALL' && !q && hasUnsorted && (
+            <ul className="border-b bg-red-50/30">
+            <SpecialRow
+              icon={<Inbox className="size-4" />}
+              tone="red"
+              title="Unsorted"
+              subtitle="Files we could not file under a name yet — move each to its name, or ask the AI."
+              counts={unsorted}
+              onOpen={(filter) => setFiles({ kind: 'name', name: '', filter })}
+            />
+            </ul>
+          )}
+          {filter === 'ALL' && accounts.length > 0 && (
+            <div className="border-b">
+              <p className="bg-muted/40 px-5 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Bank accounts · {accounts.length}
+              </p>
+              <ul className="divide-y">
+                {accounts
+                  .filter((acc) => !q || acc.name.toLowerCase().includes(q))
+                  .map((acc) => (
+                    <SpecialRow
+                      key={`acc:${acc.name}`}
+                      icon={acc.card ? <CreditCard className="size-4" /> : <Landmark className="size-4" />}
+                      tone="green"
+                      title={acc.name}
+                      subtitle={`${acc.statements.length} statement${acc.statements.length === 1 ? '' : 's'} — click for the statements and their transactions`}
+                      counts={{ ...EMPTY_COUNTS, related: acc.statements.length }}
+                      onOpen={() => setFiles({ kind: 'account', account: acc })}
+                    />
+                  ))}
+              </ul>
+            </div>
+          )}
           {shownAgencies.length > 0 && (
             <ul className="divide-y">
               {shownAgencies.map((a) => (
@@ -529,6 +598,18 @@ export function Names({
       <RuleConflictDialog conflict={conflict} />
 
       <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} />
+      <FilesDialog
+        target={files}
+        onOpenChange={(o) => !o && setFiles(null)}
+        onViewTransaction={onViewTransaction}
+        onOpenStatement={onOpenStatement}
+      />
+      <AddNameDialog
+        open={adding}
+        onOpenChange={setAdding}
+        groups={groups}
+        onAdded={(name) => setFiles({ kind: 'name', name })}
+      />
       <NameRuleDialog target={ruleTarget} onOpenChange={(o) => !o && setRuleTarget(null)} />
       <ContainsRuleDialog open={containsOpen} rule={containsEditing} onOpenChange={setContainsOpen} />
 
@@ -808,7 +889,7 @@ function NameRow({
   pending,
   onAgencies,
   onOpen,
-  files = 0,
+  files = EMPTY_COUNTS,
   onFiles,
   onRename,
   onEdit,
@@ -837,9 +918,9 @@ function NameRow({
   pending: boolean
   onAgencies: (agencyIds: number[]) => void
   onOpen?: () => void
-  /** step2: how many attachments its "By name" folder holds, and opening that folder. */
-  files?: number
-  onFiles?: () => void
+  /** step2 (2026-11-11): its folder's three counts, and opening the folder (or one list). */
+  files?: BucketCounts
+  onFiles?: (filter: BucketFilter) => void
   /** step2: rename it in place (a NAME rule, like the Edit dialog); throws to keep the field open. */
   onRename?: (to: string) => Promise<unknown>
   onEdit: () => void
@@ -995,18 +1076,7 @@ function NameRow({
         <AgencyPicker name={n.name} type={n.type} agencies={agencies} picked={n.agencyIds} pending={pending} onChange={onAgencies} />
       )}
       <div className="flex shrink-0 gap-1">
-        {files > 0 && onFiles && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1 px-2 text-muted-foreground"
-            title={`Open the attachments of ${n.name}`}
-            onClick={onFiles}
-          >
-            <Paperclip />
-            <span className="text-xs tabular-nums">{files}</span>
-          </Button>
-        )}
+        {onFiles && <FolderButton name={n.name} counts={files} onOpen={onFiles} />}
         {many > 0 && (
           <Button
             variant="ghost"
@@ -1202,5 +1272,130 @@ function RenameName({
     <InlineRename value={name} onSave={onRename} label={`Rename ${name}`}>
       {children}
     </InlineRename>
+  )
+}
+
+/** step2 (2026-11-11): an entry above the names — Unsorted, or a bank account and its statements. */
+function SpecialRow({
+  icon,
+  tone,
+  title,
+  subtitle,
+  counts,
+  onOpen,
+}: {
+  icon: ReactNode
+  tone: 'red' | 'green'
+  title: string
+  subtitle: string
+  counts: BucketCounts
+  onOpen: (filter: BucketFilter) => void
+}) {
+  return (
+    <li className="flex list-none items-center gap-4 px-5 py-3">
+      <span
+        className={cn(
+          'flex size-9 shrink-0 items-center justify-center rounded-full',
+          tone === 'red' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700',
+        )}
+      >
+        {icon}
+      </span>
+      <button type="button" onClick={() => onOpen(null)} className="min-w-0 flex-1 text-left">
+        <p className="truncate font-medium text-[#0B1C2C] hover:text-brand hover:underline">{title}</p>
+        <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
+      </button>
+      <FolderButton name={title} counts={counts} onOpen={onOpen} />
+    </li>
+  )
+}
+
+/** step2 (2026-11-11): add a name by hand — then its folder opens, ready for files. */
+function AddNameDialog({
+  open,
+  onOpenChange,
+  groups,
+  onAdded,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  groups: NameGroup[]
+  onAdded: (name: string) => void
+}) {
+  const add = useAddName()
+  const [name, setName] = useState('')
+  const [group, setGroup] = useState<string | null>(null)
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o)
+        if (!o) {
+          setName('')
+          setGroup(null)
+          add.reset()
+        }
+      }}
+    >
+      <DialogContent>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const typed = name.trim()
+            if (!typed) return
+            add.mutate(
+              { name: typed, group },
+              {
+                onSuccess: (r) => {
+                  onOpenChange(false)
+                  setName('')
+                  setGroup(null)
+                  onAdded(r.name)
+                },
+              },
+            )
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Add a name</DialogTitle>
+            <DialogDescription>
+              A person or business you deal with — a landlord, a supplier, an employee. It is listed even before it has
+              transactions, so you can keep its contracts and other files in its folder.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={name}
+            maxLength={191}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name, e.g. Main Street Landlord"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {groups.map((g) => (
+              <button
+                key={g.key}
+                type="button"
+                aria-pressed={group === g.key}
+                onClick={() => setGroup(group === g.key ? null : g.key)}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-medium ring-1',
+                  group === g.key ? 'bg-brand text-white ring-brand' : 'bg-white text-muted-foreground ring-black/10',
+                )}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+          {add.error && <p className="text-sm text-destructive">{add.error.message}</p>}
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+            <Button type="submit" disabled={!name.trim() || add.isPending} className="bg-brand text-white hover:bg-brand/85">
+              Add name
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,6 +1,7 @@
 import { LogOut, Menu } from 'lucide-react'
 import { displayName } from '@/api/customerAuth'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { DocumentsButton } from '@/components/Assistant/DocumentsButton'
 import { FloatingChat } from '@/components/Assistant/FloatingChat'
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useAuth } from '@/context/AuthContext'
@@ -101,6 +102,9 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
 export function DashboardLayout() {
   // step12h: changes the AI makes on any channel show without a reload.
   useLiveRefresh()
+  // step8 (2026-11-11, `overlooping.png`): the bookkeeping page uses the whole width — the
+  // ledger needs it; every other page keeps the reading width.
+  const wide = useLocation().pathname.startsWith('/dashboard/bookkeeping')
   return (
     <div className="min-h-svh bg-[#F5F7F7]">
       <aside className="fixed inset-y-0 left-0 hidden w-64 bg-[#0B1C2C] lg:block">
@@ -126,12 +130,14 @@ export function DashboardLayout() {
       </header>
 
       <main className="lg:pl-64">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 lg:py-10">
+        <div className={cn('mx-auto px-4 py-8 sm:px-8 lg:py-10', wide ? 'max-w-[110rem]' : 'max-w-6xl')}>
           <Outlet />
         </div>
       </main>
 
-      {/* step8: the AI chat, one click away on every page. */}
+      {/* step8: the AI chat, one click away on every page. step2 (2026-11-11): beside it, the
+          paperclip — the book's documents and every way to send them in. */}
+      <DocumentsButton />
       <FloatingChat />
     </div>
   )

@@ -23,6 +23,7 @@ export function LedgerDialog({
   defaultSort = null,
   range = NO_RANGE,
   onRangeChange,
+  statementId = null,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -41,6 +42,8 @@ export function LedgerDialog({
   /** Only rows dated in this period (a report drill-down opens with the report's). */
   range?: Period
   onRangeChange?: (range: Period) => void
+  /** step2 (2026-11-11): open on one statement's rows. */
+  statementId?: number | null
 }) {
   const transactions = useTransactions({ enabled: open })
 
@@ -58,7 +61,7 @@ export function LedgerDialog({
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <LedgerTable
             // A new drill-down starts from its own default order, with no column filters.
-            key={`${open}|${account ?? ''}|${name ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}|${range.from ?? ''}|${range.to ?? ''}`}
+            key={`${open}|${account ?? ''}|${name ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}|${range.from ?? ''}|${range.to ?? ''}|${statementId ?? ''}`}
             transactions={transactions.data ?? []}
             statements={statements}
             loading={transactions.isLoading}
@@ -72,6 +75,7 @@ export function LedgerDialog({
             from={range.from}
             to={range.to}
             onClearRange={() => onRangeChange?.(NO_RANGE)}
+            statementId={statementId}
           />
           {transactions.error && <p className="mt-2 text-sm text-destructive">{transactions.error.message}</p>}
         </div>

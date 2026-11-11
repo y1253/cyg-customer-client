@@ -1,3 +1,4 @@
+import type * as React from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +26,9 @@ export function ColumnHeader({
   controls,
   className,
   align = 'start',
+  thProps,
+  title,
+  children,
 }: {
   column: string
   label: string
@@ -32,6 +36,12 @@ export function ColumnHeader({
   controls: TableControls
   className?: string
   align?: 'start' | 'end'
+  /** step8: extra props for the header cell (drag to reorder, its width). */
+  thProps?: React.ComponentProps<'th'>
+  /** step8: the tooltip (default "Sort or filter by …"). */
+  title?: string
+  /** step8: drawn inside the cell after the label (a resize handle). */
+  children?: React.ReactNode
 }) {
   const { sort, setSort, filters, setFilter } = controls
   const f: ColumnFilter = filters[column] ?? {}
@@ -41,7 +51,7 @@ export function ColumnHeader({
   const num = (v: string) => (v.trim() === '' || Number.isNaN(Number(v)) ? null : Number(v))
 
   return (
-    <TableHead className={className}>
+    <TableHead {...thProps} className={className}>
       <Popover>
         <PopoverTrigger
           className={cn(
@@ -49,7 +59,7 @@ export function ColumnHeader({
             align === 'end' && 'flex-row-reverse',
             (sorted || filtered) && 'text-brand',
           )}
-          title={`Sort or filter by ${label.toLowerCase()}`}
+          title={title ?? `Sort or filter by ${label.toLowerCase()}`}
         >
           <span className="truncate">{label}</span>
           <SortIcon className={cn('size-3.5 shrink-0', !sorted && 'opacity-40')} />
@@ -135,6 +145,7 @@ export function ColumnHeader({
           )}
         </PopoverContent>
       </Popover>
+      {children}
     </TableHead>
   )
 }

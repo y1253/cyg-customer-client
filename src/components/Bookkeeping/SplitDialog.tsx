@@ -177,7 +177,7 @@ function SplitForm({ target, onDone }: { target: SplitTarget; onDone: () => void
             <Input
               value={d.itemName}
               maxLength={191}
-              placeholder="Item (e.g. Pampers) — optional"
+              placeholder="Item (e.g. Tissues) — optional"
               onChange={(e) => update(d.key, { itemName: e.target.value })}
               aria-label="Item"
             />

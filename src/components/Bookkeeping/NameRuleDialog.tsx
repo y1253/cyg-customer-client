@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, TriangleAlert } from 'lucide-react'
+import { ChevronDown, Plus, TriangleAlert, X } from 'lucide-react'
 import {
   CONTAINS_MIN,
   UNCLARIFIED_NAME,
@@ -157,6 +157,16 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const [draftGroup, setDraftGroup] = useState<string | null>(null)
   const [draftAgencies, setDraftAgencies] = useState<number[]>([])
   const [draftFields, setDraftFields] = useState<NameField[]>([])
+  // step8 (2026-11-11, `descr.png`): a NEW name's descriptions — every description holding
+  // one of these texts gets the name (a CONTAINS rule each), saved right after the name.
+  const [draftTexts, setDraftTexts] = useState<string[]>([])
+  const [textInput, setTextInput] = useState('')
+  const addText = () => {
+    const t = textInput.trim()
+    if (t.length < CONTAINS_MIN) return
+    if (!draftTexts.some((x) => x.toLowerCase() === t.toLowerCase())) setDraftTexts([...draftTexts, t])
+    setTextInput('')
+  }
   const owner = !isSplit && finalName ? existingName(finalName) : undefined
   const newName = nameChanged && !owner && trimmed.toLowerCase() !== UNCLARIFIED_NAME.toLowerCase()
   const groups = names.data?.groups ?? []
@@ -165,6 +175,32 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
     if (draftGroup) await setGroup.mutateAsync({ name: trimmed, group: draftGroup })
     if (draftAgencies.length) await setTax.mutateAsync({ name: trimmed, agencyIds: draftAgencies })
     if (draftFields.length) await setFields.mutateAsync({ name: trimmed, fields: draftFields })
+    await saveTexts(0)
+  }
+  /**
+   * The draft descriptions one by one. One already linked to another name asks first
+   * (RuleConflictDialog); "Take it away" saves it with `replace` and goes on with the rest.
+   */
+  const saveTexts = (i: number, replace = false): Promise<void> => {
+    if (i >= draftTexts.length) return Promise.resolve()
+    return saveRule
+      .mutateAsync({
+        matchType: 'CONTAINS',
+        matchKey: draftTexts[i],
+        name: trimmed,
+        category: null,
+        scope: 'ALWAYS',
+        replace,
+      })
+      .then(
+        () => saveTexts(i + 1),
+        (e: unknown) => {
+          if (!ruleConflictOf(e)) throw e
+          return new Promise<void>((resolve, reject) => {
+            conflict.offer(e, trimmed, () => void saveTexts(i, true).then(resolve, reject))
+          })
+        },
+      )
   }
   const finish = () =>
     void applyDraft().then(onDone, () => {
@@ -414,6 +450,52 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                       />
                     </div>
                   )}
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="name-rule-text">Descriptions</Label>
+                    <span className="text-xs text-muted-foreground">
+                      Every transaction whose description contains one of these gets “{trimmed}” — now and on every
+                      statement from now on.
+                    </span>
+                    {draftTexts.map((t) => (
+                      <span key={t} className="flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-sm">
+                        <span className="min-w-0 flex-1 truncate">“{t}”</span>
+                        <button
+                          type="button"
+                          onClick={() => setDraftTexts(draftTexts.filter((x) => x !== t))}
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          aria-label={`Remove “${t}”`}
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                    <div className="flex gap-1.5">
+                      <Input
+                        id="name-rule-text"
+                        value={textInput}
+                        maxLength={191}
+                        placeholder="A description, or part of one"
+                        onChange={(e) => setTextInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            addText()
+                          }
+                        }}
+                        className="h-8"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={textInput.trim().length < CONTAINS_MIN}
+                        onClick={addText}
+                        className="gap-1"
+                      >
+                        <Plus className="size-3.5" /> Add
+                      </Button>
+                    </div>
+                  </div>
                   <NameFieldsEditor fields={draftFields} onChange={setDraftFields} />
                 </>
               )}

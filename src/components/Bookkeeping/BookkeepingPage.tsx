@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
 import { UNCLARIFIED_NAME, unreadable, type ExportFormat, type Period, type Reports } from '@/api/bookkeeping'
 import { openFloatingChat } from '@/components/Assistant/FloatingChat'
@@ -8,13 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useExportLedger } from '@/hooks/useExportLedger'
 import { useStuck } from '@/hooks/useStuck'
-import { useFloatingChatBook } from '@/lib/floating-chat'
+import { OPEN_TRANSACTION_EVENT, useFloatingChatBook } from '@/lib/floating-chat'
 import { cn } from '@/lib/utils'
 import { useReports } from '@/hooks/useReports'
 import { useStatements } from '@/hooks/useStatements'
 import { useTransactions } from '@/hooks/useTransactions'
 import type { SortState } from '@/lib/table-sort'
-import { AttachmentsPanel } from './AttachmentsPanel'
 import { BankConnectionsCard } from './BankConnectionsCard'
 import { BalanceSheet } from './BalanceSheet'
 import { CommunicationPanel } from './Communication/CommunicationPanel'
@@ -36,7 +35,7 @@ import { UploadDropzone } from './UploadDropzone'
 type Tab =
   | 'statements'
   | 'ledger'
-  | 'attachments'
+  | 'communications'
   | 'accounts'
   | 'income'
   | 'balance'
@@ -71,15 +70,6 @@ export function BookkeepingPage({
   useFloatingChatBook({})
   // step2 (2026-11-09): the tab bar stays at the top of the window while scrolling.
   const { sentinel: tabBarTop, stuck: tabBarStuck, scrollToStart } = useStuck()
-  // Attachments has two sub-tabs (step12): the files, and every conversation with us.
-  const [attachView, setAttachView] = useState<'files' | 'communication'>('files')
-  // step2: the Names tab's paperclip — that payee's folder on Attachments, By name.
-  const [filesOf, setFilesOf] = useState<{ name: string; seq: number } | null>(null)
-  const openFiles = (name: string) => {
-    setFilesOf((f) => ({ name, seq: (f?.seq ?? 0) + 1 }))
-    setAttachView('files')
-    setTab('attachments')
-  }
   const [period, setPeriod] = useState<Period>({ from: null, to: null })
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [ledgerAccount, setLedgerAccount] = useState<string | null>(null)
@@ -87,6 +77,15 @@ export function BookkeepingPage({
   const [ledgerSort, setLedgerSort] = useState<SortState | null>(null)
   const [ledgerFocus, setLedgerFocus] = useState<number | null>(null)
   const [ledgerRange, setLedgerRange] = useState<Period>({ from: null, to: null })
+  // step2 (2026-11-11): a statement clicked in a bank account's folder on the Names tab.
+  const [ledgerStatement, setLedgerStatement] = useState<number | null>(null)
+  // step8 (2026-11-11): a statement clicked on Bank feeds — the Ledger TAB opens on its rows.
+  const [ledgerTabStatement, setLedgerTabStatement] = useState<number | null>(null)
+  const openInLedgerTab = (id: number) => {
+    setLedgerTabStatement(id)
+    setTab('ledger')
+    scrollToStart()
+  }
   // The Ledger tab's rows are fetched only while it is the open tab.
   const ledger = useTransactions({ enabled: tab === 'ledger' })
 
@@ -108,6 +107,7 @@ export function BookkeepingPage({
     setLedgerSort(scope.sort ?? (scope.name === UNCLARIFIED_NAME ? BY_DESCRIPTION : null))
     setLedgerFocus(null)
     setLedgerRange({ from: scope.from ?? null, to: scope.to ?? null })
+    setLedgerStatement(null)
     setLedgerOpen(true)
   }
   // A report row opens its account for the period the report shows.
@@ -118,9 +118,25 @@ export function BookkeepingPage({
     setLedgerName(null)
     setLedgerSort(null)
     setLedgerRange({ from: null, to: null })
+    setLedgerStatement(null)
     setLedgerFocus(id)
     setLedgerOpen(true)
   }
+  const openStatement = (id: number) => {
+    setLedgerAccount(null)
+    setLedgerName(null)
+    setLedgerSort(null)
+    setLedgerRange({ from: null, to: null })
+    setLedgerFocus(null)
+    setLedgerStatement(id)
+    setLedgerOpen(true)
+  }
+  // step2 (2026-11-11): "View transaction" from the paperclip button's lists (outside this page).
+  useEffect(() => {
+    const onOpen = (e: Event) => openTransaction((e as CustomEvent<number>).detail)
+    window.addEventListener(OPEN_TRANSACTION_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_TRANSACTION_EVENT, onOpen)
+  })
 
   const exportButton = (format: ExportFormat, label: string, Icon: typeof FileText) => {
     const pending = exporter.isPending && exporter.variables === format
@@ -187,6 +203,8 @@ export function BookkeepingPage({
         value={tab}
         onValueChange={(v) => {
           setTab(v as Tab)
+          // The Ledger tab opened from its own tab shows every statement again.
+          setLedgerTabStatement(null)
           scrollToStart()
         }}
         className="gap-6"
@@ -213,8 +231,8 @@ export function BookkeepingPage({
           <TabsTrigger value="ledger" className="h-9 flex-none px-4">
             Ledger
           </TabsTrigger>
-          <TabsTrigger value="attachments" className="h-9 flex-none px-4">
-            Attachments
+          <TabsTrigger value="communications" className="h-9 flex-none px-4">
+            Communications
           </TabsTrigger>
           <TabsTrigger value="accounts" className="h-9 flex-none px-4">
             Chart of accounts
@@ -254,7 +272,7 @@ export function BookkeepingPage({
               <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
                 Bank feeds {list.length > 0 && <span className="text-foreground">· {list.length}</span>}
               </h2>
-              <StatementsList statements={list} loading={statements.isLoading} />
+              <StatementsList statements={list} loading={statements.isLoading} onOpenInLedger={openInLedgerTab} />
               {statements.error && <p className="mt-2 text-sm text-destructive">{statements.error.message}</p>}
             </section>
           </div>
@@ -263,31 +281,20 @@ export function BookkeepingPage({
         </TabsContent>
 
         <TabsContent value="ledger">
+          {/* Keyed: its statement filter is read when it mounts. */}
           <LedgerTable
+            key={ledgerTabStatement ?? 'all'}
             transactions={ledger.data ?? []}
             statements={list}
             loading={ledger.isLoading}
+            statementId={ledgerTabStatement}
           />
           {ledger.error && <p className="mt-2 text-sm text-destructive">{ledger.error.message}</p>}
         </TabsContent>
 
-        <TabsContent value="attachments">
-          <Tabs value={attachView} onValueChange={(v) => setAttachView(v as 'files' | 'communication')} className="gap-4">
-            <TabsList className="h-10 w-fit">
-              <TabsTrigger value="files" className="h-8 px-4">
-                Attachments
-              </TabsTrigger>
-              <TabsTrigger value="communication" className="h-8 px-4">
-                Communication
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="files">
-              <AttachmentsPanel statements={list} onViewTransaction={openTransaction} openName={filesOf} />
-            </TabsContent>
-            <TabsContent value="communication">
-              <CommunicationPanel onOpenAssistant={assistant ? () => openFloatingChat() : undefined} />
-            </TabsContent>
-          </Tabs>
+        {/* step2 (2026-11-11): files live in the Names tab now — this tab is the conversations. */}
+        <TabsContent value="communications">
+          <CommunicationPanel onOpenAssistant={assistant ? () => openFloatingChat() : undefined} />
         </TabsContent>
 
         {reportsTab && <ReportPeriod value={period} onChange={setPeriod} />}
@@ -309,7 +316,12 @@ export function BookkeepingPage({
           ))}
         </TabsContent>
         <TabsContent value="names">
-          <Names onOpenName={(name) => openLedger({ name })} onOpenFiles={openFiles} />
+          <Names
+            onOpenName={(name) => openLedger({ name })}
+            statements={list}
+            onViewTransaction={openTransaction}
+            onOpenStatement={openStatement}
+          />
         </TabsContent>
         <TabsContent value="products">
           <Products />
@@ -332,6 +344,7 @@ export function BookkeepingPage({
         defaultSort={ledgerSort}
         range={ledgerRange}
         onRangeChange={setLedgerRange}
+        statementId={ledgerStatement}
       />
     </>
   )

@@ -33,7 +33,7 @@ function readOnlyReason(c: AssistantConversation | undefined): string | undefine
   if (c.channel === 'WHATSAPP') return 'This conversation happened on WhatsApp — reply there to continue it.'
   if (c.channel === 'VOICE') return 'These were phone calls — call our receipt number to talk to the AI again.'
   if (c.channel === 'EMAIL') return 'This conversation happened by email — reply to that email to continue it.'
-  if (c.attachmentId) return 'This chat is about one attachment — continue it from Attachments → Ask AI.'
+  if (c.attachmentId) return 'This chat is about one file — continue it from its folder on the Names tab → Ask AI.'
   if (c.statementId) return 'This chat is about one statement — continue it from Bank feeds → Ask AI to fix it.'
   return undefined
 }

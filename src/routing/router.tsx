@@ -15,6 +15,7 @@ import { CompanyPortalPage } from '@/components/Portal/CompanyPortalPage'
 import { RegistrationsPage } from '@/components/Register/RegistrationsPage'
 import { RegisterWizardPage } from '@/components/Register/RegisterWizard'
 import { RequestsPage } from '@/components/Requests/RequestsPage'
+import { PhoneUploadPage } from '@/components/Upload/PhoneUploadPage'
 import { CustomerRoute, GuestRoute } from './CustomerRoute'
 
 export const router = createBrowserRouter([
@@ -24,6 +25,8 @@ export const router = createBrowserRouter([
   // Where the internal API's Gmail / Outlook OAuth callback sends the registration
   // wizard's popup. Outside the guards: it only posts a message to its opener and closes.
   { path: '/connect/:provider/:result', element: <ConnectResultPage /> },
+  // step2 (2026-11-11): the page a phone opens from the QR code — its token is the sign-in.
+  { path: '/upload/:token', element: <PhoneUploadPage /> },
   {
     element: <GuestRoute />,
     children: [
