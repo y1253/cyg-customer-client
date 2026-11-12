@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type DragEvent, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type DragEvent, type PointerEvent, type ReactNode } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -39,6 +39,7 @@ import { CustomCell } from './CustomCell'
 import { CustomColumnsDialog } from './CustomColumnsDialog'
 import { NameRuleDialog } from './NameRuleDialog'
 import { SplitDialog, type SplitTarget } from './SplitDialog'
+import { StickyScrollbar } from './StickyScrollbar'
 import { TaxLineNameDialog } from './TaxLineNameDialog'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 import { folderOf, groupByAccount } from './statement-folders'
@@ -358,8 +359,20 @@ export function LedgerTable({
     [transactions],
   )
 
+  // The table's own sideways scroller (shadcn's `table-container`), mirrored at the top of
+  // the screen by `StickyScrollbar`. Looked up after each render: the table comes and goes
+  // with loading / an empty ledger.
+  const [card, setCard] = useState<HTMLDivElement | null>(null)
+  const [scroller, setScroller] = useState<HTMLElement | null>(null)
+  const hasTable = !loading && transactions.length > 0
+  useEffect(() => {
+    setScroller(hasTable ? (card?.querySelector<HTMLElement>('[data-slot="table-container"]') ?? null) : null)
+  }, [card, hasTable])
+
   return (
-    <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+    // overflow-CLIP, not hidden: a hidden box is a scroll container, and the sticky top
+    // scrollbar inside it would stick to it instead of the screen.
+    <div ref={setCard} className="overflow-clip rounded-2xl bg-white ring-1 ring-black/5">
       <div className="flex flex-col gap-3 border-b px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:px-5 sm:py-4">
         <div className="relative w-full shrink-0 sm:w-72">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -531,6 +544,8 @@ export function LedgerTable({
           </p>
         </div>
       ) : (
+        <>
+        <StickyScrollbar target={scroller} />
         <Table
           className="table-fixed md:w-(--tw) md:min-w-full"
           style={{ '--tw': `${layout.total}px` } as CSSProperties}
@@ -789,6 +804,7 @@ export function LedgerTable({
             </TableRow>
           </TableFooter>
         </Table>
+        </>
       )}
 
       <NameRuleDialog

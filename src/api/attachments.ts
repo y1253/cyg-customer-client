@@ -224,6 +224,17 @@ export async function retryAttachment(auth: BookAuth, id: number): Promise<Attac
   return res.json()
 }
 
+/** A file "Read all again" takes: it failed, or was read but matched nothing (server: `retryAll`). */
+export const rereadableFile = (a: Pick<Attachment, 'status'>): boolean =>
+  a.status === 'FAILED' || a.status === 'UNMATCHED'
+
+/** "Read all again": every FAILED / UNMATCHED file of `ids` back to reading. */
+export async function retryAttachments(auth: BookAuth, ids: number[]): Promise<{ queued: number }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/attachments/retry-all', json('POST', { ids }))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
 export async function deleteAttachment(auth: BookAuth, id: number): Promise<void> {
   const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}`, { method: 'DELETE' })
   if (!res.ok) throw await errorFrom(res)

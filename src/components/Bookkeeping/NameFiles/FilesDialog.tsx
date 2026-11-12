@@ -19,6 +19,7 @@ import {
   type Attachment,
 } from '@/api/attachments'
 import { unreadable } from '@/api/bookkeeping'
+import { RereadAllFiles } from './RereadAllFiles'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -188,6 +189,8 @@ function Body({
                 ? 'Files we could not file under a name yet. Move each to its name, or ask the AI about it.'
                 : 'Everything about this name, newest first. Add files here — we still find the transaction each belongs to.'}
         </DialogDescription>
+        {/* "Read all again" where the unrecognised files are: the error list and Unsorted. */}
+        {(filter === 'ERROR' || key === UNSORTED) && <RereadAllFiles files={list} />}
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">

@@ -70,6 +70,28 @@ export function BookkeepingPage({
   useFloatingChatBook({})
   // step2 (2026-11-09): the tab bar stays at the top of the window while scrolling.
   const { sentinel: tabBarTop, stuck: tabBarStuck, scrollToStart } = useStuck()
+  // 2026-11-11: where the sticky tab bar ENDS on screen, as `--bk-sticky-top` — the ledger's
+  // top scrollbar (`StickyScrollbar`) sticks right under it. Measured: the tabs wrap to 2–3
+  // rows on a phone, and the bar sits under the 64px mobile header below lg.
+  const [tabBar, setTabBar] = useState<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!tabBar) return
+    const root = document.documentElement
+    const measure = () =>
+      root.style.setProperty(
+        '--bk-sticky-top',
+        `${(parseFloat(getComputedStyle(tabBar).top) || 0) + tabBar.offsetHeight}px`,
+      )
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(tabBar)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+      root.style.removeProperty('--bk-sticky-top')
+    }
+  }, [tabBar])
   const [period, setPeriod] = useState<Period>({ from: null, to: null })
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [ledgerAccount, setLedgerAccount] = useState<string | null>(null)
@@ -211,6 +233,7 @@ export function BookkeepingPage({
       >
         <div ref={tabBarTop} aria-hidden className="-mb-6 h-0" />
         <div
+          ref={setTabBar}
           className={cn(
             'sticky top-16 z-20 -mx-4 -my-2 px-4 py-2 transition-[background-color,box-shadow] sm:-mx-8 sm:px-8 lg:top-0',
             tabBarStuck && 'bg-[#F5F7F7]/85 shadow-[0_8px_16px_-12px_rgba(11,28,44,0.25)] backdrop-blur-md',

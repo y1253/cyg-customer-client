@@ -21,7 +21,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react'
-import { hasProblem, isBusy, openOriginal, type Statement } from '@/api/bookkeeping'
+import { hasProblem, isBusy, openOriginal, rereadable, type Statement } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { useCurrency } from '@/hooks/useCurrency'
 import { AccountCurrency } from './AccountCurrency'
@@ -50,7 +50,7 @@ import { useBook } from '@/hooks/useBook'
 import { useDeleteStatement } from '@/hooks/useDeleteStatement'
 import { useRenameAccount } from '@/hooks/useMerge'
 import { useMoveStatement } from '@/hooks/useMoveStatement'
-import { useRetryStatement } from '@/hooks/useRetryStatement'
+import { useRetryProblemStatements, useRetryStatement } from '@/hooks/useRetryStatement'
 import { cn } from '@/lib/utils'
 import { statementHelp } from '@/lib/statement-errors'
 import { StatementChat } from '@/components/Assistant/StatementChat'
@@ -184,6 +184,10 @@ export function StatementsList({
   const [filter, setFilter] = useState<Filter>('all')
   const remove = useDeleteStatement()
   const retry = useRetryStatement()
+  // "Re-read all" under Problems: confirm first, then say how many went back to reading.
+  const retryAll = useRetryProblemStatements()
+  const [confirmAll, setConfirmAll] = useState(false)
+  const [allNote, setAllNote] = useState<string | null>(null)
   const move = useMoveStatement()
   const rename = useRenameAccount()
   const [confirm, setConfirm] = useState<Statement | null>(null)
@@ -230,6 +234,7 @@ export function StatementsList({
     .filter((a): a is string => a !== null)
   const starts = startsByFolder(statements)
   const anyOpen = folders.some((f) => !closed.has(folderKey(f)))
+  const toReread = statements.filter(rereadable).length
 
   const moveTo = (id: number, accountName: string) => {
     const s = statements.find((x) => x.id === id)
@@ -268,6 +273,22 @@ export function StatementsList({
             </button>
           )
         })}
+        {filter === 'unread' && toReread > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+            disabled={retryAll.isPending}
+            onClick={() => setConfirmAll(true)}
+          >
+            {retryAll.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RotateCcw className="size-4" />
+            )}
+            Re-read all ({toReread})
+          </Button>
+        )}
         {folders.length > 1 && (
           <Button
             variant="outline"
@@ -287,6 +308,8 @@ export function StatementsList({
         </p>
       )}
       {move.error && <p className="mb-2 text-sm text-destructive">{move.error.message}</p>}
+      {retryAll.error && <p className="mb-2 text-sm text-destructive">{retryAll.error.message}</p>}
+      {allNote && <p className="mb-2 text-sm text-muted-foreground">{allNote}</p>}
       {!folders.length && (
         <p className="rounded-xl bg-white px-4 py-6 text-center text-sm text-muted-foreground ring-1 ring-black/5">
           Nothing here.
@@ -493,6 +516,41 @@ export function StatementsList({
         })}
       </div>
       {openError && <p className="mt-2 text-sm text-destructive">{openError}</p>}
+
+      <Dialog open={confirmAll} onOpenChange={setConfirmAll}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Re-read {toReread} statement{toReread === 1 ? '' : 's'}?
+            </DialogTitle>
+            <DialogDescription>
+              Every statement with a problem is read again from its PDF. While it is being read,
+              its transactions leave your books; they come back as soon as it is done. A missing
+              statement is not included — upload it to close the gap.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" type="button" />}>Cancel</DialogClose>
+            <Button
+              disabled={retryAll.isPending}
+              onClick={() =>
+                retryAll.mutate(undefined, {
+                  onSuccess: ({ queued }) => {
+                    setConfirmAll(false)
+                    setAllNote(
+                      queued
+                        ? `${queued} statement${queued === 1 ? ' is' : 's are'} being read again.`
+                        : 'Nothing to read again right now.',
+                    )
+                  },
+                })
+              }
+            >
+              {retryAll.isPending ? 'Starting…' : 'Re-read all'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!newFor} onOpenChange={(open) => !open && setNewFor(null)}>
         <DialogContent>

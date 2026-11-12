@@ -57,8 +57,9 @@ export function LedgerDialog({
           </DialogTitle>
           <DialogDescription>Downloads always include every statement.</DialogDescription>
         </DialogHeader>
-        {/* Scrolls DOWN only: the ledger fits the width at every screen size (`LedgerTable`). */}
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        {/* Scrolls DOWN; a ledger wider than the dialog (custom columns) scrolls sideways inside
+            the table, with its scrollbar kept at the top of this box (`StickyScrollbar`, top 0). */}
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [--bk-sticky-top:0px]">
           <LedgerTable
             // A new drill-down starts from its own default order, with no column filters.
             key={`${open}|${account ?? ''}|${name ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}|${range.from ?? ''}|${range.to ?? ''}|${statementId ?? ''}`}

@@ -242,6 +242,17 @@ export const unreadable = (s: Statement): boolean => s.status === 'FAILED' || s.
 /** step2: could not be read, or read with a problem the customer should fix (`problem`). */
 export const hasProblem = (s: Statement): boolean => unreadable(s) || !!s.problem
 
+/**
+ * A problem statement "Re-read all" takes — the server's twin is `rereadable` in
+ * bookkeeping.service.ts. Never a bank-feed month, nor a MISSING gap (only uploading the
+ * missing statement fixes that).
+ */
+export function rereadable(s: Pick<Statement, 'status' | 'source' | 'problem'>): boolean {
+  if (s.source === 'PLAID') return false
+  if (s.status === 'FAILED' || s.status === 'NEEDS_REVIEW') return true
+  return s.status === 'DONE' && !!s.problem && s.problem.kind !== 'MISSING'
+}
+
 /** How a row with no payee is listed (never stored — the DB keeps null). */
 export const UNCLARIFIED_NAME = 'Unclarified name'
 
@@ -321,6 +332,15 @@ export async function deleteStatement(auth: BookAuth, id: number): Promise<void>
 
 export async function retryStatement(auth: BookAuth, id: number): Promise<Statement> {
   const res = await bookFetch(auth, `/api/bookkeeping/statements/${id}/retry`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** "Re-read all" under the Problems filter: every statement `rereadable` says, read again. */
+export async function retryProblemStatements(auth: BookAuth): Promise<{ queued: number }> {
+  const res = await bookFetch(auth, '/api/bookkeeping/statements/retry-problems', {
     method: 'POST',
   })
   if (!res.ok) throw await errorFrom(res)

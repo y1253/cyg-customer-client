@@ -7,6 +7,7 @@ import {
   fetchAttachments,
   isBusyAttachment,
   retryAttachment,
+  retryAttachments,
   setAttachmentTransaction,
   uploadAttachments,
   type FilePlace,
@@ -91,11 +92,15 @@ export function useAttachmentActions() {
     mutationFn: (id: number) => retryAttachment(book.auth, id),
     onSettled: invalidate,
   })
+  const retryAll = useMutation({
+    mutationFn: (ids: number[]) => retryAttachments(book.auth, ids),
+    onSettled: invalidate,
+  })
   const remove = useMutation({
     mutationFn: (id: number) => deleteAttachment(book.auth, id),
     onSettled: invalidate,
   })
-  return { attach, applyItems, retry, remove }
+  return { attach, applyItems, retry, retryAll, remove }
 }
 
 /** The protected file as an object URL while mounted; revoked on unmount or change. */
