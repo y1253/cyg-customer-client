@@ -76,9 +76,14 @@ export type Statement = {
    * missing before it, or no balance could be read.
    */
   problem?: StatementProblem | null
+  /** step2 (2026-11-12): the printed balances as read (null = not read). */
+  openingBalance?: number | null
+  closingBalance?: number | null
+  /** Where it ends: the printed closing, else opening ± its rows (a card: the amount owed). */
+  endingBalance?: number | null
 }
 
-export type StatementProblemKind = 'BALANCE' | 'MISMATCH' | 'MISSING' | 'NO_BALANCES'
+export type StatementProblemKind = 'BALANCE' | 'ENDING' | 'MISMATCH' | 'MISSING' | 'NO_BALANCES'
 export type StatementProblem = { kind: StatementProblemKind; title: string; text: string }
 
 /**
@@ -87,7 +92,15 @@ export type StatementProblem = { kind: StatementProblemKind; title: string; text
  * MISMATCH = the periods touch, but the previous closing is not this opening.
  */
 export type StartReason =
-  | { kind: 'MISSING'; previousStatementId: number; from: string; to: string | null }
+  | {
+      kind: 'MISSING'
+      previousStatementId: number
+      from: string
+      to: string | null
+      /** Where the previous statement ended / this one opens (step2, 2026-11-12). */
+      previousClosing?: number | null
+      opening?: number | null
+    }
   | {
       kind: 'MISMATCH'
       previousStatementId: number
@@ -184,7 +197,15 @@ export type AccountBalance = {
   currency?: string
   /** A foreign statement account's balance before conversion (`balance` is converted). */
   foreignBalance?: number
+  /** A statement account: where its books start, up to the period's end (step2, 2026-11-12). */
+  starts?: ReportStart[]
 }
+
+/**
+ * Where a statement account's books start (the server's `ReportStart`): `amount` in the
+ * account's own currency, on the side its balance is shown (a card's amount OWED).
+ */
+export type ReportStart = { date: string | null; amount?: number; reason?: StartReason }
 
 export type ReportLine = {
   name: string
@@ -196,8 +217,8 @@ export type ReportLine = {
   /** A foreign statement account: its currency and `amount` before conversion. */
   currency?: string
   foreignAmount?: number
-  /** Balance sheet, statement accounts: the dates its books start. More than one = a break. */
-  starts?: Array<{ date: string | null; reason?: StartReason }>
+  /** Balance sheet, statement accounts: where its books start. More than one = a break. */
+  starts?: ReportStart[]
 }
 
 /** `GET /api/bookkeeping/reports` — chart of accounts + income statement for the period, balance sheet as of its end. */

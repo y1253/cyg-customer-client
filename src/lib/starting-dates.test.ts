@@ -60,3 +60,21 @@ describe('startingNote', () => {
     expect(startingNote([{ date: '2026-01-01' }])?.reasons).toBeUndefined()
   })
 })
+
+describe('starting balances with their amounts (step2, 2026-11-12)', () => {
+  it('one start says its balance', () => {
+    expect(startingNote([{ date: '2024-01-01', amount: 1200 }])).toEqual({
+      text: `Starting balance: 1,200.00 on ${fmtDay('2024-01-01')}`,
+      warn: false,
+    })
+  })
+
+  it('several list each with its amount, and a gap says when the balance jumped', () => {
+    const note = startingNote([
+      { date: '2025-06-21', amount: 0, reason: { kind: 'MISSING', previousStatementId: 1, from: '2025-03-21', to: '2025-06-20', previousClosing: 1024.43, opening: 0 } },
+      { date: '2025-02-21', amount: 0 },
+    ])
+    expect(note?.text).toBe(`Starting dates: ${fmtDay('2025-02-21')} (0.00) · ${fmtDay('2025-06-21')} (0.00)`)
+    expect(note?.reasons?.[0]).toContain('and the balance went from 1,024.43 to 0.00')
+  })
+})

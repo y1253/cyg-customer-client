@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Statement } from '@/api/bookkeeping'
-import { folderOf, groupByAccount, startsByFolder } from './statement-folders'
+import { balanceLine, folderOf, groupByAccount, startsByFolder } from './statement-folders'
 
 const s = (id: number, extra: Partial<Statement>): Statement => ({
   id,
@@ -48,7 +48,31 @@ describe('startsByFolder', () => {
       s(3, { accountName: 'TD 5234', startingBalance: { date: '2024-10-31', amount: 3849.57 } }),
       s(4, { accountName: 'BMO 2304' }),
     ])
-    expect(starts.get('TD 5234')).toEqual([{ date: '2023-12-29' }, { date: '2024-10-31' }])
+    expect(starts.get('TD 5234')).toEqual([
+      { date: '2023-12-29', amount: 3392.74 },
+      { date: '2024-10-31', amount: 3849.57 },
+    ])
     expect(starts.has('BMO 2304')).toBe(false)
+  })
+})
+
+describe('starting balances and balance lines (step2, 2026-11-12)', () => {
+  it('a folder start carries its amount; a card shows the amount owed', () => {
+    const starts = startsByFolder([
+      s(1, { accountName: 'TD 5234', startingBalance: { date: '2024-01-01', amount: 1200 } }),
+      s(2, { accountName: 'Chase 4148', accountKind: 'CREDIT_CARD', startingBalance: { date: '2025-01-01', amount: -500 } }),
+    ])
+    expect(starts.get('TD 5234')).toEqual([{ date: '2024-01-01', amount: 1200 }])
+    expect(starts.get('Chase 4148')).toEqual([{ date: '2025-01-01', amount: 500 }])
+  })
+
+  it('says where a read statement starts and ends', () => {
+    expect(balanceLine(s(1, { openingBalance: 1200, endingBalance: 1450 }))).toBe('Starts 1,200.00 · ends 1,450.00')
+    expect(balanceLine(s(1, { accountKind: 'CREDIT_CARD', openingBalance: 0, endingBalance: 1024.43 }))).toBe(
+      'Starts owes 0.00 · ends owes 1,024.43',
+    )
+    expect(balanceLine(s(1, { openingBalance: null, closingBalance: 50 }))).toBe('Starts not read · ends 50.00')
+    expect(balanceLine(s(1, { status: 'UPLOADED', openingBalance: 1 }))).toBeNull()
+    expect(balanceLine(s(1, {}))).toBeNull()
   })
 })

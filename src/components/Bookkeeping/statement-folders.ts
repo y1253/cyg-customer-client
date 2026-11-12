@@ -1,5 +1,6 @@
 import type { Statement } from '@/api/bookkeeping'
 import type { StartingDate } from '@/lib/starting-dates'
+import { money } from '@/lib/money'
 
 /**
  * Statements filed in one folder per bank / card account. An account IS its name in the
@@ -72,7 +73,26 @@ export function startsByFolder(statements: Statement[]): Map<string, StartingDat
     const account = folderOf(s)
     if (!s.startingBalance || account === null) continue
     const { date, reason } = s.startingBalance
-    out.set(account, [...(out.get(account) ?? []), reason ? { date, reason } : { date }])
+    // The ledger amount; a card's is negative there — shown as the amount OWED, like its balance.
+    const amount = (s.accountKind === 'CREDIT_CARD' ? -s.startingBalance.amount : s.startingBalance.amount) || 0
+    out.set(account, [...(out.get(account) ?? []), reason ? { date, amount, reason } : { date, amount }])
   }
   return out
+}
+
+/**
+ * step2 (2026-11-12): where a read statement starts and ends, under its name on Bank feeds
+ * ("Starts $1,200.00 · ends $1,450.00"; a card: "owes"), so an ending that does not carry
+ * into the next statement can be seen. Null when it is not read or no balance is known.
+ */
+export function balanceLine(
+  s: Pick<Statement, 'status' | 'accountKind' | 'openingBalance' | 'closingBalance' | 'endingBalance'>,
+): string | null {
+  if (s.status !== 'DONE' && s.status !== 'NEEDS_REVIEW') return null
+  const open = s.openingBalance ?? null
+  const end = s.endingBalance ?? s.closingBalance ?? null
+  if (open === null && end === null) return null
+  const card = s.accountKind === 'CREDIT_CARD'
+  const at = (n: number | null) => (n === null ? 'not read' : `${card ? 'owes ' : ''}${money(n)}`)
+  return `Starts ${at(open)} · ends ${at(end)}`
 }

@@ -30,6 +30,9 @@ import {
   useRefreshBank,
 } from '@/hooks/useBankFeeds'
 import { money } from '@/lib/money'
+import { fmtDay } from '@/lib/period'
+import { useStatements } from '@/hooks/useStatements'
+import { startsByFolder } from './statement-folders'
 import { cn } from '@/lib/utils'
 import { BankStartDatesDialog } from './BankStartDatesDialog'
 
@@ -77,6 +80,8 @@ export function BankConnectionsCard({ className }: { className?: string }) {
   const [later, setLater] = useState<number[]>([])
   const [detailFor, setDetailFor] = useState<number | null>(null)
   const list = connections.data ?? []
+  // step2 (2026-11-12): where each account's books start — its folder's first starting balance.
+  const starts = startsByFolder(useStatements().data ?? [])
   const error = connect.error ?? refresh.error ?? disconnect.error
   if (!enabled) return null
 
@@ -216,6 +221,18 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                               · {a.startDate ? `from ${dayLabel(a.startDate)}` : 'all history'}
                             </span>
                           )}
+                          {(() => {
+                            const first = starts.get(a.accountName)?.[0]
+                            if (first?.amount === undefined) return null
+                            return (
+                              <span className="text-muted-foreground">
+                                {' '}
+                                · starting balance {a.kind === 'CREDIT_CARD' ? 'owed ' : ''}
+                                {money(first.amount)}
+                                {first.date ? ` on ${fmtDay(first.date)}` : ''}
+                              </span>
+                            )
+                          })()}
                         </span>
                         {a.currentBalance !== null && (
                           <span className="shrink-0 tabular-nums text-muted-foreground">

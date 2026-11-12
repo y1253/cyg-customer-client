@@ -57,7 +57,15 @@ import { StatementChat } from '@/components/Assistant/StatementChat'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { InlineRename } from './InlineRename'
 import { statementDragProps, useFolderDrop } from './statement-drag'
-import { folderKey, folderOf, groupByAccount, isFiled, startsByFolder, type StatementFolder } from './statement-folders'
+import {
+  balanceLine,
+  folderKey,
+  folderOf,
+  groupByAccount,
+  isFiled,
+  startsByFolder,
+  type StatementFolder,
+} from './statement-folders'
 import { STARTS_WARNING, startingNote, type StartingDate } from '@/lib/starting-dates'
 
 // The check against the bank's own totals happens on the server and is kept there; the
@@ -412,6 +420,9 @@ export function StatementsList({
                       {subtitle(s, home)}
                       {s.movedByCustomer && ' · moved by you'}
                     </p>
+                    {balanceLine(s) && (
+                      <p className="truncate text-xs tabular-nums text-muted-foreground">{balanceLine(s)}</p>
+                    )}
                     {(failed || (assistant && !isBusy(s) && s.status !== 'UPLOADED')) && (
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                         {failed && (

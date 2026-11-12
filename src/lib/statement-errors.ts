@@ -8,6 +8,16 @@ export function statementHelp(
   s: Pick<Statement, 'status' | 'error'>,
   problem?: StatementProblemKind,
 ): { what: string; todo: string[] } | null {
+  // step2 (2026-11-12): read and in the books, but its own rows don't reach its ending balance.
+  if (problem === 'ENDING')
+    return {
+      what:
+        "Its opening balance plus the money in and out we read doesn't come to the ending balance printed on it, so a transaction was read wrong or skipped. Its transactions are in your books as read until it is fixed.",
+      todo: [
+        'Try again — it is read once more from scratch.',
+        'Ask AI and tell it the balances printed on the statement, or which transaction is wrong; it fixes how it is read and checks again.',
+      ],
+    }
   // step2 (2026-11-11): a read statement whose balances don't carry over / have a gap.
   if (problem === 'MISMATCH')
     return {
