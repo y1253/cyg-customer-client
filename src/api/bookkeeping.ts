@@ -69,7 +69,7 @@ export type Statement = {
    * Set when this statement STARTS its account's books — a "Starting balance" row in the
    * ledger. Only the statements list carries it.
    */
-  startingBalance?: { date: string | null; amount: number; reason?: StartReason } | null
+  startingBalance?: { date: string | null; amount?: number; reason?: StartReason } | null
   /**
    * step2 (2026-11-11): what is wrong with it, said plainly (null = nothing): its rows don't
    * match its balance, it doesn't carry over from the previous statement, statements are
@@ -108,6 +108,8 @@ export type StartReason =
       previousClosing: number | null
       opening: number
     }
+  /** The statement before it needs review (out of the books), so the books start again here. */
+  | { kind: 'REVIEW'; previousStatementId: number; previousEnd: string | null }
 
 export type LedgerTransaction = {
   /** Unique per row (`t:`, `s:` split, `o:` starting balance, `x:` tax line) — use as the React key. */

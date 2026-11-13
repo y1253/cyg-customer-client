@@ -77,4 +77,11 @@ describe('starting balances with their amounts (step2, 2026-11-12)', () => {
     expect(note?.text).toBe(`Starting dates: ${fmtDay('2025-02-21')} (0.00) · ${fmtDay('2025-06-21')} (0.00)`)
     expect(note?.reasons?.[0]).toContain('and the balance went from 1,024.43 to 0.00')
   })
+
+  it('a $0 first start shows its balance; after a statement that needs review it says so (Madam recovery, 2026-11-12)', () => {
+    expect(startingNote([{ date: '2025-01-31', amount: 0 }])?.text).toBe(`Starting balance: 0.00 on ${fmtDay('2025-01-31')}`)
+    expect(startReasonText('2026-07-26', { kind: 'REVIEW', previousStatementId: 265, previousEnd: '2026-06-25' })).toBe(
+      `${fmtDay('2026-07-26')}: the statement ending ${fmtDay('2026-06-25')} needs review, so the books start again here`,
+    )
+  })
 })

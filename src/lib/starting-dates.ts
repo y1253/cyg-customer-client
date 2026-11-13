@@ -49,6 +49,7 @@ export function startReasonText(date: string | null, r: StartReason): string {
     return `${at}: missing statement ${fmtDay(r.from)} – ${r.to ? fmtDay(r.to) : 'this one'}${jump}`
   }
   const before = r.previousEnd ? `the statement ending ${fmtDay(r.previousEnd)}` : 'the statement before'
+  if (r.kind === 'REVIEW') return `${at}: ${before} needs review, so the books start again here`
   const closed = r.previousClosing === null ? 'has no closing balance read' : `closes at ${money(r.previousClosing)}`
   return `${at}: balances don't carry over — ${before} ${closed}, this one opens at ${money(r.opening)}`
 }

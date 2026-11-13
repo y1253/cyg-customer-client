@@ -72,10 +72,12 @@ export function startsByFolder(statements: Statement[]): Map<string, StartingDat
   for (const s of statements) {
     const account = folderOf(s)
     if (!s.startingBalance || account === null) continue
-    const { date, reason } = s.startingBalance
+    const { date, reason, amount: raw } = s.startingBalance
     // The ledger amount; a card's is negative there — shown as the amount OWED, like its balance.
-    const amount = (s.accountKind === 'CREDIT_CARD' ? -s.startingBalance.amount : s.startingBalance.amount) || 0
-    out.set(account, [...(out.get(account) ?? []), reason ? { date, amount, reason } : { date, amount }])
+    // None = its opening was not read: the date only.
+    const amount = raw === undefined ? undefined : (s.accountKind === 'CREDIT_CARD' ? -raw : raw) || 0
+    const start: StartingDate = amount === undefined ? { date } : { date, amount }
+    out.set(account, [...(out.get(account) ?? []), reason ? { ...start, reason } : start])
   }
   return out
 }

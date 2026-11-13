@@ -66,6 +66,11 @@ describe('starting balances and balance lines (step2, 2026-11-12)', () => {
     expect(starts.get('Chase 4148')).toEqual([{ date: '2025-01-01', amount: 500 }])
   })
 
+  it('a start whose opening was not read has a date and no amount', () => {
+    const starts = startsByFolder([s(1, { accountName: 'Wise Eur', startingBalance: { date: '2025-05-04' } })])
+    expect(starts.get('Wise Eur')).toEqual([{ date: '2025-05-04' }])
+  })
+
   it('says where a read statement starts and ends', () => {
     expect(balanceLine(s(1, { openingBalance: 1200, endingBalance: 1450 }))).toBe('Starts 1,200.00 · ends 1,450.00')
     expect(balanceLine(s(1, { accountKind: 'CREDIT_CARD', openingBalance: 0, endingBalance: 1024.43 }))).toBe(
