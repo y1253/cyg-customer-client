@@ -79,6 +79,11 @@ export type Attachment = {
    * — `attachmentObjectUrl(…, true)` gives the whole image.
    */
   cropped?: boolean
+  /**
+   * step2 (2026-11-13): the picture was cleaned up before it was stored (upright, readable
+   * size, contrast, sharpen — never cropped) — `attachmentObjectUrl(…, 'raw')` gives it as sent.
+   */
+  hasOriginal?: boolean
   /** step9: the other documents read off the same image (only on a single fetch). */
   siblings?: number[]
   /**
@@ -241,9 +246,11 @@ export async function deleteAttachment(auth: BookAuth, id: number): Promise<void
 }
 
 /** The file as an object URL (the route needs the Bearer token, so no plain link). Revoke it when done. */
-export async function attachmentObjectUrl(auth: BookAuth, id: number, original = false): Promise<string> {
-  // step9: `original` = the whole image a cropped file was cut out of.
-  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/file${original ? '?original=1' : ''}`)
+export async function attachmentObjectUrl(auth: BookAuth, id: number, original: boolean | 'raw' = false): Promise<string> {
+  // step9: `original` = the whole image a cropped file was cut out of; step2 (2026-11-13):
+  // 'raw' = the picture exactly as it arrived, before the clean-up pass.
+  const query = original === 'raw' ? '?raw=1' : original ? '?original=1' : ''
+  const res = await bookFetch(auth, `/api/bookkeeping/attachments/${id}/file${query}`)
   if (!res.ok) throw await errorFrom(res)
   return URL.createObjectURL(await res.blob())
 }

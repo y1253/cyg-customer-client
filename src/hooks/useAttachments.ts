@@ -108,8 +108,8 @@ export function useAttachmentUrl(
   id: number | null,
   /** step9: changes when the file itself changes (a re-read cut it), so it is fetched again. */
   version = '',
-  /** step9: the whole image a cropped file was cut out of. */
-  original = false,
+  /** step9: the whole image a cropped file was cut out of; 'raw' = as sent (step2, 2026-11-13). */
+  original: boolean | 'raw' = false,
 ) {
   const { token, companyId, bookId } = useBook()
   const [state, setState] = useState<{ id: number; url: string | null; error: string | null } | null>(null)

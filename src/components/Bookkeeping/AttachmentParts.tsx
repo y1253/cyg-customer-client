@@ -80,30 +80,38 @@ export function AttachmentStatusBadge({ a }: { a: Attachment }) {
  * The file itself: a picture, a player, or the PDF in a frame. Fetched with the token. A
  * text message has no file worth showing — its words are shown by `ReadingSummary`.
  */
-type Previewed = Pick<Attachment, 'id' | 'mimeType' | 'filename'> & Partial<Pick<Attachment, 'size' | 'cropped'>>
+type Previewed = Pick<Attachment, 'id' | 'mimeType' | 'filename'> &
+  Partial<Pick<Attachment, 'size' | 'cropped' | 'hasOriginal'>>
 
 export function AttachmentPreview({ a }: { a: Previewed }) {
-  const [whole, setWhole] = useState(false)
+  // The file, the whole image a crop was cut from (step9), or the picture as it was sent
+  // before the clean-up pass (step2, 2026-11-13).
+  const [view, setView] = useState<'file' | 'whole' | 'raw'>('file')
   if (a.mimeType.startsWith('text/')) return null
+  const toggle = (v: 'whole' | 'raw') => setView((cur) => (cur === v ? 'file' : v))
   return (
     <div className="flex flex-col gap-1">
-      <FilePreview a={a} whole={whole} />
-      {/* step9: a cheque cut out of an image that held several — the whole image on demand. */}
-      {a.cropped && (
-        <button
-          type="button"
-          onClick={() => setWhole((w) => !w)}
-          className="self-start text-xs font-medium text-brand hover:underline"
-        >
-          {whole ? 'Show only this document' : 'Show the whole image it was cut from'}
-        </button>
-      )}
+      <FilePreview a={a} view={view} />
+      <div className="flex flex-wrap gap-x-3">
+        {/* step9: a cheque cut out of an image that held several — the whole image on demand. */}
+        {a.cropped && (
+          <button type="button" onClick={() => toggle('whole')} className="text-xs font-medium text-brand hover:underline">
+            {view === 'whole' ? 'Show only this document' : 'Show the whole image it was cut from'}
+          </button>
+        )}
+        {a.hasOriginal && (
+          <button type="button" onClick={() => toggle('raw')} className="text-xs font-medium text-brand hover:underline">
+            {view === 'raw' ? 'Show the cleaned-up picture' : 'Show the original photo'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
 
-function FilePreview({ a, whole }: { a: Previewed; whole: boolean }) {
-  const file = useAttachmentUrl(a.id, `${a.size ?? ''}:${a.mimeType}`, whole)
+function FilePreview({ a, view }: { a: Previewed; view: 'file' | 'whole' | 'raw' }) {
+  const whole = view !== 'file'
+  const file = useAttachmentUrl(a.id, `${a.size ?? ''}:${a.mimeType}`, view === 'raw' ? 'raw' : whole)
   if (file.error) return <p className="text-sm text-destructive">{file.error}</p>
   if (!file.url) {
     return (

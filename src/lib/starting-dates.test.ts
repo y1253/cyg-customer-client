@@ -80,6 +80,12 @@ describe('starting balances with their amounts (step2, 2026-11-12)', () => {
 
   it('a $0 first start shows its balance; after a statement that needs review it says so (Madam recovery, 2026-11-12)', () => {
     expect(startingNote([{ date: '2025-01-31', amount: 0 }])?.text).toBe(`Starting balance: 0.00 on ${fmtDay('2025-01-31')}`)
+    expect(startingNote([{ date: '2025-05-01', amount: 400, derived: 'CLOSING' }])?.text).toBe(
+      `Starting balance: 400.00 on ${fmtDay('2025-05-01')} (worked out from the closing balance)`,
+    )
+    expect(startingNote([{ date: '2025-05-01', amount: 0, derived: 'ZERO' }])?.text).toBe(
+      `Starting balance: 0.00 on ${fmtDay('2025-05-01')} (not printed — set at 0.00)`,
+    )
     expect(startReasonText('2026-07-26', { kind: 'REVIEW', previousStatementId: 265, previousEnd: '2026-06-25' })).toBe(
       `${fmtDay('2026-07-26')}: the statement ending ${fmtDay('2026-06-25')} needs review, so the books start again here`,
     )

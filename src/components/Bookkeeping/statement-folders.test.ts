@@ -80,4 +80,21 @@ describe('starting balances and balance lines (step2, 2026-11-12)', () => {
     expect(balanceLine(s(1, { status: 'UPLOADED', openingBalance: 1 }))).toBeNull()
     expect(balanceLine(s(1, {}))).toBeNull()
   })
+
+  it('an opening that was not read is worked out, shown and marked (step2, 2026-11-13)', () => {
+    const starts = startsByFolder([
+      s(1, { accountName: 'Wise Usd', startingBalance: { date: '2025-05-01', amount: 400, derived: 'CLOSING' } }),
+      s(2, { accountName: 'Amex', accountKind: 'CREDIT_CARD', startingBalance: { date: '2025-05-01', amount: -700, derived: 'CLOSING' } }),
+    ])
+    expect(starts.get('Wise Usd')).toEqual([{ date: '2025-05-01', amount: 400, derived: 'CLOSING' }])
+    expect(starts.get('Amex')).toEqual([{ date: '2025-05-01', amount: 700, derived: 'CLOSING' }])
+    expect(
+      balanceLine(s(1, { openingBalance: null, closingBalance: 500, startingBalance: { date: '2025-05-01', amount: 400, derived: 'CLOSING' } })),
+    ).toBe('Starts 400.00 (worked out) · ends 500.00')
+    expect(
+      balanceLine(
+        s(2, { accountKind: 'CREDIT_CARD', openingBalance: null, closingBalance: 900, startingBalance: { date: '2025-05-01', amount: -700, derived: 'CLOSING' } }),
+      ),
+    ).toBe('Starts owes 700.00 (worked out) · ends owes 900.00')
+  })
 })

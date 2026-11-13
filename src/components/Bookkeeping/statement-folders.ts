@@ -72,11 +72,11 @@ export function startsByFolder(statements: Statement[]): Map<string, StartingDat
   for (const s of statements) {
     const account = folderOf(s)
     if (!s.startingBalance || account === null) continue
-    const { date, reason, amount: raw } = s.startingBalance
+    const { date, reason, derived, amount: raw } = s.startingBalance
     // The ledger amount; a card's is negative there — shown as the amount OWED, like its balance.
     // None = its opening was not read: the date only.
     const amount = raw === undefined ? undefined : (s.accountKind === 'CREDIT_CARD' ? -raw : raw) || 0
-    const start: StartingDate = amount === undefined ? { date } : { date, amount }
+    const start: StartingDate = amount === undefined ? { date } : { date, amount, ...(derived && { derived }) }
     out.set(account, [...(out.get(account) ?? []), reason ? { ...start, reason } : start])
   }
   return out
@@ -88,13 +88,15 @@ export function startsByFolder(statements: Statement[]): Map<string, StartingDat
  * into the next statement can be seen. Null when it is not read or no balance is known.
  */
 export function balanceLine(
-  s: Pick<Statement, 'status' | 'accountKind' | 'openingBalance' | 'closingBalance' | 'endingBalance'>,
+  s: Pick<Statement, 'status' | 'accountKind' | 'openingBalance' | 'closingBalance' | 'endingBalance' | 'startingBalance'>,
 ): string | null {
   if (s.status !== 'DONE' && s.status !== 'NEEDS_REVIEW') return null
-  const open = s.openingBalance ?? null
+  const card = s.accountKind === 'CREDIT_CARD'
+  // step2 (2026-11-13): an opening that was not read but starts the books was worked out.
+  const worked = s.openingBalance == null && s.startingBalance?.derived ? s.startingBalance.amount : undefined
+  const open = s.openingBalance ?? (worked === undefined ? null : (card ? -worked : worked) || 0)
   const end = s.endingBalance ?? s.closingBalance ?? null
   if (open === null && end === null) return null
-  const card = s.accountKind === 'CREDIT_CARD'
   const at = (n: number | null) => (n === null ? 'not read' : `${card ? 'owes ' : ''}${money(n)}`)
-  return `Starts ${at(open)} · ends ${at(end)}`
+  return `Starts ${at(open)}${worked === undefined ? '' : ' (worked out)'} · ends ${at(end)}`
 }

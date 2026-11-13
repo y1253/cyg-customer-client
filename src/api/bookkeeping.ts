@@ -69,7 +69,8 @@ export type Statement = {
    * Set when this statement STARTS its account's books — a "Starting balance" row in the
    * ledger. Only the statements list carries it.
    */
-  startingBalance?: { date: string | null; amount?: number; reason?: StartReason } | null
+  /** `derived` (step2, 2026-11-13): its opening was not read — worked out from its closing balance (CLOSING), or $0 (ZERO). */
+  startingBalance?: { date: string | null; amount?: number; derived?: StartDerived; reason?: StartReason } | null
   /**
    * step2 (2026-11-11): what is wrong with it, said plainly (null = nothing): its rows don't
    * match its balance, it doesn't carry over from the previous statement, statements are
@@ -207,7 +208,10 @@ export type AccountBalance = {
  * Where a statement account's books start (the server's `ReportStart`): `amount` in the
  * account's own currency, on the side its balance is shown (a card's amount OWED).
  */
-export type ReportStart = { date: string | null; amount?: number; reason?: StartReason }
+export type ReportStart = { date: string | null; amount?: number; derived?: StartDerived; reason?: StartReason }
+
+/** How a start whose opening was not read got its amount (see `Statement.startingBalance`). */
+export type StartDerived = 'CLOSING' | 'ZERO'
 
 export type ReportLine = {
   name: string

@@ -1,4 +1,4 @@
-import type { StartReason } from '@/api/bookkeeping'
+import type { StartDerived, StartReason } from '@/api/bookkeeping'
 import { money } from './money'
 import { fmtDay } from './period'
 
@@ -7,7 +7,13 @@ import { fmtDay } from './period'
  * (step2, 2026-11-12) = the balance the books start at, on the side the account is shown:
  * a bank's cash, a card's amount OWED.
  */
-export type StartingDate = { date: string | null; amount?: number; reason?: StartReason }
+export type StartingDate = { date: string | null; amount?: number; derived?: StartDerived; reason?: StartReason }
+
+/** Why a start's amount was not printed (step2, 2026-11-13): it was worked out, or set at $0. */
+const DERIVED_TEXT: Record<StartDerived, string> = {
+  CLOSING: 'worked out from the closing balance',
+  ZERO: 'not printed — set at 0.00',
+}
 
 /**
  * How an account's starting balances read, on the Statements folders and the balance
@@ -30,9 +36,14 @@ export function startingNote(
     const [only] = sorted
     return only.amount === undefined
       ? { text: `Starting date: ${day(only)}`, warn: false }
-      : { text: `Starting balance: ${money(only.amount)} on ${day(only)}`, warn: false }
+      : {
+          text: `Starting balance: ${money(only.amount)} on ${day(only)}${only.derived ? ` (${DERIVED_TEXT[only.derived]})` : ''}`,
+          warn: false,
+        }
   }
-  const labels = sorted.map((s) => (s.amount === undefined ? day(s) : `${day(s)} (${money(s.amount)})`))
+  const labels = sorted.map((s) =>
+    s.amount === undefined ? day(s) : `${day(s)} (${money(s.amount)}${s.derived ? ', worked out' : ''})`,
+  )
   const reasons = sorted.flatMap((s) => (s.reason ? [startReasonText(s.date, s.reason)] : []))
   return { text: `Starting dates: ${labels.join(' · ')}`, warn: true, ...(reasons.length ? { reasons } : {}) }
 }
