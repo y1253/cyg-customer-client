@@ -1,11 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react'
-import type { AccountType, Reports, ReportLine } from '@/api/bookkeeping'
+import type { AccountStatementError, AccountType, Reports, ReportLine } from '@/api/bookkeeping'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
+import { AccountErrors } from './AccountErrors'
 import { ForeignAmount } from './AccountCurrency'
 import { DropSection, MoveMenu } from './AccountMove'
 import { dragProps, useAccountDrop } from './account-move'
@@ -93,6 +94,7 @@ export function ReportSection({
                 foreign={l.currency !== undefined && l.foreignAmount !== undefined ? { currency: l.currency, amount: l.foreignAmount } : undefined}
                 byName={l.byName}
                 note={note}
+                errors={l.errors}
                 onClick={account && onOpen ? () => onOpen(l) : undefined}
                 drag={account && type && onMove ? dragProps(l.name, !!l.bank) : undefined}
                 merge={
@@ -214,6 +216,38 @@ function ByName({ lines }: { lines: ReportLine[] }) {
   )
 }
 
+/** A statement account's starting-balance line (`startingNote`); `warn` = red. */
+export type AccountStartNote = { text: string; warn: boolean; reasons?: string[] }
+
+/**
+ * Under a statement account's name: where its books start, then (step9, 2026-11-15) every
+ * open error of its statements. Spans only — it sits inside a report row's button.
+ */
+export function AccountNote({ note, errors }: { note?: AccountStartNote | null; errors?: AccountStatementError[] }) {
+  return (
+    <>
+      {note && (
+        <span className={cn('text-xs font-normal', note.warn ? 'text-red-600' : 'truncate text-muted-foreground')}>
+          {note.text}
+          {/* step8: the whole list of dates, and why more than one is a problem — never cut off. */}
+          {/* Why each later start is there; the general warning only when no reason is known. */}
+          {note.warn &&
+            (note.reasons?.length ? (
+              note.reasons.map((r) => (
+                <span key={r} className="block text-red-600/80">
+                  {r}
+                </span>
+              ))
+            ) : (
+              <span className="block text-red-600/80">{STARTS_WARNING}</span>
+            ))}
+        </span>
+      )}
+      <AccountErrors errors={errors} className="mt-0.5" />
+    </>
+  )
+}
+
 export function ReportRow({
   label,
   amount,
@@ -225,13 +259,16 @@ export function ReportRow({
   action,
   foreign,
   note,
+  errors,
   merge,
   rename,
 }: {
   label: string
   amount: number
   /** A small line under the label (a statement account's start dates); `warn` = red. */
-  note?: { text: string; warn: boolean; reasons?: string[] }
+  note?: AccountStartNote
+  /** step9: a statement account's open statement errors, listed under the label. */
+  errors?: AccountStatementError[]
   /** A foreign statement account: the amount before conversion, shown small underneath. */
   foreign?: { currency: string; amount: number }
   strong?: boolean
@@ -251,24 +288,10 @@ export function ReportRow({
   const drop = useAccountDrop(label, merge?.bank ?? false, merge?.onMerge)
   const body = (
     <>
-      {note ? (
+      {note || errors?.length ? (
         <span className="flex min-w-0 flex-col">
           <span className="truncate">{label}</span>
-          <span className={cn('text-xs font-normal', note.warn ? 'text-red-600' : 'truncate text-muted-foreground')}>
-            {note.text}
-            {/* step8: the whole list of dates, and why more than one is a problem — never cut off. */}
-            {/* Why each later start is there; the general warning only when no reason is known. */}
-            {note.warn &&
-              (note.reasons?.length ? (
-                note.reasons.map((r) => (
-                  <span key={r} className="block text-red-600/80">
-                    {r}
-                  </span>
-                ))
-              ) : (
-                <span className="block text-red-600/80">{STARTS_WARNING}</span>
-              ))}
-          </span>
+          <AccountNote note={note} errors={errors} />
         </span>
       ) : (
         <span className="min-w-0 truncate">{label}</span>

@@ -340,7 +340,8 @@ export function LedgerTable({
       ? byName
           .map((g) => {
             const ids = new Set(g.filter((t) => t.subName?.id === subName.id && t.kind !== 'tax').map((t) => t.id))
-            return g.filter((t) => ids.has(t.id) && (t.subName?.id === subName.id || t.kind === 'tax'))
+            // A tax line has its own sub-name ("Walmart - GST"); a matched row keeps its tax lines.
+            return g.filter((t) => t.subName?.id === subName.id || (t.kind === 'tax' && ids.has(t.id)))
           })
           .filter((g) => g.length > 0)
       : byName
@@ -708,10 +709,15 @@ export function LedgerTable({
                           title="Change the name or category"
                           className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
                         >
-                          {t.name ?? <Unclarified />}
+                          {t.subName?.name ?? t.name ?? <Unclarified />}
                         </button>
                       )}
                     </span>
+                    {t.subName && !t.kind && (
+                      <span className="block truncate text-[11px] font-normal text-muted-foreground" title="Counted under this name">
+                        under {t.name}
+                      </span>
+                    )}
                     {t.exception && (
                       <span
                         className="block truncate text-[11px] font-normal text-amber-700"
@@ -1039,12 +1045,17 @@ function TaxRow({
               title="Change this tax line's name"
               className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
             >
-              {t.name ?? <span className="text-slate-400">Add name</span>}
+              {t.subName?.name ?? t.name ?? <span className="text-slate-400">Add name</span>}
             </button>
           ) : (
-            t.name
+            (t.subName?.name ?? t.name)
           )}
         </span>
+        {t.subName && t.rowName && (
+          <span className="block truncate text-[11px] text-muted-foreground" title="Counted under this name">
+            under {t.rowName}
+          </span>
+        )}
         <span className="mt-1 flex flex-col gap-1 md:hidden">
           {agency}
           <AccountStack t={t} tax />

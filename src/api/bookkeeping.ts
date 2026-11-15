@@ -185,6 +185,8 @@ export type LedgerTransaction = {
   taxRate?: number
   /** On a tax row: the agency — the key for renaming the line. */
   taxAgencyId?: number
+  /** step9: on a tax row, the name of the row it taxes (its "Always" rename covers that name). */
+  rowName?: string | null
   /** On a transaction row: its receipts, cheques and voice notes. */
   attachments?: Array<{ id: number; kind: AttachmentKind; filename: string }>
 }
@@ -232,6 +234,22 @@ export type AccountBalance = {
   foreignBalance?: number
   /** A statement account: where its books start, up to the period's end (step2, 2026-11-12). */
   starts?: ReportStart[]
+  /** step9 (2026-11-15): a statement account's open statement errors, every one. */
+  errors?: AccountStatementError[]
+}
+
+/**
+ * step9 (2026-11-15): one open error of a statement filed under an account, as the Balance
+ * sheet and the Chart of accounts show it under the account's name.
+ */
+export type AccountStatementError = {
+  statementId: number
+  /** "Chase 4362 · Sep 2026". */
+  statement: string
+  kind: StatementProblemKind
+  title: string
+  text: string
+  source: 'SYSTEM' | 'AI'
 }
 
 /**
@@ -255,6 +273,8 @@ export type ReportLine = {
   foreignAmount?: number
   /** Balance sheet, statement accounts: where its books start. More than one = a break. */
   starts?: ReportStart[]
+  /** step9 (2026-11-15): a statement account's open statement errors, every one. */
+  errors?: AccountStatementError[]
 }
 
 /** `GET /api/bookkeeping/reports` — chart of accounts + income statement for the period, balance sheet as of its end. */
@@ -872,6 +892,10 @@ export interface SubName {
   name: string
   category: string
   rows: number
+  /** step9: Σ of its money (bank sign, tax included). */
+  total: number
+  /** step9: the sub-name of the name's tax lines for one agency — follows the agency. */
+  tax?: boolean
 }
 
 export async function fetchSubNames(auth: BookAuth): Promise<SubName[]> {
@@ -890,12 +914,21 @@ export async function deleteSubName(auth: BookAuth, id: number): Promise<void> {
   if (!res.ok) throw await errorFrom(res)
 }
 
-/** Name one tax line (an agency's tax on a row); null puts the row's own name back. */
-export async function renameTaxLine(auth: BookAuth, id: number, agencyId: number, name: string | null): Promise<void> {
+/**
+ * Name one tax line (an agency's tax on a row); null puts the row's own name back.
+ * step9: `scope` ALWAYS = every tax line of that agency on the row's name.
+ */
+export async function renameTaxLine(
+  auth: BookAuth,
+  id: number,
+  agencyId: number,
+  name: string | null,
+  scope: 'ONCE' | 'ALWAYS' = 'ONCE',
+): Promise<void> {
   const res = await bookFetch(
     auth,
     `/api/bookkeeping/transactions/${id}/taxes/${agencyId}`,
-    json('PATCH', { name }),
+    json('PATCH', { name, scope }),
   )
   if (!res.ok) throw await errorFrom(res)
 }

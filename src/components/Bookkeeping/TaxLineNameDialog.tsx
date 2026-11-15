@@ -15,7 +15,11 @@ import { useClosingValue } from '@/hooks/useClosingValue'
 import { useRenameTaxLine } from '@/hooks/useSplits'
 import { NamePicker } from './NamePicker'
 
-/** Rename one tax line. Left empty, it shows its transaction's name again. */
+/**
+ * Rename one tax line. Left empty, it shows its transaction's name again (under its sub-name
+ * "<name> - <agency>"). step9: like a split's name — "Only this transaction" or "Always", every
+ * tax line of this agency on the row's name.
+ */
 export function TaxLineNameDialog({
   line,
   onOpenChange,
@@ -33,16 +37,20 @@ export function TaxLineNameDialog({
 
 function TaxLineNameForm({ line, onDone }: { line: LedgerTransaction; onDone: () => void }) {
   const rename = useRenameTaxLine()
-  const [name, setName] = useState(line.name ?? '')
+  // A line not renamed shows its sub-name; its own name is then the row's.
+  const current = line.subName ? '' : (line.name ?? '')
+  const [name, setName] = useState(current)
+  const [scope, setScope] = useState<'ONCE' | 'ALWAYS'>('ONCE')
   const trimmed = name.trim()
-  const changed = trimmed !== (line.name ?? '')
+  const changed = trimmed !== current
+  const rowName = line.rowName ?? line.name
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
         if (!changed || rename.isPending || line.taxAgencyId === undefined) return
-        rename.mutate({ id: line.id, agencyId: line.taxAgencyId, name: trimmed || null }, { onSuccess: onDone })
+        rename.mutate({ id: line.id, agencyId: line.taxAgencyId, name: trimmed || null, scope }, { onSuccess: onDone })
       }}
       className="flex flex-col gap-4"
     >
@@ -54,8 +62,32 @@ function TaxLineNameForm({ line, onDone }: { line: LedgerTransaction; onDone: ()
       </DialogHeader>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="tax-line-name">Name</Label>
-        <NamePicker id="tax-line-name" value={name} onChange={setName} placeholder="e.g. Revenu Québec" autoFocus />
+        <NamePicker
+          id="tax-line-name"
+          value={name}
+          onChange={setName}
+          placeholder={line.subName?.name ?? 'e.g. Revenu Québec'}
+          autoFocus
+        />
       </div>
+      {changed && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Give it to</span>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant={scope === 'ONCE' ? 'default' : 'outline'} onClick={() => setScope('ONCE')}>
+              Only this transaction
+            </Button>
+            <Button type="button" size="sm" variant={scope === 'ALWAYS' ? 'default' : 'outline'} onClick={() => setScope('ALWAYS')}>
+              Always
+            </Button>
+          </div>
+          {scope === 'ALWAYS' && (
+            <p className="text-xs text-muted-foreground">
+              Every {line.offsetAccount} line of {rowName ?? 'this name'}, now and later.
+            </p>
+          )}
+        </div>
+      )}
       {rename.error && <p className="text-sm text-destructive">{rename.error.message}</p>}
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>

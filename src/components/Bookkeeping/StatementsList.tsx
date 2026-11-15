@@ -55,6 +55,7 @@ import { cn } from '@/lib/utils'
 import { statementHelp } from '@/lib/statement-errors'
 import { StatementChat } from '@/components/Assistant/StatementChat'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
+import { AccountErrors, type AccountErrorLine } from './AccountErrors'
 import { InlineRename } from './InlineRename'
 import { statementDragProps, useFolderDrop } from './statement-drag'
 import {
@@ -421,6 +422,11 @@ export function StatementsList({
                       {subtitle(s, home)}
                       {s.movedByCustomer && ' · moved by you'}
                     </p>
+                    {/* step9: the other errors too — every one, always shown. */}
+                    <AccountErrors
+                      errors={(s.errors ?? []).slice(1).map((e) => ({ ...e, statementId: s.id }))}
+                      className="mt-0.5"
+                    />
                     {balanceLine(s) && (
                       <p className="truncate text-xs tabular-nums text-muted-foreground">{balanceLine(s)}</p>
                     )}
@@ -657,6 +663,20 @@ function Folder({
   // One currency for the account only when every read statement in it agrees.
   const currencies = new Set(folder.statements.filter((s) => s.status === 'DONE').map((s) => s.accountCurrency ?? null))
   const currency = currencies.size === 1 ? [...currencies][0] : undefined
+  // step9 (2026-11-15): every open error of the folder's statements, shown on the folder
+  // itself — folded or not.
+  const errors: AccountErrorLine[] = folder.account
+    ? folder.statements.flatMap((s) =>
+        (s.errors?.length ? s.errors : s.problem ? [{ ...s.problem, source: 'SYSTEM' as const }] : []).map((e) => ({
+          statementId: s.id,
+          statement: s.label,
+          kind: e.kind,
+          title: e.title,
+          text: e.text,
+          source: e.source,
+        })),
+      )
+    : []
   return (
     <section
       {...drop.props}
@@ -727,6 +747,7 @@ function Folder({
           )}
         </p>
       )}
+      <AccountErrors errors={errors} className="px-8 pb-1" />
       {open && <ul className="mt-1 flex flex-col gap-2">{children}</ul>}
     </section>
   )
@@ -769,8 +790,8 @@ function StatementDetails({ s }: { s: Statement }) {
   const help = statementHelp(s, s.problem?.kind)
   return (
     <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-[#0B1C2C]/90">
-      {/* step9: every saved error when it has more than the one on its badge. */}
-      {(s.errors?.length ?? 0) > 1 && (
+      {/* step9: every saved error. */}
+      {(s.errors?.length ?? 0) > 0 && (
         <>
           <p className="font-semibold">Every problem with this statement</p>
           <ul className="mt-0.5 mb-2 list-disc space-y-1 pl-5">

@@ -101,8 +101,17 @@ export function useRenameTaxLine() {
   const book = useBook()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: ({ id, agencyId, name }: { id: number; agencyId: number; name: string | null }) =>
-      renameTaxLine(book.auth, id, agencyId, name),
+    mutationFn: ({
+      id,
+      agencyId,
+      name,
+      scope,
+    }: {
+      id: number
+      agencyId: number
+      name: string | null
+      scope?: 'ONCE' | 'ALWAYS'
+    }) => renameTaxLine(book.auth, id, agencyId, name, scope),
     onSettled: invalidate,
   })
 }
