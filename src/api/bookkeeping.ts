@@ -125,8 +125,13 @@ export type LedgerTransaction = {
   description: string
   /** The payee / payer the AI read out of the description ("Walmart"); null when none. */
   name: string | null
-  /** On a split made for a receipt line: that line ("Pampers"). */
+  /** The receipt line the row is for ("Pampers") — the Product column. */
   itemName?: string | null
+  /**
+   * step2 (2026-11-15): a split filed under a sub-name of its name ("Walmart - Maintenance")
+   * with that sub-name's category. `name` stays the parent name.
+   */
+  subName?: { id: number; name: string }
   /** step9: renamed ONE time — the name its description's rules give (it is an exception from it). */
   exception?: { main: string }
   amount: number
@@ -793,6 +798,70 @@ export async function editTransaction(
 /** A transaction's whole set of splits: listed ones kept or made, the rest removed (empty = un-split). */
 export async function saveSplits(auth: BookAuth, id: number, splits: SplitInput[]): Promise<void> {
   const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/splits`, json('PUT', { splits }))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** step2 (2026-11-15): one split edited in place — only the fields sent change. */
+export interface SplitEdit {
+  /** Positive, as typed (with its tax); 0 allowed. */
+  amount?: number
+  name?: string
+  /** ONCE = this split only; ALWAYS = the transaction's description goes to the name. */
+  nameScope?: EditScope
+  replace?: boolean
+  category?: string
+  /** ALL = the name's category (the transaction too); SUB = this split, as a sub-name. */
+  categoryScope?: 'ALL' | 'SUB'
+  /** '' clears it. */
+  itemName?: string
+  always?: boolean
+}
+
+/** step2 (2026-11-15): Split = one more split at $0.00, a copy of the row clicked. */
+export async function duplicateSplit(auth: BookAuth, id: number): Promise<{ id: number }> {
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/splits/duplicate`, { method: 'POST' })
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function editSplit(auth: BookAuth, id: number, values: SplitEdit): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/split`, json('PATCH', values))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+export async function deleteSplit(auth: BookAuth, id: number): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/split`, { method: 'DELETE' })
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** step2 (2026-11-15): a transaction's Product column ('' clears it). */
+export async function setProduct(auth: BookAuth, id: number, itemName: string): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/product`, json('PATCH', { itemName }))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** step2 (2026-11-15): a sub-name of a name ("Walmart - Maintenance") with its own category. */
+export interface SubName {
+  id: number
+  parent: string
+  name: string
+  category: string
+  rows: number
+}
+
+export async function fetchSubNames(auth: BookAuth): Promise<SubName[]> {
+  const res = await bookFetch(auth, '/api/bookkeeping/sub-names')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function setSubNameCategory(auth: BookAuth, id: number, category: string): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/sub-names/${id}`, json('PATCH', { category }))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+export async function deleteSubName(auth: BookAuth, id: number): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/sub-names/${id}`, { method: 'DELETE' })
   if (!res.ok) throw await errorFrom(res)
 }
 

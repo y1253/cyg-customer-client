@@ -4,6 +4,8 @@ import type { SortState } from '@/lib/table-sort'
 export interface LedgerScope {
   account?: string | null
   name?: string | null
+  /** step2 (2026-11-15): only the transactions with this description (Names tab). */
+  description?: string | null
   /** The order it opens in (e.g. by name, from the income statement). */
   sort?: SortState | null
   /** The report period it was opened from (date-only ISO; null = open-ended). */

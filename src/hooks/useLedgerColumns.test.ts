@@ -8,7 +8,9 @@ describe('orderColumns', () => {
 
   it('keeps the saved order, drops columns that are gone, adds new ones', () => {
     const saved = ['amount', 'date', 'c9', 'name', 'description', 'debit', 'credit', 'statement']
+    // A new fixed column (product) goes before the first saved one that follows it by default.
     expect(orderColumns(saved, [...FIXED_COLUMNS, 'c4'])).toEqual([
+      'product',
       'amount',
       'date',
       'name',

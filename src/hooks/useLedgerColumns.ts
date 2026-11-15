@@ -8,13 +8,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
  * fixed folded layout; this applies from md up.
  */
 
-export const FIXED_COLUMNS = ['date', 'name', 'description', 'amount', 'debit', 'credit', 'statement'] as const
+export const FIXED_COLUMNS = ['date', 'name', 'description', 'product', 'amount', 'debit', 'credit', 'statement'] as const
 
 /** Starting widths in px (the old fixed layout, wider description). */
 export const DEFAULT_WIDTHS: Record<string, number> = {
   date: 118,
   name: 200,
   description: 320,
+  product: 160,
   amount: 132,
   debit: 190,
   credit: 190,

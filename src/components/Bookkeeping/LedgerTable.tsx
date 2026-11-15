@@ -30,15 +30,17 @@ import { useBook } from '@/hooks/useBook'
 import { useCustomColumns } from '@/hooks/useCustomColumns'
 import { useLedgerColumns, type LedgerColumns } from '@/hooks/useLedgerColumns'
 import { useIncrementalRows } from '@/hooks/useIncrementalRows'
+import { useDuplicateSplit } from '@/hooks/useSplits'
 import { money } from '@/lib/money'
 import { applyTable, useTableControls, type ColumnDef, type SortState } from '@/lib/table-sort'
 import { rulesText } from '@/lib/custom-columns'
+import { descriptionKey } from '@/lib/description-key'
 import { cn } from '@/lib/utils'
 import { ColumnHeader } from './ColumnHeader'
 import { CustomCell } from './CustomCell'
 import { CustomColumnsDialog } from './CustomColumnsDialog'
 import { NameRuleDialog } from './NameRuleDialog'
-import { SplitDialog, type SplitTarget } from './SplitDialog'
+import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, SplitNameCell } from './SplitCells'
 import { StickyScrollbar } from './StickyScrollbar'
 import { TaxLineNameDialog } from './TaxLineNameDialog'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
@@ -139,6 +141,8 @@ export function LedgerTable({
   to = null,
   onClearRange,
   statementId: initialStatementId = null,
+  description = null,
+  onClearDescription,
 }: {
   transactions: LedgerTransaction[]
   statements: Statement[]
@@ -158,6 +162,9 @@ export function LedgerTable({
   onClearRange?: () => void
   /** step2 (2026-11-11): open on one statement's rows (a statement clicked on the Names tab). */
   statementId?: number | null
+  /** step2 (2026-11-15): only the transactions with this description (clicked on the Names tab). */
+  description?: string | null
+  onClearDescription?: () => void
 }) {
   const [query, setQuery] = useState('')
   const ranged = !!(from || to)
@@ -183,7 +190,23 @@ export function LedgerTable({
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set())
   const [editing, setEditing] = useState<LedgerTransaction | null>(null)
   const [renaming, setRenaming] = useState<LedgerTransaction | null>(null)
-  const [splitting, setSplitting] = useState<SplitTarget | null>(null)
+  // step2 (2026-11-15): Split adds a $0.00 split in place; its amount field takes the focus.
+  const duplicate = useDuplicateSplit()
+  const [newSplitId, setNewSplitId] = useState<number | null>(null)
+  const [splitError, setSplitError] = useState<string | null>(null)
+  const addSplit = (id: number, parentId: number) => {
+    setSplitError(null)
+    setCollapsed((s) => {
+      if (!s.has(parentId)) return s
+      const next = new Set(s)
+      next.delete(parentId)
+      return next
+    })
+    duplicate.mutate(id, {
+      onSuccess: (made) => setNewSplitId(made.id),
+      onError: (e) => setSplitError(e.message),
+    })
+  }
   const [attaching, setAttaching] = useState<LedgerTransaction | null>(null)
   const { auth } = useBook()
   const [openError, setOpenError] = useState<string | null>(null)
@@ -224,33 +247,13 @@ export function LedgerTable({
     })
   const anyOpen = [...family.keys()].some((id) => !collapsed.has(id))
 
-  /** The split dialog for a transaction: its full bank amount and its splits at their full amounts. */
-  const openSplit = (parentId: number) => {
-    const parent = transactions.find((t) => !t.kind && t.id === parentId)
-    if (!parent) return
-    const kin = family.get(parentId)
-    const taxOf = (id: number) =>
-      (kin?.rows ?? []).filter((r) => r.kind === 'tax' && r.id === id).reduce((n, r) => n + toCents(r.amount), 0)
-    setSplitting({
-      id: parent.id,
-      name: parent.name,
-      description: parent.description,
-      bankAmount: (toCents(parent.amount) + (kin?.cents ?? 0)) / 100,
-      category: parent.offsetAccount,
-      splits: (kin?.rows ?? [])
-        .filter((r) => r.kind === 'split')
-        .map((r) => ({
-          id: r.id,
-          name: r.name,
-          itemName: r.itemName ?? null,
-          category: r.offsetAccount,
-          amount: Math.abs(toCents(r.amount) + taxOf(r.id)) / 100,
-        })),
-      receipts: (parent.attachments ?? [])
-        .filter((a) => a.kind === 'RECEIPT')
-        .map((a) => ({ id: a.id, filename: a.filename })),
-    })
-  }
+  /** A split's amount WITH its tax lines — what it takes out of the bank amount. */
+  const grossOf = (split: LedgerTransaction) =>
+    (toCents(split.amount) +
+      (family.get(split.splitOfId!)?.rows ?? [])
+        .filter((r) => r.kind === 'tax' && r.id === split.id)
+        .reduce((n, r) => n + toCents(r.amount), 0)) /
+    100
 
   const custom = useCustomColumns()
   const customColumns = useMemo(() => custom.data?.columns ?? [], [custom.data])
@@ -264,7 +267,8 @@ export function LedgerTable({
       // step8: the posting date is THE date (sorted by it, like the reports).
       { key: 'date', kind: 'date', value: (t) => t.postingDate ?? t.pendingDate },
       { key: 'name', kind: 'text', value: nameOf },
-      { key: 'description', kind: 'text', value: (t) => [t.description, t.itemName ?? null] },
+      { key: 'description', kind: 'text', value: (t) => t.description },
+      { key: 'product', kind: 'text', value: (t) => t.itemName ?? null },
       { key: 'amount', kind: 'number', value: (t) => shownAmount(t) },
       { key: 'debit', kind: 'text', value: (t) => t.debitAccount },
       { key: 'credit', kind: 'text', value: (t) => t.creditAccount },
@@ -287,6 +291,9 @@ export function LedgerTable({
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const wanted = name?.trim().toLowerCase()
+    // The Names tab groups a name's rows by description KEY ("CHEQUE # 00103" and
+    // "CHEQUE # 00104" are one), so a description opened from there means its key.
+    const wantedDescription = description ? descriptionKey(description) : null
     const kept = transactions.filter(
       (t) =>
         (isAgency || (t.kind !== 'tax' && t.kind !== 'split') || !collapsed.has(t.splitOfId ?? t.id)) &&
@@ -295,6 +302,7 @@ export function LedgerTable({
         (statementId === 'all' || t.statementId === statementId) &&
         inRange(t) &&
         (!account || t.debitAccount === account || t.creditAccount === account) &&
+        (wantedDescription === null || descriptionKey(t.description) === wantedDescription) &&
         (!q ||
           t.description.toLowerCase().includes(q) ||
           t.name?.toLowerCase().includes(q) ||
@@ -328,7 +336,7 @@ export function LedgerTable({
       controls.sort,
     ).flatMap((head) => byHead.get(head) ?? [head])
     // eslint-disable-next-line react-hooks/exhaustive-deps -- inRange reads from, to, periodEnd
-  }, [transactions, query, statementId, folderIds, account, collapsed, isAgency, focusId, name, from, to, periodEnd, columns, controls.filters, controls.sort])
+  }, [transactions, query, statementId, folderIds, account, collapsed, isAgency, focusId, name, description, from, to, periodEnd, columns, controls.filters, controls.sort])
   const net = rows.reduce((cents, t) => cents + toCents(shownAmount(t)), 0) / 100
   // With foreign statements, the net change in the home currency too (rows converted, plus
   // the revaluations). Home-currency rows count as they are.
@@ -348,7 +356,7 @@ export function LedgerTable({
   // Rendered while scrolling; a new filter or sort starts from the top again.
   const { shown, hasMore, sentinelRef } = useIncrementalRows(
     rows,
-    JSON.stringify([query, statementId, folderName, account, focusId, name, from, to, controls.filters, controls.sort]),
+    JSON.stringify([query, statementId, folderName, account, focusId, name, description, from, to, controls.filters, controls.sort]),
     (t) => t.kind === 'tax' || t.kind === 'split',
   )
   const taxCount = rows.filter((t) => t.kind === 'tax').length
@@ -401,6 +409,16 @@ export function LedgerTable({
             title="Show every name"
           >
             {name} ✕
+          </button>
+        )}
+        {description && (
+          <button
+            type="button"
+            onClick={onClearDescription}
+            className="max-w-full shrink-0 truncate rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
+            title="Show every description"
+          >
+            “{description}” ✕
           </button>
         )}
         {ranged && (
@@ -529,6 +547,7 @@ export function LedgerTable({
         </div>
       </div>
       {openError && <p className="border-b px-3 py-2 text-sm text-destructive sm:px-5">{openError}</p>}
+      {splitError && <p className="border-b px-3 py-2 text-sm text-destructive sm:px-5">{splitError}</p>}
 
       {loading ? (
         <div className="flex flex-col gap-2 p-5">
@@ -576,10 +595,11 @@ export function LedgerTable({
                   <SplitRow
                     key={t.key}
                     t={t}
+                    gross={grossOf(t)}
+                    focus={t.id === newSplitId}
                     joined={joined}
                     order={layout.order}
-                    onEdit={() => setEditing(t)}
-                    onSplit={() => openSplit(t.splitOfId!)}
+                    onSplit={() => addSplit(t.id, t.splitOfId!)}
                   />
                 )
               }
@@ -634,7 +654,7 @@ export function LedgerTable({
                     </span>
                   )}
                   {!t.kind && <AttachButton count={t.attachments?.length ?? 0} onClick={() => setAttaching(t)} />}
-                  {!t.kind && <SplitButton onClick={() => openSplit(t.id)} />}
+                  {!t.kind && <SplitButton onClick={() => addSplit(t.id, t.id)} disabled={duplicate.isPending} />}
                 </span>
               )
               const edit = t.kind ? undefined : () => setEditing(t)
@@ -691,6 +711,11 @@ export function LedgerTable({
                       {splitChip}
                       {description}
                     </span>
+                  </TableCell>
+                ),
+                product: (
+                  <TableCell key="product" className={cn(MD, 'overflow-hidden align-top', edgeClass(layout.order, 'product'))}>
+                    {!t.kind && <ProductCell t={t} />}
                   </TableCell>
                 ),
                 amount: (
@@ -812,7 +837,6 @@ export function LedgerTable({
         onOpenChange={(o) => !o && setEditing(null)}
       />
       <TaxLineNameDialog line={renaming} onOpenChange={(o) => !o && setRenaming(null)} />
-      <SplitDialog target={splitting} onOpenChange={(o) => !o && setSplitting(null)} />
       <TransactionAttachmentsDialog transaction={attaching} onOpenChange={(o) => !o && setAttaching(null)} />
       <CustomColumnsDialog open={columnsOpen} onOpenChange={setColumnsOpen} />
 
@@ -842,6 +866,7 @@ const FIXED_LABELS: Record<string, { label: string; kind: 'text' | 'number' | 'd
   date: { label: 'Date', kind: 'date' },
   name: { label: 'Name', kind: 'text' },
   description: { label: 'Description', kind: 'text' },
+  product: { label: 'Product', kind: 'text' },
   amount: { label: 'Amount', kind: 'number' },
   debit: { label: 'Debit', kind: 'text' },
   credit: { label: 'Credit', kind: 'text' },
@@ -1027,30 +1052,40 @@ function TaxRow({
 }
 
 /**
- * A part split off the transaction above by hand: indented under it, with its own name and
- * category (both clickable, for this split only) and its own tax lines below it.
+ * A part split off the transaction above by hand: indented under it, with its own tax lines
+ * below it. step2 (2026-11-15): edited right here — amount, name, category and product each
+ * in their own cell (`SplitCells`); Split adds one more $0.00 copy of it, Remove takes it out.
  */
 function SplitRow({
   t,
+  gross,
+  focus,
   joined,
   order,
-  onEdit,
   onSplit,
 }: {
   t: LedgerTransaction
+  /** Its amount with its tax lines — what it takes out of the bank amount. */
+  gross: number
+  /** Just made by Split: its amount field takes the focus. */
+  focus: boolean
   joined: boolean
   order: readonly string[]
-  onEdit: () => void
   onSplit: () => void
 }) {
   const item = (
     <span className="flex min-w-0 items-center gap-1.5">
       <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Split</span>
-      {t.itemName && <span className="max-w-[50%] shrink-0 truncate text-xs font-medium text-[#0B1C2C]">{t.itemName}</span>}
       <span className="truncate text-xs text-muted-foreground">{t.description}</span>
     </span>
   )
-  const edit = <SplitButton onClick={onSplit} label="Edit splits" />
+  const actions = (
+    <span className="flex flex-wrap items-center gap-1.5">
+      <SplitButton onClick={onSplit} />
+      <DeleteSplitButton t={t} />
+    </span>
+  )
+  const category = <SplitCategoryCell t={t} />
   const cells: Record<string, ReactNode> = {
     date: (
       <TableCell key="date" className={cn('py-1.5 align-top text-xs text-muted-foreground', edgeClass(order, 'date'))}>
@@ -1061,22 +1096,16 @@ function SplitRow({
       <TableCell
         key="name"
         className={cn('py-1.5 align-top text-sm font-medium whitespace-normal text-[#0B1C2C]', edgeClass(order, 'name'))}
-        title={t.name ?? undefined}
+        title={t.subName?.name ?? t.name ?? undefined}
       >
-        <span className="block truncate">
-          <button
-            type="button"
-            onClick={onEdit}
-            title="Change this split's name or category"
-            className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
-          >
-            {t.name ?? <Unclarified />}
-          </button>
+        <span className="block min-w-0">
+          <SplitNameCell t={t} />
         </span>
         <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
           {item}
-          <AccountStack t={t} onEdit={onEdit} />
-          {edit}
+          <ProductCell t={t} />
+          {category}
+          {actions}
         </span>
       </TableCell>
     ),
@@ -1088,32 +1117,30 @@ function SplitRow({
         </span>
       </TableCell>
     ),
+    product: (
+      <TableCell key="product" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'product'))}>
+        <ProductCell t={t} />
+      </TableCell>
+    ),
     amount: (
-      <TableCell
-        key="amount"
-        className={cn(
-          'py-1.5 pl-4 text-right align-top text-sm font-semibold tabular-nums',
-          t.amount < 0 ? 'text-red-600' : 'text-emerald-700',
-          edgeClass(order, 'amount'),
-        )}
-      >
-        {money(t.amount)}
+      <TableCell key="amount" className={cn('py-1.5 pl-4 text-right align-top text-sm font-semibold tabular-nums', edgeClass(order, 'amount'))}>
+        <SplitAmountCell t={t} gross={gross} autoFocus={focus} />
         <FxNote t={t} amount={t.amount} />
       </TableCell>
     ),
     debit: (
       <TableCell key="debit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'debit'))}>
-        <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} onEdit={onEdit} />
+        {t.debitAccount === t.offsetAccount ? category : <AccountCell name={t.debitAccount} offset={false} />}
       </TableCell>
     ),
     credit: (
       <TableCell key="credit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'credit'))}>
-        <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} onEdit={onEdit} />
+        {t.creditAccount === t.offsetAccount ? category : <AccountCell name={t.creditAccount} offset={false} />}
       </TableCell>
     ),
     statement: (
       <TableCell key="statement" className={cn(MD, 'py-1.5 align-top', edgeClass(order, 'statement'))}>
-        {edit}
+        {actions}
       </TableCell>
     ),
   }
@@ -1147,13 +1174,14 @@ function AttachButton({ count, onClick }: { count: number; onClick: () => void }
   )
 }
 
-/** Shown on hover: open the split dialog for the row's transaction. */
-function SplitButton({ onClick, label = 'Split' }: { onClick: () => void; label?: string }) {
+/** Shown on hover: one more split of the row, at $0.00, to fill in place. */
+function SplitButton({ onClick, label = 'Split', disabled }: { onClick: () => void; label?: string; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title="Split this transaction into parts with their own name and category"
+      disabled={disabled}
+      title="Add a split — a copy of this line at $0.00 with its own amount, name, category and product"
       className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-brand opacity-0 ring-1 ring-brand/30 transition-opacity group-hover:opacity-100 hover:bg-brand/10 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
     >
       <Split className="size-3.5" />

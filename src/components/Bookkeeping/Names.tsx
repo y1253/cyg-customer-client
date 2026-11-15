@@ -28,6 +28,7 @@ import {
   type TaxAgency,
   type UnrecognizedName,
   type Statement,
+  type SubName,
 } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -52,9 +53,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
+import { SubNameLine } from './SubNameLine'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
+import { useSubNames } from '@/hooks/useSplits'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useAddName } from '@/hooks/useNameFiles'
 import {
@@ -159,11 +162,14 @@ const rowId = (name: string) => `name-row-${name.toLowerCase().replace(/[^a-z0-9
  */
 export function Names({
   onOpenName,
+  onOpenDescription,
   statements = [],
   onViewTransaction,
   onOpenStatement,
 }: {
   onOpenName?: (name: string) => void
+  /** step2 (2026-11-15): a description under a name clicked — that name's rows of it. */
+  onOpenDescription?: (name: string, description: string) => void
   /** step2 (2026-11-11): the book's statements — each bank account is an entry holding them. */
   statements?: Statement[]
   /** A file's "View transaction". */
@@ -173,6 +179,16 @@ export function Names({
 }) {
   const tax = useTax()
   const names = useNames()
+  // step2 (2026-11-15): each name's sub-names ("Walmart - Maintenance"), listed under it.
+  const subNames = useSubNames()
+  const subNamesOf = useMemo(() => {
+    const m = new Map<string, SubName[]>()
+    for (const s of subNames.data ?? []) {
+      const k = s.parent.toLowerCase()
+      m.set(k, [...(m.get(k) ?? []), s])
+    }
+    return m
+  }, [subNames.data])
   // step2 (2026-11-11): every file lives in a name's folder — the counts per name.
   const attachments = useAttachments()
   const fileCounts = useMemo(() => countsByName(attachments.data ?? []), [attachments.data])
@@ -336,6 +352,8 @@ export function Names({
       pending={setNameTax.isPending && setNameTax.variables?.name === n.name}
       onAgencies={(agencyIds) => setNameTax.mutate({ name: n.name, agencyIds })}
       onOpen={onOpenName && (() => onOpenName(n.name))}
+      onOpenDescription={onOpenDescription && ((d: string) => onOpenDescription(n.name, d))}
+      subNames={n.unclarified ? undefined : subNamesOf.get(n.name.toLowerCase())}
       files={fileCounts.get(nameKey(n.name)) ?? EMPTY_COUNTS}
       onFiles={(filter) => setFiles({ kind: 'name', name: n.name, filter })}
       onRename={
@@ -889,6 +907,8 @@ function NameRow({
   pending,
   onAgencies,
   onOpen,
+  onOpenDescription,
+  subNames,
   files = EMPTY_COUNTS,
   onFiles,
   onRename,
@@ -918,6 +938,10 @@ function NameRow({
   pending: boolean
   onAgencies: (agencyIds: number[]) => void
   onOpen?: () => void
+  /** step2 (2026-11-15): one of its descriptions clicked — its ledger rows of it. */
+  onOpenDescription?: (description: string) => void
+  /** step2 (2026-11-15): its sub-names ("Walmart - Maintenance"). */
+  subNames?: SubName[]
   /** step2 (2026-11-11): its folder's three counts, and opening the folder (or one list). */
   files?: BucketCounts
   onFiles?: (filter: BucketFilter) => void
@@ -1048,17 +1072,27 @@ function NameRow({
             <button type="button" onClick={() => onGoTo(x.main)} className="font-medium underline hover:text-amber-950">
               {x.main}
             </button>{' '}
-            <span className="text-amber-800/70">(“{x.description}”)</span>
+            <DescriptionLink
+              description={x.description}
+              onOpen={onOpenDescription}
+              className="text-amber-800/70"
+            >
+              (“{x.description}”)
+            </DescriptionLink>
           </p>
         ))}
         {many > 0 && !open && (
           <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
             <span className="min-w-0 truncate" title={n.descriptions.map((d) => d.description).join('\n')}>
-              {n.descriptions
-                .slice(0, 2)
-                .map((d) => d.description)
-                .join(' · ')}
+              {n.descriptions.slice(0, 2).map((d, i) => (
+                <span key={d.key ?? d.description}>
+                  {i > 0 && ' · '}
+                  <DescriptionLink description={d.description} onOpen={onOpenDescription}>
+                    {d.description}
+                  </DescriptionLink>
+                </span>
+              ))}
             </span>
             {many > 2 && (
               <button
@@ -1071,6 +1105,9 @@ function NameRow({
             )}
           </p>
         )}
+        {(subNames ?? []).map((sub) => (
+          <SubNameLine key={sub.id} sub={sub} />
+        ))}
       </div>
       {taxable && agencies.length > 0 && (
         <AgencyPicker name={n.name} type={n.type} agencies={agencies} picked={n.agencyIds} pending={pending} onChange={onAgencies} />
@@ -1138,7 +1175,9 @@ function NameRow({
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={d.description}>
-                    {d.description}
+                    <DescriptionLink description={d.description} onOpen={onOpenDescription}>
+                      {d.description}
+                    </DescriptionLink>
                   </span>
                   {d.rule && (
                     <span className="shrink-0 text-xs text-brand" title="Your rule ties it to this name">
@@ -1397,5 +1436,36 @@ function AddNameDialog({
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * step2 (2026-11-15, `nd.png`): a description on the Names tab is a link — its ledger rows
+ * under this name. Plain text where there is nowhere to open it.
+ */
+function DescriptionLink({
+  description,
+  onOpen,
+  className,
+  children,
+}: {
+  description: string
+  onOpen?: (description: string) => void
+  className?: string
+  children: ReactNode
+}) {
+  if (!onOpen) return <span className={className}>{children}</span>
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onOpen(description)
+      }}
+      title="See the transactions with this description"
+      className={cn('max-w-full truncate text-left hover:text-brand hover:underline', className)}
+    >
+      {children}
+    </button>
   )
 }
