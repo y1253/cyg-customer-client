@@ -143,6 +143,8 @@ export function LedgerTable({
   statementId: initialStatementId = null,
   description = null,
   onClearDescription,
+  subName = null,
+  onClearSubName,
 }: {
   transactions: LedgerTransaction[]
   statements: Statement[]
@@ -165,6 +167,9 @@ export function LedgerTable({
   /** step2 (2026-11-15): only the transactions with this description (clicked on the Names tab). */
   description?: string | null
   onClearDescription?: () => void
+  /** step9: only the rows of this sub-name (and their tax lines), from the Names tab popup. */
+  subName?: { id: number; name: string } | null
+  onClearSubName?: () => void
 }) {
   const [query, setQuery] = useState('')
   const ranged = !!(from || to)
@@ -296,7 +301,10 @@ export function LedgerTable({
     const wantedDescription = description ? descriptionKey(description) : null
     const kept = transactions.filter(
       (t) =>
-        (isAgency || (t.kind !== 'tax' && t.kind !== 'split') || !collapsed.has(t.splitOfId ?? t.id)) &&
+        (subName !== null ||
+          isAgency ||
+          (t.kind !== 'tax' && t.kind !== 'split') ||
+          !collapsed.has(t.splitOfId ?? t.id)) &&
         (focusId == null || t.id === focusId || t.splitOfId === focusId) &&
         (!folderIds || folderIds.has(t.statementId)) &&
         (statementId === 'all' || t.statementId === statementId) &&
@@ -324,9 +332,18 @@ export function LedgerTable({
       groups.push(fresh)
       if (!t.kind || t.kind === 'tax' || t.kind === 'split') at.set(top ?? t.id, fresh)
     }
-    const named = wanted
+    const byName = wanted
       ? groups.filter((g) => g.some((t) => nameOf(t)?.toLowerCase() === wanted))
       : groups
+    // step9: a sub-name's own rows — a transaction or a split — each with its tax lines.
+    const named = subName
+      ? byName
+          .map((g) => {
+            const ids = new Set(g.filter((t) => t.subName?.id === subName.id && t.kind !== 'tax').map((t) => t.id))
+            return g.filter((t) => ids.has(t.id) && (t.subName?.id === subName.id || t.kind === 'tax'))
+          })
+          .filter((g) => g.length > 0)
+      : byName
     const heads = named.map((g) => ({ head: g.find((t) => !t.kind) ?? g[0], g }))
     const byHead = new Map(heads.map((h) => [h.head, h.g]))
     return applyTable(
@@ -336,7 +353,7 @@ export function LedgerTable({
       controls.sort,
     ).flatMap((head) => byHead.get(head) ?? [head])
     // eslint-disable-next-line react-hooks/exhaustive-deps -- inRange reads from, to, periodEnd
-  }, [transactions, query, statementId, folderIds, account, collapsed, isAgency, focusId, name, description, from, to, periodEnd, columns, controls.filters, controls.sort])
+  }, [transactions, query, statementId, folderIds, account, collapsed, isAgency, focusId, name, description, subName, from, to, periodEnd, columns, controls.filters, controls.sort])
   const net = rows.reduce((cents, t) => cents + toCents(shownAmount(t)), 0) / 100
   // With foreign statements, the net change in the home currency too (rows converted, plus
   // the revaluations). Home-currency rows count as they are.
@@ -409,6 +426,16 @@ export function LedgerTable({
             title="Show every name"
           >
             {name} ✕
+          </button>
+        )}
+        {subName && (
+          <button
+            type="button"
+            onClick={onClearSubName}
+            className="max-w-full shrink-0 truncate rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
+            title="Show every row of the name"
+          >
+            {subName.name} ✕
           </button>
         )}
         {description && (
@@ -565,16 +592,17 @@ export function LedgerTable({
       ) : (
         <>
         <StickyScrollbar target={scroller} />
+        {/* step9: fits the card until the customer resizes a column; only then may it scroll. */}
         <Table
-          className="table-fixed md:w-(--tw) md:min-w-full"
-          style={{ '--tw': `${layout.total}px` } as CSSProperties}
+          className={cn('table-fixed', layout.fit ? 'w-full' : 'md:w-(--tw) md:min-w-full')}
+          style={layout.fit ? undefined : ({ '--tw': `${layout.total}px` } as CSSProperties)}
         >
           <colgroup>
             {layout.order.map((id) => (
               <col
                 key={id}
                 className={cn(id in PHONE ? PHONE[id] : 'hidden md:table-column', 'md:w-(--w)')}
-                style={{ '--w': `${layout.widthOf(id)}px` } as CSSProperties}
+                style={{ '--w': layout.colWidth(id) } as CSSProperties}
               />
             ))}
           </colgroup>
@@ -893,7 +921,16 @@ function LedgerHeaders({
     e.preventDefault()
     e.stopPropagation()
     const startX = e.clientX
-    const startW = layout.widthOf(id)
+    let startW = layout.widthOf(id)
+    if (layout.fit) {
+      // step9: leaving the fitted layout — every column keeps the width it has on screen.
+      const cells = Array.from(e.currentTarget.closest('tr')?.children ?? []) as HTMLElement[]
+      const measured = Object.fromEntries(
+        layout.order.map((c, i) => [c, cells[i]?.getBoundingClientRect().width || layout.widthOf(c)]),
+      )
+      layout.freeze(measured)
+      startW = measured[id]
+    }
     const onMove = (ev: globalThis.PointerEvent) => layout.setWidth(id, startW + ev.clientX - startX)
     const onUp = () => {
       window.removeEventListener('pointermove', onMove)

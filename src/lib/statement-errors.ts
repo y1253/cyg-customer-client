@@ -18,6 +18,30 @@ export function statementHelp(
         'Ask AI and tell it the balances printed on the statement, or which transaction is wrong; it fixes how it is read and checks again.',
       ],
     }
+  // step9 (2026-11-15): the running balance on its last row isn't its ending balance.
+  if (problem === 'RUNNING')
+    return {
+      what:
+        "The bank prints a running balance next to each transaction. The one on its last transaction should be the statement's ending balance, and it isn't — so a transaction was read wrong or skipped. Its transactions are in your books as read until it is fixed.",
+      todo: [
+        'Try again — it is read once more from scratch.',
+        'Ask AI and tell it which transaction or amount is wrong; it fixes how it is read and checks again.',
+      ],
+    }
+  if (problem === 'NO_OPENING')
+    return {
+      what:
+        "We couldn't read a starting balance on this statement, and there was no ending balance to work one out from, so your books start this account at $0.00 here and its balances may be off.",
+      todo: [
+        'Try again — it is read once more with our strongest reader.',
+        'Ask AI and tell it the opening (starting) balance printed on the statement; it sets it and checks the transactions against it.',
+      ],
+    }
+  if (problem === 'OTHER')
+    return {
+      what: 'Our AI noted this problem with the statement from what you told it. It stays here until it is fixed.',
+      todo: ['Ask AI to fix it, or try again — it is read once more from scratch.'],
+    }
   // step2 (2026-11-11): a read statement whose balances don't carry over / have a gap.
   if (problem === 'MISMATCH')
     return {

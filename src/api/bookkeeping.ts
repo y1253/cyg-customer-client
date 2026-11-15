@@ -77,6 +77,11 @@ export type Statement = {
    * missing before it, or no balance could be read.
    */
   problem?: StatementProblem | null
+  /**
+   * step9 (2026-11-15): every open problem, SAVED on the server (`StatementError`), worst
+   * first — `problem` is the first. Only the statements list carries it.
+   */
+  errors?: StatementError[]
   /** step2 (2026-11-12): the printed balances as read (null = not read). */
   openingBalance?: number | null
   closingBalance?: number | null
@@ -84,8 +89,28 @@ export type Statement = {
   endingBalance?: number | null
 }
 
-export type StatementProblemKind = 'BALANCE' | 'ENDING' | 'MISMATCH' | 'MISSING' | 'NO_BALANCES'
+export type StatementProblemKind =
+  | 'BALANCE'
+  | 'ENDING'
+  | 'RUNNING'
+  | 'MISMATCH'
+  | 'MISSING'
+  | 'NO_OPENING'
+  | 'NO_BALANCES'
+  /** step9: recorded by the AI (no check sees it). */
+  | 'OTHER'
 export type StatementProblem = { kind: StatementProblemKind; title: string; text: string }
+
+/** step9: one saved statement error. `source` SYSTEM = a check found it, AI = the AI recorded it. */
+export interface StatementError {
+  id: number
+  statementId: number
+  kind: StatementProblemKind
+  title: string
+  text: string
+  source: 'SYSTEM' | 'AI'
+  createdAt: string
+}
 
 /**
  * Why an account starts again at a statement (the server's `StartReason`): MISSING = no

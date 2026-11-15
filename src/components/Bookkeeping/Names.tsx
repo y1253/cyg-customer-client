@@ -4,6 +4,7 @@ import {
   ChevronDown,
   CircleDashed,
   CircleHelp,
+  CornerDownRight,
   Landmark,
   ListFilter,
   CreditCard,
@@ -53,7 +54,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
-import { SubNameLine } from './SubNameLine'
+import { NameSubNamesDialog } from './NameSubNamesDialog'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
@@ -163,6 +164,7 @@ const rowId = (name: string) => `name-row-${name.toLowerCase().replace(/[^a-z0-9
 export function Names({
   onOpenName,
   onOpenDescription,
+  onOpenSubName,
   statements = [],
   onViewTransaction,
   onOpenStatement,
@@ -170,6 +172,8 @@ export function Names({
   onOpenName?: (name: string) => void
   /** step2 (2026-11-15): a description under a name clicked — that name's rows of it. */
   onOpenDescription?: (name: string, description: string) => void
+  /** step9: a sub-name clicked in a name's popup — only its rows. */
+  onOpenSubName?: (name: string, subName: { id: number; name: string }) => void
   /** step2 (2026-11-11): the book's statements — each bank account is an entry holding them. */
   statements?: Statement[]
   /** A file's "View transaction". */
@@ -353,6 +357,7 @@ export function Names({
       onAgencies={(agencyIds) => setNameTax.mutate({ name: n.name, agencyIds })}
       onOpen={onOpenName && (() => onOpenName(n.name))}
       onOpenDescription={onOpenDescription && ((d: string) => onOpenDescription(n.name, d))}
+      onOpenSubName={onOpenSubName && ((sub: SubName) => onOpenSubName(n.name, { id: sub.id, name: sub.name }))}
       subNames={n.unclarified ? undefined : subNamesOf.get(n.name.toLowerCase())}
       files={fileCounts.get(nameKey(n.name)) ?? EMPTY_COUNTS}
       onFiles={(filter) => setFiles({ kind: 'name', name: n.name, filter })}
@@ -908,6 +913,7 @@ function NameRow({
   onAgencies,
   onOpen,
   onOpenDescription,
+  onOpenSubName,
   subNames,
   files = EMPTY_COUNTS,
   onFiles,
@@ -942,6 +948,8 @@ function NameRow({
   onOpenDescription?: (description: string) => void
   /** step2 (2026-11-15): its sub-names ("Walmart - Maintenance"). */
   subNames?: SubName[]
+  /** step9: one of its sub-names opened from its popup. */
+  onOpenSubName?: (sub: SubName) => void
   /** step2 (2026-11-11): its folder's three counts, and opening the folder (or one list). */
   files?: BucketCounts
   onFiles?: (filter: BucketFilter) => void
@@ -967,6 +975,9 @@ function NameRow({
 }) {
   const [toggled, setOpen] = useState(false)
   const [exceptionsOf, setExceptionsOf] = useState<string | null>(null)
+  // step9: a name with sub-names opens a popup listing them (`NameSubNamesDialog`).
+  const [subsOpen, setSubsOpen] = useState(false)
+  const subs = subNames ?? []
   const drop = useNameDrop(n.name, onMergeInto, onDescription)
   const many = n.descriptions.length
   const taxable = n.type !== 'OTHER' || !!n.unclarified
@@ -998,11 +1009,11 @@ function NameRow({
       )}
       <div className="min-w-0 flex-1">
         <RenameName name={n.name} onRename={onRename}>
-          {onOpen ? (
+          {onOpen || subs.length > 0 ? (
             <button
               type="button"
-              onClick={onOpen}
-              title={`See every transaction of ${n.name}`}
+              onClick={subs.length > 0 ? () => setSubsOpen(true) : onOpen}
+              title={subs.length > 0 ? `See the sub-names of ${n.name}` : `See every transaction of ${n.name}`}
               className={cn(
                 'max-w-full truncate text-left font-medium text-[#0B1C2C] hover:text-brand hover:underline',
                 n.unclarified && 'italic',
@@ -1105,9 +1116,25 @@ function NameRow({
             )}
           </p>
         )}
-        {(subNames ?? []).map((sub) => (
-          <SubNameLine key={sub.id} sub={sub} />
-        ))}
+        {subs.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSubsOpen(true)}
+            className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+          >
+            <CornerDownRight className="size-3.5" />
+            {subs.length} sub-name{subs.length === 1 ? '' : 's'}
+          </button>
+        )}
+        <NameSubNamesDialog
+          open={subsOpen}
+          onOpenChange={setSubsOpen}
+          name={n.name}
+          rows={n.rows}
+          subNames={subs}
+          onOpenName={onOpen}
+          onOpenSubName={onOpenSubName}
+        />
       </div>
       {taxable && agencies.length > 0 && (
         <AgencyPicker name={n.name} type={n.type} agencies={agencies} picked={n.agencyIds} pending={pending} onChange={onAgencies} />

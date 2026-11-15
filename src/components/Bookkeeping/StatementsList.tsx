@@ -73,7 +73,7 @@ import { STARTS_WARNING, startingNote, type StartingDate } from '@/lib/starting-
 function StatusBadge({ s }: { s: Statement }) {
   // step2: a problem is named instead of "Done" / "Needs review".
   if (s.problem) {
-    const soft = s.problem.kind === 'NO_BALANCES'
+    const soft = s.problem.kind === 'NO_BALANCES' || s.problem.kind === 'OTHER'
     return (
       <Badge
         className={cn(
@@ -82,6 +82,7 @@ function StatusBadge({ s }: { s: Statement }) {
         )}
       >
         {soft ? <AlertTriangle className="size-3" /> : <AlertCircle className="size-3" />} {s.problem.title}
+        {(s.errors?.length ?? 0) > 1 && <span className="opacity-75">+{s.errors!.length - 1}</span>}
       </Badge>
     )
   }
@@ -768,6 +769,21 @@ function StatementDetails({ s }: { s: Statement }) {
   const help = statementHelp(s, s.problem?.kind)
   return (
     <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-[#0B1C2C]/90">
+      {/* step9: every saved error when it has more than the one on its badge. */}
+      {(s.errors?.length ?? 0) > 1 && (
+        <>
+          <p className="font-semibold">Every problem with this statement</p>
+          <ul className="mt-0.5 mb-2 list-disc space-y-1 pl-5">
+            {s.errors!.map((e) => (
+              <li key={e.id}>
+                <span className="font-medium">{e.title}</span>
+                {e.source === 'AI' && <span className="text-muted-foreground"> · noted by the AI</span>}
+                <span className="block text-[#0B1C2C]/75">{e.text}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {s.errorDetail && (
         <>
           <p className="font-semibold">What went wrong, exactly</p>

@@ -98,6 +98,7 @@ export function BookkeepingPage({
   const [ledgerName, setLedgerName] = useState<string | null>(null)
   // step2 (2026-11-15): a description clicked on the Names tab.
   const [ledgerDescription, setLedgerDescription] = useState<string | null>(null)
+  const [ledgerSubName, setLedgerSubName] = useState<{ id: number; name: string } | null>(null)
   const [ledgerSort, setLedgerSort] = useState<SortState | null>(null)
   const [ledgerFocus, setLedgerFocus] = useState<number | null>(null)
   const [ledgerRange, setLedgerRange] = useState<Period>({ from: null, to: null })
@@ -129,6 +130,7 @@ export function BookkeepingPage({
     setLedgerAccount(scope.account ?? null)
     setLedgerName(scope.name ?? null)
     setLedgerDescription(scope.description ?? null)
+    setLedgerSubName(scope.subName ?? null)
     setLedgerSort(scope.sort ?? (scope.name === UNCLARIFIED_NAME ? BY_DESCRIPTION : null))
     setLedgerFocus(null)
     setLedgerRange({ from: scope.from ?? null, to: scope.to ?? null })
@@ -142,6 +144,7 @@ export function BookkeepingPage({
     setLedgerAccount(null)
     setLedgerName(null)
     setLedgerDescription(null)
+    setLedgerSubName(null)
     setLedgerSort(null)
     setLedgerRange({ from: null, to: null })
     setLedgerStatement(null)
@@ -152,6 +155,7 @@ export function BookkeepingPage({
     setLedgerAccount(null)
     setLedgerName(null)
     setLedgerDescription(null)
+    setLedgerSubName(null)
     setLedgerSort(null)
     setLedgerRange({ from: null, to: null })
     setLedgerFocus(null)
@@ -347,6 +351,7 @@ export function BookkeepingPage({
           <Names
             onOpenName={(name) => openLedger({ name })}
             onOpenDescription={(name, description) => openLedger({ name, description })}
+            onOpenSubName={(name, subName) => openLedger({ name, subName })}
             statements={list}
             onViewTransaction={openTransaction}
             onOpenStatement={openStatement}
@@ -372,6 +377,8 @@ export function BookkeepingPage({
         onNameChange={setLedgerName}
         description={ledgerDescription}
         onDescriptionChange={setLedgerDescription}
+        subName={ledgerSubName}
+        onSubNameChange={setLedgerSubName}
         defaultSort={ledgerSort}
         range={ledgerRange}
         onRangeChange={setLedgerRange}

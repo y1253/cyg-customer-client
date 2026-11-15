@@ -22,6 +22,8 @@ export function LedgerDialog({
   onNameChange,
   description = null,
   onDescriptionChange,
+  subName = null,
+  onSubNameChange,
   defaultSort = null,
   range = NO_RANGE,
   onRangeChange,
@@ -42,6 +44,9 @@ export function LedgerDialog({
   /** step2 (2026-11-15): pre-filter to one description (clicked on the Names tab). */
   description?: string | null
   onDescriptionChange?: (description: string | null) => void
+  /** step9: only the rows of one sub-name (the Names tab popup). */
+  subName?: { id: number; name: string } | null
+  onSubNameChange?: (subName: null) => void
   /** The order it opens in; null = newest first. */
   defaultSort?: SortState | null
   /** Only rows dated in this period (a report drill-down opens with the report's). */
@@ -60,6 +65,7 @@ export function LedgerDialog({
             Ledger{account && <span className="font-medium text-muted-foreground"> · {account}</span>}
             {name && <span className="font-medium text-muted-foreground"> · {name}</span>}
             {description && <span className="font-medium text-muted-foreground"> · “{description}”</span>}
+            {subName && <span className="font-medium text-muted-foreground"> · {subName.name}</span>}
           </DialogTitle>
           <DialogDescription>Downloads always include every statement.</DialogDescription>
         </DialogHeader>
@@ -68,7 +74,7 @@ export function LedgerDialog({
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [--bk-sticky-top:0px]">
           <LedgerTable
             // A new drill-down starts from its own default order, with no column filters.
-            key={`${open}|${account ?? ''}|${name ?? ''}|${description ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}|${range.from ?? ''}|${range.to ?? ''}|${statementId ?? ''}`}
+            key={`${open}|${account ?? ''}|${name ?? ''}|${description ?? ''}|${subName?.id ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}|${range.from ?? ''}|${range.to ?? ''}|${statementId ?? ''}`}
             transactions={transactions.data ?? []}
             statements={statements}
             loading={transactions.isLoading}
@@ -80,6 +86,8 @@ export function LedgerDialog({
             onClearName={() => onNameChange?.(null)}
             description={description}
             onClearDescription={() => onDescriptionChange?.(null)}
+            subName={subName}
+            onClearSubName={() => onSubNameChange?.(null)}
             defaultSort={defaultSort}
             from={range.from}
             to={range.to}

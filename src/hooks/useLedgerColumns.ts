@@ -6,6 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
  * to go back. Kept in THIS browser only (localStorage `ledger-columns-v1`; user's request:
  * "saved at the browser"). Custom columns (`c<id>`) join the same layout. Phones keep the
  * fixed folded layout; this applies from md up.
+ *
+ * step9 (2026-11-15, user's request): by default the ledger FITS the screen — no sideways
+ * scroll; the columns share the width in proportion to their default widths (`fit`). Only once
+ * the customer drags a column's edge do the px widths apply (every column frozen at the width
+ * it had), and only then may it scroll. "Reset columns" fits it again.
  */
 
 export const FIXED_COLUMNS = ['date', 'name', 'description', 'product', 'amount', 'debit', 'credit', 'statement'] as const
@@ -97,6 +102,13 @@ export function useLedgerColumns(customIds: readonly number[]) {
     [saved.widths],
   )
   const total = order.reduce((n, id) => n + widthOf(id), 0)
+  /** No width of the customer's own yet: the columns share the screen (`colWidth` in %). */
+  const fit = Object.keys(saved.widths).length === 0
+  /** What a `<col>` gets: a share of the width while fitting, else its px width. */
+  const colWidth = useCallback(
+    (id: string) => (fit ? `${((widthOf(id) / total) * 100).toFixed(3)}%` : `${widthOf(id)}px`),
+    [fit, widthOf, total],
+  )
 
   const setWidth = useCallback((id: string, px: number) => {
     const w = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, px)))
@@ -106,10 +118,16 @@ export function useLedgerColumns(customIds: readonly number[]) {
     (id: string, before: string | null) => setSaved((s) => ({ ...s, order: moveColumn(order, id, before) })),
     [order],
   )
+  /** The first drag out of `fit`: every column keeps the width it has on screen now. */
+  const freeze = useCallback((measured: Record<string, number>) => {
+    const widths: Record<string, number> = {}
+    for (const [id, px] of Object.entries(measured)) widths[id] = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, px)))
+    setSaved((s) => ({ ...s, widths }))
+  }, [])
   const reset = useCallback(() => setSaved({ order: [], widths: {} }), [])
   const customized = saved.order.length > 0 || Object.keys(saved.widths).length > 0
 
-  return { order, widthOf, total, setWidth, move, reset, customized }
+  return { order, widthOf, colWidth, fit, total, setWidth, freeze, move, reset, customized }
 }
 
 export type LedgerColumns = ReturnType<typeof useLedgerColumns>
