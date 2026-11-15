@@ -54,7 +54,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
-import { NameSubNamesDialog } from './NameSubNamesDialog'
+import { SubNameLine } from './SubNameLine'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
@@ -975,9 +975,12 @@ function NameRow({
 }) {
   const [toggled, setOpen] = useState(false)
   const [exceptionsOf, setExceptionsOf] = useState<string | null>(null)
-  // step9: a name with sub-names opens a popup listing them (`NameSubNamesDialog`).
-  const [subsOpen, setSubsOpen] = useState(false)
+  // step9: a name with sub-names unfolds them under it (click the name or "N sub-names"); a
+  // search that finds one of them opens it unfolded.
+  const [subsToggled, setSubsToggled] = useState(false)
   const subs = subNames ?? []
+  const subsOpen = subsToggled || (query.length >= 2 && subs.some((sub) => sub.name.toLowerCase().includes(query)))
+  const toggleSubs = () => setSubsToggled(!subsOpen)
   const drop = useNameDrop(n.name, onMergeInto, onDescription)
   const many = n.descriptions.length
   const taxable = n.type !== 'OTHER' || !!n.unclarified
@@ -1012,14 +1015,22 @@ function NameRow({
           {onOpen || subs.length > 0 ? (
             <button
               type="button"
-              onClick={subs.length > 0 ? () => setSubsOpen(true) : onOpen}
-              title={subs.length > 0 ? `See the sub-names of ${n.name}` : `See every transaction of ${n.name}`}
+              onClick={subs.length > 0 ? toggleSubs : onOpen}
+              title={
+                subs.length > 0
+                  ? `${subsOpen ? 'Hide' : 'Show'} the sub-names of ${n.name}`
+                  : `See every transaction of ${n.name}`
+              }
+              aria-expanded={subs.length > 0 ? subsOpen : undefined}
               className={cn(
-                'max-w-full truncate text-left font-medium text-[#0B1C2C] hover:text-brand hover:underline',
+                'inline-flex max-w-full items-center gap-1 text-left font-medium text-[#0B1C2C] hover:text-brand hover:underline',
                 n.unclarified && 'italic',
               )}
             >
-              {n.name}
+              <span className="truncate">{n.name}</span>
+              {subs.length > 0 && (
+                <ChevronDown className={cn('size-4 shrink-0 text-brand transition-transform', subsOpen && 'rotate-180')} />
+              )}
             </button>
           ) : (
             <p className="truncate font-medium text-[#0B1C2C]">{n.name}</p>
@@ -1119,22 +1130,26 @@ function NameRow({
         {subs.length > 0 && (
           <button
             type="button"
-            onClick={() => setSubsOpen(true)}
+            onClick={toggleSubs}
+            aria-expanded={subsOpen}
             className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
           >
             <CornerDownRight className="size-3.5" />
-            {subs.length} sub-name{subs.length === 1 ? '' : 's'}
+            {subsOpen ? 'Hide sub-names' : `${subs.length} sub-name${subs.length === 1 ? '' : 's'}`}
           </button>
         )}
-        <NameSubNamesDialog
-          open={subsOpen}
-          onOpenChange={setSubsOpen}
-          name={n.name}
-          rows={n.rows}
-          subNames={subs}
-          onOpenName={onOpen}
-          onOpenSubName={onOpenSubName}
-        />
+        {subsOpen && (
+          <div className="mt-1 ml-1 space-y-0.5 border-l-2 border-brand/20 pl-3">
+            {onOpen && (
+              <button type="button" onClick={onOpen} className="text-xs font-medium text-brand hover:underline">
+                See all {n.rows.toLocaleString()} row{n.rows === 1 ? '' : 's'} of {n.name}
+              </button>
+            )}
+            {subs.map((sub) => (
+              <SubNameLine key={sub.id} sub={sub} onOpen={onOpenSubName && (() => onOpenSubName(sub))} />
+            ))}
+          </div>
+        )}
       </div>
       {taxable && agencies.length > 0 && (
         <AgencyPicker name={n.name} type={n.type} agencies={agencies} picked={n.agencyIds} pending={pending} onChange={onAgencies} />
