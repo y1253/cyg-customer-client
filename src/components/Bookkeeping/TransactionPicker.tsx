@@ -70,7 +70,7 @@ function PickerBody({
       .map((t) => {
         // Splits hide part of a parent's amount here; compare on the full bank amount.
         const full = (transactions.data ?? [])
-          .filter((r) => (r.kind === 'tax' || r.kind === 'split') && (r.splitOfId ?? r.id) === t.id)
+          .filter((r) => r.kind === 'split' && (r.splitOfId ?? r.id) === t.id)
           .reduce((n, r) => n + toCents(r.amount), toCents(t.amount))
         return { t, full: full / 100 }
       })

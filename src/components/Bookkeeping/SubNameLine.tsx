@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { CornerDownRight, Pencil, X } from 'lucide-react'
-import type { NameGroup, NameType, SubName, TaxAgency } from '@/api/bookkeeping'
+import type { NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useDeleteSubName, useSetSubNameCategory, useSetSubNameSettings } from '@/hooks/useSplits'
@@ -17,12 +17,11 @@ import { SubNameDialog } from './SubNameDialog'
 
 /**
  * step9 part 3: what a sub-name line needs from its parent's row to show the settings a name
- * has — its group chip (drawn by the Names tab), the agencies, its folder.
+ * has — its group chip (drawn by the Names tab), the split rules, its folder.
  */
 export type SubNameTools = {
   groups: NameGroup[]
   parentGroup: string
-  parentType: NameType
   agencies: TaxAgency[]
   parentAgencyIds: number[]
   groupChip: (sub: SubName, group: string, pending: boolean, onGroup: (key: string) => void) => ReactNode
@@ -35,9 +34,9 @@ export type SubNameTools = {
  * splits put in another category "only for this". Its category can be changed (every row of
  * it moves) and it can be removed (its rows go back to the name's category). Its rows are
  * still the name's — they count in the name's totals.
- * step9 (2026-11-15): with its total; a tax sub-name ("Walmart - GST", the name's tax lines of
- * one agency) follows the name's agencies — its agency is shown, never changed here.
- * step9 part 3: every setting a name has — rename in place, its group, its taxes (its
+ * step9 (2026-11-15): with its total. step9 part 4: a split rule's splits ("Walmart - GST") are a sub-name
+ * like any other.
+ * step9 part 3: every setting a name has — rename in place, its group, its split rules (its
  * parent's until it has its own), its folder, its details (the Edit dialog).
  */
 export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () => void; tools?: SubNameTools }) {
@@ -54,7 +53,7 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
     set.mutate({ id: sub.id, category }, { onSuccess: () => setEditing(false) })
   }
   const error = set.error ?? remove.error ?? create.error ?? settings.error
-  const own = !sub.tax && tools ? tools : null
+  const own = tools ?? null
   const nameButton = onOpen ? (
     <button type="button" onClick={onOpen} className="min-w-0 truncate font-medium text-[#0B1C2C] hover:underline" title="See its rows">
       {sub.name}
@@ -85,26 +84,16 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
             settings.isPending && settings.variables?.group !== undefined,
             (group) => group !== (sub.group ?? own.parentGroup) && settings.mutate({ id: sub.id, group }),
           )}
-        {sub.tax ? (
-          <span
-            title="Its tax lines — set by the name's tax agencies"
-            className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 font-medium text-amber-800 ring-1 ring-amber-600/20"
-          >
-            {sub.category}
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(!editing)}
-            title="Change this sub-name's category — every row of it moves"
-            className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 font-medium text-brand hover:bg-brand/15"
-          >
-            {sub.category}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setEditing(!editing)}
+          title="Change this sub-name's category — every row of it moves"
+          className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 font-medium text-brand hover:bg-brand/15"
+        >
+          {sub.category}
+        </button>
         <span className="shrink-0 tabular-nums">
-          · {sub.rows} {sub.tax ? 'tax line' : 'row'}
-          {sub.rows === 1 ? '' : 's'}
+          · {sub.rows} row{sub.rows === 1 ? '' : 's'}
         </span>
         <span
           className={cn('shrink-0 font-medium tabular-nums', sub.total < 0 ? 'text-red-600' : 'text-emerald-700')}
@@ -135,9 +124,9 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
             {!sub.ownAgencies && <span className="text-[11px] text-muted-foreground/80">as {sub.parent}:</span>}
             <AgencyPicker
               name={sub.name}
-              type={own.parentType}
               agencies={own.agencies}
               picked={sub.ownAgencies ? sub.agencyIds : own.parentAgencyIds}
+              rows={sub.rows}
               pending={settings.isPending && settings.variables?.agencyIds !== undefined}
               onChange={(agencyIds) => settings.mutate({ id: sub.id, agencyIds })}
             />
@@ -149,24 +138,22 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
             <Button
               variant="ghost"
               size="icon-xs"
-              title={`Edit ${sub.name} — its name, group, taxes and details`}
+              title={`Edit ${sub.name} — its name, group, split rules and details`}
               onClick={() => setDialog(true)}
             >
               <Pencil />
             </Button>
           </span>
         )}
-        {!sub.tax && (
-          <button
-            type="button"
-            onClick={() => remove.mutate(sub.id)}
-            disabled={remove.isPending}
-            title="Remove this sub-name — its rows go back to the name's category"
-            className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => remove.mutate(sub.id)}
+          disabled={remove.isPending}
+          title="Remove this sub-name — its rows go back to the name's category"
+          className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+        >
+          <X className="size-3.5" />
+        </button>
       </div>
       {editing && (
         <div className="mt-1 ml-5 flex max-w-sm flex-col gap-1.5">
@@ -194,7 +181,6 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
           onOpenChange={setDialog}
           groups={own.groups}
           parentGroup={own.parentGroup}
-          parentType={own.parentType}
           agencies={own.agencies}
           parentAgencyIds={own.parentAgencyIds}
         />

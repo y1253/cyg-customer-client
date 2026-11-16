@@ -7,7 +7,6 @@ import {
   editSplit,
   fetchSubNames,
   NAMES_KEY,
-  renameTaxLine,
   saveSplits,
   setProduct,
   setSubNameCategory,
@@ -90,7 +89,7 @@ export function useSetSubNameCategory() {
   })
 }
 
-/** step9 part 3: a sub-name's own name, group, profile and agencies. */
+/** step9 part 3: a sub-name's own name, group, profile and split rules. */
 export function useSetSubNameSettings() {
   const book = useBook()
   const invalidate = useInvalidateBookkeeping()
@@ -107,26 +106,6 @@ export function useDeleteSubName() {
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
     mutationFn: (id: number) => deleteSubName(book.auth, id),
-    onSettled: invalidate,
-  })
-}
-
-/** Rename one tax line. */
-export function useRenameTaxLine() {
-  const book = useBook()
-  const invalidate = useInvalidateBookkeeping()
-  return useMutation({
-    mutationFn: ({
-      id,
-      agencyId,
-      name,
-      scope,
-    }: {
-      id: number
-      agencyId: number
-      name: string | null
-      scope?: 'ONCE' | 'ALWAYS'
-    }) => renameTaxLine(book.auth, id, agencyId, name, scope),
     onSettled: invalidate,
   })
 }

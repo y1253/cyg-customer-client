@@ -44,7 +44,6 @@ import { CustomColumnsDialog, type ColumnsDialogStart } from './CustomColumnsDia
 import { NameRuleDialog } from './NameRuleDialog'
 import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, SplitNameCell } from './SplitCells'
 import { StickyScrollbar } from './StickyScrollbar'
-import { TaxLineNameDialog } from './TaxLineNameDialog'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 import { folderOf, groupByAccount } from './statement-folders'
 
@@ -110,15 +109,11 @@ function answerText(col: CustomColumn, data: CustomColumnsData | undefined, tran
  * for that row only, or always for that payee (`NameRuleDialog`).
  * `account` limits it to the rows posted to one account (from the chart of accounts).
  * A statement's printed starting balance comes as its own shaded row (`kind: 'opening'`).
- * A tax line (`kind: 'tax'`) sits directly under the transaction it taxes: indented,
- * lighter, joined to it without a divider. The tax is INCLUDED in the bank amount: the
- * transaction shows its amount without tax and the two add back to what the bank moved.
- * A transaction can also be SPLIT by hand (hover → Split): each split (`kind: 'split'`) sits
- * under it with its own name, category and tax lines, and the transaction shows what is left.
- * Each transaction's split rows (tax lines and splits) fold away on their own (the chip with
- * their count) or all at once; folded, it shows its full bank amount again (view only —
- * downloads always include them). The net change is the same either way.
- * A tax line's and a split's name can be clicked to change it.
+ * A transaction can be SPLIT by hand (hover → Split) or by a split rule (step9 part 4, "from <rule>"): each split
+ * (`kind: 'split'`) sits under it with its own name and category, and the transaction shows what is left.
+ * Each transaction's splits fold away on their own (the chip with their count) or all at once; folded, it shows
+ * its full bank amount again (view only — downloads always include them). The net change is the same either way.
+ * A split's name can be clicked to change it.
  * The paperclip on a transaction opens its receipts, cheques and voice notes; `focusId`
  * shows one transaction only (from "View transaction" on an attachment); `name` the rows of
  * one payee (from the Names tab or the income statement).
@@ -196,7 +191,6 @@ export function LedgerTable({
   // The transactions whose split rows are folded away.
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set())
   const [editing, setEditing] = useState<LedgerTransaction | null>(null)
-  const [renaming, setRenaming] = useState<LedgerTransaction | null>(null)
   // step2 (2026-11-15): Split adds a $0.00 split in place; its amount field takes the focus.
   const duplicate = useDuplicateSplit()
   const [newSplitId, setNewSplitId] = useState<number | null>(null)
@@ -224,17 +218,17 @@ export function LedgerTable({
   const folderIds = useMemo(() => (folder ? new Set(folder.statements.map((s) => s.id)) : null), [folder])
   // One account: its statements are the chips, as before. Several: pick an account first.
   const statementChips = folders.length > 1 ? (folder?.statements ?? []) : done
-  // An agency's own ledger is nothing but tax lines: never fold them there.
+  // A split rule's own ledger is nothing but its splits: never fold them there.
   const isAgency = useMemo(
-    () => !!account && transactions.some((t) => t.kind === 'tax' && t.offsetAccount === account),
+    () => !!account && transactions.some((t) => !!t.splitRule && t.offsetAccount === account),
     [transactions, account],
   )
-  // Per transaction: its split rows (tax lines, splits, the splits' tax lines) and their sum
-  // in cents — added back onto it while they are folded away.
+  // Per transaction: its splits and their sum in cents — added back onto it while they are
+  // folded away.
   const family = useMemo(() => {
     const m = new Map<number, { rows: LedgerTransaction[]; cents: number }>()
     for (const t of transactions) {
-      if (t.kind !== 'tax' && t.kind !== 'split') continue
+      if (t.kind !== 'split') continue
       const top = t.splitOfId ?? t.id
       const f = m.get(top) ?? { rows: [], cents: 0 }
       f.rows.push(t)
@@ -253,14 +247,6 @@ export function LedgerTable({
       return next
     })
   const anyOpen = [...family.keys()].some((id) => !collapsed.has(id))
-
-  /** A split's amount WITH its tax lines — what it takes out of the bank amount. */
-  const grossOf = (split: LedgerTransaction) =>
-    (toCents(split.amount) +
-      (family.get(split.splitOfId!)?.rows ?? [])
-        .filter((r) => r.kind === 'tax' && r.id === split.id)
-        .reduce((n, r) => n + toCents(r.amount), 0)) /
-    100
 
   const custom = useCustomColumns()
   const customColumns = useMemo(() => custom.data?.columns ?? [], [custom.data])
@@ -319,7 +305,7 @@ export function LedgerTable({
       (t) =>
         (subName !== null ||
           isAgency ||
-          (t.kind !== 'tax' && t.kind !== 'split') ||
+          t.kind !== 'split' ||
           !collapsed.has(t.splitOfId ?? t.id)) &&
         (focusId == null || t.id === focusId || t.splitOfId === focusId) &&
         (!folderIds || folderIds.has(t.statementId)) &&
@@ -334,11 +320,11 @@ export function LedgerTable({
           t.debitAccount.toLowerCase().includes(q) ||
           t.creditAccount.toLowerCase().includes(q)),
     )
-    // A transaction and the tax lines / splits under it move as one family.
+    // A transaction and the splits under it move as one family.
     const groups: LedgerTransaction[][] = []
     const at = new Map<number, LedgerTransaction[]>()
     for (const t of kept) {
-      const top = t.kind === 'tax' || t.kind === 'split' ? (t.splitOfId ?? t.id) : null
+      const top = t.kind === 'split' ? (t.splitOfId ?? t.id) : null
       const g = top !== null ? at.get(top) : undefined
       if (g) {
         g.push(t)
@@ -346,20 +332,14 @@ export function LedgerTable({
       }
       const fresh = [t]
       groups.push(fresh)
-      if (!t.kind || t.kind === 'tax' || t.kind === 'split') at.set(top ?? t.id, fresh)
+      if (!t.kind || t.kind === 'split') at.set(top ?? t.id, fresh)
     }
     const byName = wanted
       ? groups.filter((g) => g.some((t) => nameOf(t)?.toLowerCase() === wanted))
       : groups
-    // step9: a sub-name's own rows — a transaction or a split — each with its tax lines.
+    // step9: a sub-name's own rows — a transaction or a split.
     const named = subName
-      ? byName
-          .map((g) => {
-            const ids = new Set(g.filter((t) => t.subName?.id === subName.id && t.kind !== 'tax').map((t) => t.id))
-            // A tax line has its own sub-name ("Walmart - GST"); a matched row keeps its tax lines.
-            return g.filter((t) => t.subName?.id === subName.id || (t.kind === 'tax' && ids.has(t.id)))
-          })
-          .filter((g) => g.length > 0)
+      ? byName.map((g) => g.filter((t) => t.subName?.id === subName.id)).filter((g) => g.length > 0)
       : byName
     const heads = named.map((g) => ({ head: g.find((t) => !t.kind) ?? g[0], g }))
     const byHead = new Map(heads.map((h) => [h.head, h.g]))
@@ -391,13 +371,12 @@ export function LedgerTable({
   const { shown, hasMore, sentinelRef } = useIncrementalRows(
     rows,
     JSON.stringify([query, statementId, folderName, account, focusId, name, description, from, to, controls.filters, controls.sort]),
-    (t) => t.kind === 'tax' || t.kind === 'split',
+    (t) => t.kind === 'split',
   )
-  const taxCount = rows.filter((t) => t.kind === 'tax').length
   const splitCount = rows.filter((t) => t.kind === 'split').length
-  const txCount = rows.length - taxCount - splitCount
+  const txCount = rows.length - splitCount
   const allTx = useMemo(
-    () => transactions.filter((t) => t.kind !== 'tax' && t.kind !== 'split').length,
+    () => transactions.filter((t) => t.kind !== 'split').length,
     [transactions],
   )
 
@@ -649,16 +628,12 @@ export function LedgerTable({
           <TableBody>
             {shown.map((t, i, page) => {
               // Joined to its split rows: no divider between them.
-              const joined = page[i + 1]?.kind === 'tax' || page[i + 1]?.kind === 'split'
-              if (t.kind === 'tax') {
-                return <TaxRow key={t.key} t={t} joined={joined} order={layout.order} onRename={() => setRenaming(t)} />
-              }
+              const joined = page[i + 1]?.kind === 'split'
               if (t.kind === 'split') {
                 return (
                   <SplitRow
                     key={t.key}
                     t={t}
-                    gross={grossOf(t)}
                     focus={t.id === newSplitId}
                     joined={joined}
                     order={layout.order}
@@ -878,12 +853,6 @@ export function LedgerTable({
                             + {splitCount.toLocaleString()} split{splitCount === 1 ? '' : 's'}
                           </span>
                         )}
-                        {taxCount > 0 && (
-                          <span className="font-normal text-muted-foreground">
-                            {' '}
-                            + {taxCount.toLocaleString()} tax line{taxCount === 1 ? '' : 's'}
-                          </span>
-                        )}
                       </TableCell>
                     )
                   }
@@ -904,7 +873,6 @@ export function LedgerTable({
         target={editing && { kind: 'transaction', view: editing }}
         onOpenChange={(o) => !o && setEditing(null)}
       />
-      <TaxLineNameDialog line={renaming} onOpenChange={(o) => !o && setRenaming(null)} />
       <TransactionAttachmentsDialog transaction={attaching} onOpenChange={(o) => !o && setAttaching(null)} />
       <CustomColumnsDialog
         key={columnsKey}
@@ -1053,113 +1021,18 @@ function LedgerHeaders({
 }
 
 /**
- * A tax line, under the row it taxes: same dates, lighter, indented with a hook arrow and the
- * agency + rate, the amount in neutral grey (the tax taken out of the row above). Its name —
- * the row's, until the customer gives it its own — can be clicked to change it.
- */
-function TaxRow({
-  t,
-  joined,
-  order,
-  onRename,
-}: {
-  t: LedgerTransaction
-  joined: boolean
-  order: readonly string[]
-  onRename: () => void
-}) {
-  const agency = (
-    <span className="w-fit max-w-full shrink-0 truncate rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/20">
-      {t.offsetAccount}
-      {t.taxRate !== undefined && ` · ${t.taxRate.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`}
-    </span>
-  )
-  const cells: Record<string, ReactNode> = {
-    date: (
-      <TableCell key="date" className={cn('py-1.5 align-top text-xs', edgeClass(order, 'date'))}>
-        <DateStack t={t} />
-      </TableCell>
-    ),
-    name: (
-      <TableCell key="name" className={cn('py-1.5 align-top text-xs whitespace-normal', edgeClass(order, 'name'))} title={t.name ?? undefined}>
-        <span className="block truncate">
-          {t.taxAgencyId !== undefined ? (
-            <button
-              type="button"
-              onClick={onRename}
-              title="Change this tax line's name"
-              className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
-            >
-              {t.subName?.name ?? t.name ?? <span className="text-slate-400">Add name</span>}
-            </button>
-          ) : (
-            (t.subName?.name ?? t.name)
-          )}
-        </span>
-        {t.subName && t.rowName && (
-          <span className="block truncate text-[11px] text-muted-foreground" title="Counted under this name">
-            under {t.rowName}
-          </span>
-        )}
-        <span className="mt-1 flex flex-col gap-1 md:hidden">
-          {agency}
-          <AccountStack t={t} tax />
-        </span>
-      </TableCell>
-    ),
-    description: (
-      <TableCell
-        key="description"
-        className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'description'))}
-        title={`${t.offsetAccount} on: ${t.description}`}
-      >
-        <span className={cn('flex min-w-0 items-center gap-1.5', t.splitOfId ? 'pl-6' : 'pl-2')}>
-          <CornerDownRight className="size-3.5 shrink-0 text-slate-400" />
-          {agency}
-          <span className="truncate text-xs">{t.description}</span>
-        </span>
-      </TableCell>
-    ),
-    amount: (
-      <TableCell key="amount" className={cn('py-1.5 pl-4 text-right align-top text-sm font-medium tabular-nums', edgeClass(order, 'amount'))}>
-        {money(t.amount)}
-        <FxNote t={t} amount={t.amount} />
-      </TableCell>
-    ),
-    debit: (
-      <TableCell key="debit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'debit'))}>
-        <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} tax />
-      </TableCell>
-    ),
-    credit: (
-      <TableCell key="credit" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'credit'))}>
-        <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} tax />
-      </TableCell>
-    ),
-  }
-  return (
-    <TableRow className={cn('bg-slate-50/80 text-slate-500 hover:bg-slate-100/70', joined && 'border-b-0')}>
-      {order.map((id) => cells[id] ?? <TableCell key={id} className={cn(MD, 'py-1.5', edgeClass(order, id))} />)}
-    </TableRow>
-  )
-}
-
-/**
- * A part split off the transaction above by hand: indented under it, with its own tax lines
- * below it. step2 (2026-11-15): edited right here — amount, name, category and product each
- * in their own cell (`SplitCells`); Split adds one more $0.00 copy of it, Remove takes it out.
+ * A part split off the transaction above — by hand, or by a split rule ("from GST", step9 part 4): indented
+ * under it. step2 (2026-11-15): edited right here — amount, name, category and product each in their own cell
+ * (`SplitCells`); Split adds one more $0.00 copy of it, Remove takes it out.
  */
 function SplitRow({
   t,
-  gross,
   focus,
   joined,
   order,
   onSplit,
 }: {
   t: LedgerTransaction
-  /** Its amount with its tax lines — what it takes out of the bank amount. */
-  gross: number
   /** Just made by Split: its amount field takes the focus. */
   focus: boolean
   joined: boolean
@@ -1168,7 +1041,16 @@ function SplitRow({
 }) {
   const item = (
     <span className="flex min-w-0 items-center gap-1.5">
-      <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Split</span>
+      {t.splitRule ? (
+        <span
+          className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/20"
+          title={`Made by the split rule ${t.splitRule.name} — change it like any split`}
+        >
+          from {t.splitRule.name}
+        </span>
+      ) : (
+        <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Split</span>
+      )}
       <span className="truncate text-xs text-muted-foreground">{t.description}</span>
     </span>
   )
@@ -1217,7 +1099,7 @@ function SplitRow({
     ),
     amount: (
       <TableCell key="amount" className={cn('py-1.5 pl-4 text-right align-top text-sm font-semibold tabular-nums', edgeClass(order, 'amount'))}>
-        <SplitAmountCell t={t} gross={gross} autoFocus={focus} />
+        <SplitAmountCell t={t} autoFocus={focus} />
         <FxNote t={t} amount={t.amount} />
       </TableCell>
     ),
@@ -1284,11 +1166,11 @@ function SplitButton({ onClick, label = 'Split', disabled }: { onClick: () => vo
 }
 
 /** Debit over credit in one cell, for screens too narrow for a column each. */
-function AccountStack({ t, tax, onEdit }: { t: LedgerTransaction; tax?: boolean; onEdit?: () => void }) {
+function AccountStack({ t, onEdit }: { t: LedgerTransaction; onEdit?: () => void }) {
   const line = (label: string, name: string) => (
     <span className="flex max-w-full min-w-0 items-center gap-1.5">
       <span className="w-5 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase">{label}</span>
-      <AccountCell name={name} offset={name === t.offsetAccount} tax={tax} onEdit={onEdit} />
+      <AccountCell name={name} offset={name === t.offsetAccount} onEdit={onEdit} />
     </span>
   )
   return (
@@ -1306,25 +1188,12 @@ function AccountStack({ t, tax, onEdit }: { t: LedgerTransaction; tax?: boolean;
 function AccountCell({
   name,
   offset,
-  tax,
   onEdit,
 }: {
   name: string
   offset: boolean
-  tax?: boolean
   onEdit?: () => void
 }) {
-  if (tax) {
-    // On a tax line the agency is the chip (amber, like its label); the account the tax
-    // is taken from is plain grey text.
-    return offset ? (
-      <span className="inline-flex max-w-full truncate rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20">
-        {name}
-      </span>
-    ) : (
-      <span className="truncate text-xs text-slate-500">{name}</span>
-    )
-  }
   if (offset && onEdit) {
     return (
       <button

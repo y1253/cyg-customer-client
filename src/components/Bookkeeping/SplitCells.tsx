@@ -8,7 +8,6 @@ import { useNames } from '@/hooks/useNames'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { useDeleteSplit, useEditSplit, useSetProduct } from '@/hooks/useSplits'
 import { categoryChoice, choiceReady, NEW_CATEGORY, resolveChoice } from '@/lib/categoryChoice'
-import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { CategoryField } from './CategoryField'
 import { NamePicker } from './NamePicker'
@@ -43,12 +42,12 @@ function ScopeStrip({ children, onCancel }: { children: ReactNode; onCancel: () 
 }
 
 /**
- * The split's amount WITH its tax (what it takes out of the bank amount), typed in place.
+ * The split's amount (what it takes out of the bank amount), typed in place — a split rule's split too.
  * Saved on Enter or when the field is left; a refused amount goes back to the saved one.
  */
-export function SplitAmountCell({ t, gross, autoFocus }: { t: LedgerTransaction; gross: number; autoFocus?: boolean }) {
+export function SplitAmountCell({ t, autoFocus }: { t: LedgerTransaction; autoFocus?: boolean }) {
   const edit = useEditSplit()
-  const saved = Math.abs(gross).toFixed(2)
+  const saved = Math.abs(t.amount).toFixed(2)
   const [text, setText] = useState(saved)
   const [shown, setShown] = useState(saved)
   if (saved !== shown) {
@@ -72,7 +71,7 @@ export function SplitAmountCell({ t, gross, autoFocus }: { t: LedgerTransaction;
           value={text}
           inputMode="decimal"
           aria-label="Split amount"
-          title="This split's amount, tax included. The splits together may not be more than the transaction."
+          title="This split's amount. The splits together may not be more than the transaction."
           onChange={(e) => setText(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
@@ -85,11 +84,6 @@ export function SplitAmountCell({ t, gross, autoFocus }: { t: LedgerTransaction;
           className="h-7 w-24 px-1.5 text-right text-sm tabular-nums"
         />
       </span>
-      {Math.abs(gross - t.amount) >= 0.005 && (
-        <span className="text-[11px] text-muted-foreground" title="Without its tax lines below">
-          {money(t.amount)} before tax
-        </span>
-      )}
       <CellError error={edit.error} />
     </span>
   )

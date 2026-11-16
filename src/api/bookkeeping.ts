@@ -167,12 +167,12 @@ export type LedgerTransaction = {
   statementLabel: string
   /**
    * `opening`: the statement's printed starting balance, offset to Owner's Loan.
-   * `tax`: an agency's tax on the transaction right above it, taken OUT of it — the row above shows its amount
-   * without tax, and the two add back to what the bank moved.
-   * `split`: a part the customer split off the transaction above by hand, with its own name, category and
-   * taxes; the transaction shows what is left of it.
+   * `split`: a part split off the transaction above (by hand, or by a split rule), with its own name and
+   * category; the transaction shows what is left of it.
    */
-  kind?: 'opening' | 'tax' | 'split' | 'fx'
+  kind?: 'opening' | 'split' | 'fx'
+  /** step9 part 4: on a split a split rule wrote — that rule. */
+  splitRule?: { id: number; name: string }
   /**
    * A row of a statement in another currency than the home one: its currency, the rate of its day (null = not
    * known yet) and the amount converted. An `fx` row is the revaluation at a foreign statement's end: 0 in its
@@ -181,12 +181,6 @@ export type LedgerTransaction = {
   currency?: string
   fxRate?: number | null
   homeAmount?: number
-  /** On a tax row: the agency's rate, a percent. */
-  taxRate?: number
-  /** On a tax row: the agency — the key for renaming the line. */
-  taxAgencyId?: number
-  /** step9: on a tax row, the name of the row it taxes (its "Always" rename covers that name). */
-  rowName?: string | null
   /** On a transaction row: its receipts, cheques and voice notes. */
   attachments?: Array<{ id: number; kind: AttachmentKind; filename: string }>
 }
@@ -468,26 +462,55 @@ export async function openOriginal(auth: BookAuth, id: number): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
+/** step9 part 4 (2026-11-15): a split rule's direction — SALES = In (money received), PURCHASE = Out (money spent). */
 export type TaxKind = 'SALES' | 'PURCHASE'
 
+export type RateMode = 'PERCENT' | 'FIXED'
+
+export type SplitRuleRate = {
+  kind: TaxKind
+  mode: RateMode
+  /** PERCENT: a percent, 10 = 10% (included in the amount). */
+  rate: number
+  /** FIXED: the amount split out of each row. */
+  amount: number | null
+}
+
+/**
+ * step9 part 4: a SPLIT RULE (was "tax agency"; the API still says agencies). Picked for a name it splits the
+ * name's rows once — the splits are regular splits afterwards.
+ */
 export type TaxAgency = {
   id: number
   name: string
-  /** At most one per kind, Sales first. `rate` is a percent: 10 = 10%. */
-  rates: Array<{ kind: TaxKind; rate: number }>
+  /** At most one per direction, In first. */
+  rates: SplitRuleRate[]
+  /** Where its splits post; null = the rule's own name. */
+  category: string | null
   active: boolean
 }
 
-export type TaxAgencyInput = Omit<TaxAgency, 'id'>
+export type TaxAgencyInput = Omit<TaxAgency, 'id' | 'rates'> & {
+  rates: Array<{ kind: TaxKind; mode: RateMode; rate?: number; amount?: number }>
+}
 
-/** The customer's tax agencies. Which ones tax a row is decided per NAME (Names tab). */
+/** The customer's split rules. Which names they split is picked per NAME (Names tab). */
 export type TaxSettings = {
   agencies: TaxAgency[]
 }
 
 export const TAX_KIND_LABEL: Record<TaxKind, string> = {
-  SALES: 'Sales',
-  PURCHASE: 'Purchase',
+  SALES: 'In',
+  PURCHASE: 'Out',
+}
+
+/** "In 5%" / "Out $2.00". */
+export function rateLabel(r: SplitRuleRate): string {
+  const value =
+    r.mode === 'FIXED'
+      ? `$${(r.amount ?? 0).toFixed(2)}`
+      : `${r.rate.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`
+  return `${TAX_KIND_LABEL[r.kind]} ${value}`
 }
 
 /** What a payee is, from its category: income → customer, expense → supplier. */
@@ -502,9 +525,9 @@ export type LedgerName = {
   otherCategories: number
   type: NameType
   rows: number
-  /** What its rows add up to, as the bank moved it (tax included). */
+  /** What its rows add up to, as the bank moved it (splits included). */
   total: number
-  /** The agencies that tax this name's rows — none = not taxed (the default). */
+  /** The split rules picked for this name — none = the default. */
   agencyIds: number[]
   /** The descriptions the AI put under this name. */
   descriptions: NameDescription[]
@@ -696,7 +719,10 @@ export async function fetchNames(auth: BookAuth): Promise<NamesData> {
   return res.json()
 }
 
-/** Which agencies tax one name — the whole set; [] = not taxed. Applies at once (on read). */
+/**
+ * The split rules of one name — the whole set. A rule added splits the name's existing rows now, once (and every
+ * new row later); one removed leaves the splits it made.
+ */
 export async function setNameAgencies(
   auth: BookAuth,
   values: { name: string; agencyIds: number[] },
@@ -892,13 +918,11 @@ export interface SubName {
   name: string
   category: string
   rows: number
-  /** step9: Σ of its money (bank sign, tax included). */
+  /** step9: Σ of its money (bank sign). */
   total: number
-  /** step9: the sub-name of the name's tax lines for one agency — follows the agency. */
-  tax?: boolean
   /**
    * step9 part 3: every setting a name has. `group` null = its parent's; `renamed` = the
-   * customer named it; `ownAgencies` = taxed by `agencyIds`, else by the parent's agencies.
+   * customer named it; `ownAgencies` = split by its own rules `agencyIds`, else by the parent's.
    */
   group: string | null
   fields: NameField[]
@@ -913,7 +937,7 @@ export type SubNameSettings = {
   name?: string
   group?: string | null
   fields?: NameField[]
-  /** null = follow the parent's agencies; [] = untaxed. */
+  /** null = follow the parent's split rules; [] = none. */
   agencyIds?: number[] | null
 }
 
@@ -935,25 +959,6 @@ export async function setSubNameCategory(auth: BookAuth, id: number, category: s
 
 export async function deleteSubName(auth: BookAuth, id: number): Promise<void> {
   const res = await bookFetch(auth, `/api/bookkeeping/sub-names/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw await errorFrom(res)
-}
-
-/**
- * Name one tax line (an agency's tax on a row); null puts the row's own name back.
- * step9: `scope` ALWAYS = every tax line of that agency on the row's name.
- */
-export async function renameTaxLine(
-  auth: BookAuth,
-  id: number,
-  agencyId: number,
-  name: string | null,
-  scope: 'ONCE' | 'ALWAYS' = 'ONCE',
-): Promise<void> {
-  const res = await bookFetch(
-    auth,
-    `/api/bookkeeping/transactions/${id}/taxes/${agencyId}`,
-    json('PATCH', { name, scope }),
-  )
   if (!res.ok) throw await errorFrom(res)
 }
 

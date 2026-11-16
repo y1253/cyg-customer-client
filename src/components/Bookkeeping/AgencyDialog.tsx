@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TAX_KIND_LABEL, type TaxAgency, type TaxAgencyInput, type TaxKind } from '@/api/bookkeeping'
+import { TAX_KIND_LABEL, type RateMode, type TaxAgency, type TaxAgencyInput, type TaxKind } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,22 +13,36 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
+import { categoryChoice, choiceReady, resolveChoice, type CategoryChoice } from '@/lib/categoryChoice'
+import { cn } from '@/lib/utils'
+import { CategoryField } from './CategoryField'
 
 const KINDS: TaxKind[] = ['SALES', 'PURCHASE']
-const EMPTY: Record<TaxKind, { on: boolean; rate: string }> = {
-  SALES: { on: true, rate: '' },
-  PURCHASE: { on: false, rate: '' },
+
+type RateForm = { on: boolean; mode: RateMode; value: string }
+
+const EMPTY: Record<TaxKind, RateForm> = {
+  SALES: { on: true, mode: 'PERCENT', value: '' },
+  PURCHASE: { on: false, mode: 'PERCENT', value: '' },
 }
 
-const rateOf = (agency: TaxAgency, kind: TaxKind) => {
+const rateOf = (agency: TaxAgency, kind: TaxKind): RateForm => {
   const r = agency.rates.find((x) => x.kind === kind)
-  return { on: !!r, rate: r ? String(r.rate) : '' }
+  if (!r) return { on: false, mode: 'PERCENT', value: '' }
+  return { on: true, mode: r.mode, value: String(r.mode === 'FIXED' ? (r.amount ?? '') : r.rate) }
+}
+
+const HINT: Record<TaxKind, string> = {
+  SALES: 'Money you receive',
+  PURCHASE: 'Money you spend',
 }
 
 /**
- * Add or edit a tax agency: a Sales rate, a Purchase rate, or both (each its own %).
- * `agency` = edit it; null = a new one. `onSaved` runs after a successful save (the sales-tax switch uses it to turn itself on after the first agency).
+ * step9 part 4 (2026-11-15): add or edit a SPLIT RULE (was a tax agency) — an In rate, an Out rate or both, each
+ * a percentage (included in the amount) or a fixed amount, and where its splits go: its own account (the
+ * default) or a category picked by hand. `agency` = edit it; null = a new one.
  */
 export function AgencyDialog({
   open,
@@ -46,9 +60,13 @@ export function AgencyDialog({
   onSaved?: (agency: TaxAgency) => void
 }) {
   const save = useSaveAgency()
+  const create = useCreateAccount()
   const [name, setName] = useState('')
-  /** Per kind: whether the agency charges it, and the rate as typed. */
-  const [rates, setRates] = useState<Record<TaxKind, { on: boolean; rate: string }>>(EMPTY)
+  /** Per direction: whether the rule takes it, % or $, and the value as typed. */
+  const [rates, setRates] = useState<Record<TaxKind, RateForm>>(EMPTY)
+  /** Its own category; off = its own account. */
+  const [ownCategory, setOwnCategory] = useState(false)
+  const [choice, setChoice] = useState<CategoryChoice>(categoryChoice(null))
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -56,35 +74,43 @@ export function AgencyDialog({
   useEffect(() => {
     if (!open) return
     setName(agency?.name ?? '')
-    setRates(
-      agency
-        ? {
-            SALES: rateOf(agency, 'SALES'),
-            PURCHASE: rateOf(agency, 'PURCHASE'),
-          }
-        : EMPTY,
-    )
+    setRates(agency ? { SALES: rateOf(agency, 'SALES'), PURCHASE: rateOf(agency, 'PURCHASE') } : EMPTY)
+    setOwnCategory(!!agency?.category)
+    setChoice(categoryChoice(agency?.category ?? null))
     setActive(agency?.active ?? true)
     setError(null)
     save.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, agency])
 
-  const submit = (e: React.FormEvent) => {
+  const setRate = (kind: TaxKind, patch: Partial<RateForm>) => setRates((r) => ({ ...r, [kind]: { ...r[kind], ...patch } }))
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return setError('Give the agency a name.')
+    if (!name.trim()) return setError('Give the split rule a name.')
     const chosen = KINDS.filter((k) => rates[k].on)
-    if (!chosen.length) return setError('Give the agency a Sales rate, a Purchase rate, or both.')
+    if (!chosen.length) return setError('Give the split rule an In rate, an Out rate, or both.')
     for (const k of chosen) {
-      const value = Number(rates[k].rate)
-      if (rates[k].rate.trim() === '' || !Number.isFinite(value) || value < 0 || value > 100) {
-        return setError(`The ${TAX_KIND_LABEL[k].toLowerCase()} rate is a percent between 0 and 100.`)
-      }
+      const value = Number(rates[k].value)
+      const label = TAX_KIND_LABEL[k]
+      if (rates[k].value.trim() === '' || !Number.isFinite(value)) return setError(`Fill in the ${label} rate.`)
+      if (rates[k].mode === 'PERCENT' && (value < 0 || value > 100))
+        return setError(`The ${label} rate is a percent between 0 and 100.`)
+      if (rates[k].mode === 'FIXED' && value <= 0) return setError(`The ${label} amount must be more than 0.`)
     }
+    if (ownCategory && !choiceReady(choice)) return setError('Pick the category, or switch "Its own category" off.')
     setError(null)
+    const category = ownCategory ? await resolveChoice(choice, create) : null
+    if (ownCategory && !category) return setError('The new category could not be made.')
     const values: TaxAgencyInput = {
       name: name.trim(),
-      rates: chosen.map((kind) => ({ kind, rate: Math.round(Number(rates[kind].rate) * 1000) / 1000 })),
+      rates: chosen.map((kind) => {
+        const value = Number(rates[kind].value)
+        return rates[kind].mode === 'FIXED'
+          ? { kind, mode: 'FIXED' as const, amount: Math.round(value * 100) / 100 }
+          : { kind, mode: 'PERCENT' as const, rate: Math.round(value * 1000) / 1000 }
+      }),
+      category,
       active,
     }
     save.mutate(
@@ -102,76 +128,107 @@ export function AgencyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={submit} className="contents">
           <DialogHeader>
-            <DialogTitle>{title ?? (agency ? 'Edit tax agency' : 'Add a tax agency')}</DialogTitle>
+            <DialogTitle>{title ?? (agency ? 'Edit split rule' : 'Add a split rule')}</DialogTitle>
             <DialogDescription>
               {description ??
-                'The agency is the account its tax is posted to. Sales tax is credited to it; tax paid on purchases is debited.'}
+                "Picking it for a name splits that name's transactions once — you can change those splits afterwards like any other. New transactions of the name are split when they come in."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4">
+          <div className="grid min-w-0 gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="agency-name">Name</Label>
               <Input
                 id="agency-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Federal Tax"
+                placeholder="e.g. GST"
                 maxLength={191}
                 autoFocus
               />
             </div>
             <div className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <Label>Rates</Label>
-                {rates.SALES.on && rates.PURCHASE.on && rates.SALES.rate !== rates.PURCHASE.rate && (
-                  <button
-                    type="button"
-                    onClick={() => setRates((r) => ({ ...r, PURCHASE: { ...r.PURCHASE, rate: r.SALES.rate } }))}
-                    className="text-xs font-medium text-brand hover:underline"
-                  >
-                    Same rate for both
-                  </button>
-                )}
-              </div>
+              <Label>Rates</Label>
               {KINDS.map((kind) => (
-                <div key={kind} className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2">
+                <div key={kind} className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/50 px-3 py-2">
                   <Switch
                     checked={rates[kind].on}
-                    onCheckedChange={(on) => setRates((r) => ({ ...r, [kind]: { ...r[kind], on } }))}
+                    onCheckedChange={(on) => setRate(kind, { on })}
                     className="data-checked:bg-brand"
-                    aria-label={`${TAX_KIND_LABEL[kind]} tax`}
+                    aria-label={TAX_KIND_LABEL[kind]}
                   />
-                  <span className="flex-1">
-                    <span className="block text-sm font-medium">{TAX_KIND_LABEL[kind]} tax</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {kind === 'SALES' ? 'Charged on money you receive for a sale.' : 'Paid on money you spend on a purchase.'}
-                    </span>
+                  <span className="min-w-24 flex-1">
+                    <span className="block text-sm font-medium">{TAX_KIND_LABEL[kind]}</span>
+                    <span className="block text-xs text-muted-foreground">{HINT[kind]}</span>
                   </span>
+                  <div
+                    role="group"
+                    aria-label={`${TAX_KIND_LABEL[kind]}: percentage or fixed amount`}
+                    className="flex rounded-md bg-white p-0.5 ring-1 ring-black/10"
+                  >
+                    {(['PERCENT', 'FIXED'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        disabled={!rates[kind].on}
+                        onClick={() => setRate(kind, { mode })}
+                        className={cn(
+                          'rounded px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50',
+                          rates[kind].mode === mode ? 'bg-brand text-white' : 'text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        {mode === 'PERCENT' ? '%' : '$'}
+                      </button>
+                    ))}
+                  </div>
                   <div className="relative w-24">
+                    {rates[kind].mode === 'FIXED' && (
+                      <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">
+                        $
+                      </span>
+                    )}
                     <Input
                       inputMode="decimal"
-                      value={rates[kind].rate}
+                      value={rates[kind].value}
                       disabled={!rates[kind].on}
-                      onChange={(e) => setRates((r) => ({ ...r, [kind]: { ...r[kind], rate: e.target.value } }))}
-                      placeholder="10"
-                      className="bg-white pr-7"
-                      aria-label={`${TAX_KIND_LABEL[kind]} rate`}
+                      onChange={(e) => setRate(kind, { value: e.target.value })}
+                      placeholder={rates[kind].mode === 'FIXED' ? '2.00' : '5'}
+                      className={cn('bg-white', rates[kind].mode === 'FIXED' ? 'pl-6' : 'pr-7')}
+                      aria-label={`${TAX_KIND_LABEL[kind]} ${rates[kind].mode === 'FIXED' ? 'amount' : 'rate'}`}
                     />
-                    <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground">
-                      %
-                    </span>
+                    {rates[kind].mode === 'PERCENT' && (
+                      <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground">
+                        %
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
+              <p className="text-xs text-muted-foreground">
+                A percentage is taken out of the amount: $100 at 10% leaves $90.91 and splits off $9.09.
+              </p>
+            </div>
+            <div className="grid gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
+              <label className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="block text-sm font-medium">Its own category</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {ownCategory
+                      ? 'The splits go to this category.'
+                      : `Off: the splits go to its own account, “${name.trim() || 'the rule’s name'}”.`}
+                  </span>
+                </span>
+                <Switch checked={ownCategory} onCheckedChange={setOwnCategory} className="data-checked:bg-brand" />
+              </label>
+              {ownCategory && <CategoryField value={choice} onChange={setChoice} />}
             </div>
             <label className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
               <span>
                 <span className="block text-sm font-medium">Active</span>
-                <span className="block text-xs text-muted-foreground">Only active agencies are applied on Generate.</span>
+                <span className="block text-xs text-muted-foreground">Only active rules split new transactions.</span>
               </span>
               <Switch checked={active} onCheckedChange={setActive} className="data-checked:bg-brand" />
             </label>
@@ -184,8 +241,8 @@ export function AgencyDialog({
 
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-            <Button type="submit" disabled={save.isPending} className="bg-brand text-white hover:bg-brand/85">
-              {save.isPending ? 'Saving…' : agency ? 'Save' : 'Add agency'}
+            <Button type="submit" disabled={save.isPending || create.isPending} className="bg-brand text-white hover:bg-brand/85">
+              {save.isPending ? 'Saving…' : agency ? 'Save' : 'Add split rule'}
             </Button>
           </DialogFooter>
         </form>

@@ -24,7 +24,7 @@ import { RuleConflictDialog } from './RuleConflictDialog'
  * Every change is saved at once (the Save button below is for the name and category).
  * Reads the name live, so the list follows each change. step2 (2026-11-09): also its
  * profile fields (phone, email, …), a new group typed right here, and — `withTax`, from a
- * ledger row — the agencies that tax it.
+ * ledger row — its split rules.
  */
 export function NameDescriptionsEditor({ name, withTax = false }: { name: string; withTax?: boolean }) {
   const names = useNames()
@@ -128,22 +128,22 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
             onChange={(v) => v !== (live.group ?? live.type) && setGroup.mutate({ name: live.name, group: v })}
           />
           <p className="text-xs text-muted-foreground">
-            Where it is listed on the Names tab — its categories and tax stay as they are. Type a new one to add it.
+            Where it is listed on the Names tab — its categories and split rules stay as they are. Type a new one to add it.
           </p>
         </div>
       )}
 
-      {withTax && !live.unclarified && live.type !== 'OTHER' && agencies.length > 0 && (
+      {withTax && !live.unclarified && agencies.length > 0 && (
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col">
-            <Label>Taxes</Label>
-            <span className="text-xs text-muted-foreground">Which agencies tax {live.name}.</span>
+            <Label>Split rules</Label>
+            <span className="text-xs text-muted-foreground">A rule picked splits {live.name}'s transactions once.</span>
           </div>
           <AgencyPicker
             name={live.name}
-            type={live.type}
             agencies={agencies}
             picked={live.agencyIds}
+            rows={live.rows}
             pending={setTax.isPending}
             onChange={(agencyIds) => setTax.mutate({ name: live.name, agencyIds })}
           />

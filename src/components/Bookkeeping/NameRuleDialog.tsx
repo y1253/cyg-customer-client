@@ -434,19 +434,21 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                       <p className="text-xs text-muted-foreground">Left empty, it follows its category.</p>
                     </div>
                   )}
-                  {draftGroup !== 'OTHER' && (tax.data?.agencies.length ?? 0) > 0 && (
+                  {(tax.data?.agencies.length ?? 0) > 0 && (
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex flex-col">
-                        <Label>Taxes</Label>
-                        <span className="text-xs text-muted-foreground">Which agencies tax {trimmed}.</span>
+                        <Label>Split rules</Label>
+                        <span className="text-xs text-muted-foreground">
+                          A rule picked splits {trimmed}'s transactions once, after saving.
+                        </span>
                       </div>
                       <AgencyPicker
                         name={trimmed}
-                        type={draftGroup === 'CUSTOMER' ? 'CUSTOMER' : 'SUPPLIER'}
                         agencies={tax.data?.agencies ?? []}
                         picked={draftAgencies}
                         pending={false}
                         onChange={setDraftAgencies}
+                        draft
                       />
                     </div>
                   )}

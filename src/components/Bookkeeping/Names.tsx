@@ -13,13 +13,14 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Split as SplitIcon,
   Store,
   Trash2,
   UserRound,
   Users,
 } from 'lucide-react'
 import {
-  TAX_KIND_LABEL,
+  rateLabel,
   ruleConflictOf,
   type ContainsRule,
   type LedgerName,
@@ -90,7 +91,6 @@ import { descriptionDragProps, nameDragProps, useGroupDrop, useNameDrop } from '
 import { FolderButton } from './NameFiles/FileCounts'
 import { FilesDialog, type FilesTarget } from './NameFiles/FilesDialog'
 
-const pct = (n: number) => `${n.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`
 
 /** What a name's rows add up to, red when money went out — as the ledger colours amounts. */
 function Total({ total }: { total: number }) {
@@ -104,11 +104,11 @@ function Total({ total }: { total: number }) {
   )
 }
 
-/** What the list shows: everything, the agencies, the nameless rows, or one group (its key). */
+/** What the list shows: everything, the split rules, the nameless rows, or one group (its key). */
 type Filter = 'ALL' | 'AGENCY' | 'UNRECOGNIZED' | string
 
 const TYPE_LABEL: Record<NameType | 'AGENCY', string> = {
-  AGENCY: 'Tax agency',
+  AGENCY: 'Split rule',
   SUPPLIER: 'Supplier',
   CUSTOMER: 'Customer',
   OTHER: 'Other',
@@ -122,7 +122,7 @@ const BUILTIN_GROUPS: NameGroup[] = [
 ]
 
 const TYPE_ICON: Record<NameType | 'AGENCY', typeof Landmark> = {
-  AGENCY: Landmark,
+  AGENCY: SplitIcon,
   SUPPLIER: Store,
   CUSTOMER: UserRound,
   OTHER: CircleDashed,
@@ -153,8 +153,8 @@ function TypeIcon({ type }: { type: NameType | 'AGENCY' | string }) {
 const rowId = (name: string) => `name-row-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
 /**
- * The Names tab: every name on the ledger — the tax agencies (rates, Active switch, edit,
- * delete), then every payee the AI read, in its GROUP (step9: Suppliers, Customers, Other or
+ * The Names tab: every name on the ledger — the split rules (step9 part 4, were tax agencies: rates,
+ * Active switch, edit, delete), then every payee the AI read, in its GROUP (step9: Suppliers, Customers, Other or
  * one of the customer's own, such as Employees — drag a name onto a group to move it), and
  * "Unclarified name": the rows the AI could NOT name. Each name lists the bank descriptions
  * it follows (drag one onto another name to move it there) and its exceptions. The search
@@ -364,7 +364,6 @@ export function Names({
       subTools={{
         groups,
         parentGroup: groupOf(n),
-        parentType: n.type,
         agencies: allAgencies,
         parentAgencyIds: n.agencyIds,
         groupChip: (sub, group, pending, onGroup) => (
@@ -420,8 +419,8 @@ export function Names({
             Every name on your ledger, in its group — click one for its transactions. Edit a name to change its
             category or the bank descriptions it follows; it is saved for this ledger and every statement from now
             on. Drag a name onto another to merge them, onto a group (or its chip below) to move it there — or click
-            its group tag — and drag a description onto another name. A name is taxed only by the agencies you pick
-            for it.
+            its group tag — and drag a description onto another name. A split rule picked for a name splits its
+            transactions once; you can change those splits like any other.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -445,7 +444,7 @@ export function Names({
           </Button>
           <Button onClick={() => open(null)} className="h-10 gap-2 rounded-lg bg-brand px-4 text-white hover:bg-brand/85">
             <Plus className="size-4" />
-            Add agency
+            Add split rule
           </Button>
         </div>
       </div>
@@ -464,7 +463,7 @@ export function Names({
           {[
             { id: 'ALL', label: 'All' },
             ...groups.map((g) => ({ id: g.key, label: g.label })),
-            { id: 'AGENCY', label: 'Tax agencies' },
+            { id: 'AGENCY', label: 'Split rules' },
             { id: 'UNRECOGNIZED', label: 'Unrecognized' },
           ].map((f) => (
             <FilterChip
@@ -494,7 +493,7 @@ export function Names({
           <p className="mt-1 text-sm text-muted-foreground">
             {q || filter !== 'ALL'
               ? 'Try another search or group.'
-              : 'Names appear here once your statements are read. Add a tax agency — e.g. “GST”, sales 5%, purchase 5% — to post its tax under every taxable transaction.'}
+              : 'Names appear here once your statements are read. Add a split rule — e.g. “GST”, in 5%, out 5% — and pick it for a name to split its transactions.'}
           </p>
         </div>
       ) : (
@@ -543,7 +542,8 @@ export function Names({
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                       <Badge className={TYPE_BADGE.AGENCY}>{TYPE_LABEL.AGENCY}</Badge>
                       <span className="text-sm text-muted-foreground tabular-nums">
-                        {a.rates.map((r) => `${TAX_KIND_LABEL[r.kind]} ${pct(r.rate)}`).join(' · ')}
+                        {a.rates.map(rateLabel).join(' · ')}
+                        {a.category && <> → {a.category}</>}
                       </span>
                     </div>
                   </div>
@@ -710,8 +710,9 @@ export function Names({
               Merge {merging?.from} into {merging?.into}?
             </DialogTitle>
             <DialogDescription>
-              Every transaction of {merging?.from} takes the name {merging?.into}, its category and its tax, and new
-              ones follow. {merging?.from}'s own category and tax are dropped. Dragging back cannot split them again.
+              Every transaction of {merging?.from} takes the name {merging?.into}, its category and its split rules,
+              and new ones follow. {merging?.from}'s own category and split rules are dropped. Dragging back cannot
+              split them again.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -731,7 +732,8 @@ export function Names({
           <DialogHeader>
             <DialogTitle>Delete {confirm?.name}?</DialogTitle>
             <DialogDescription>
-              Its tax lines leave your ledger at once, and the names it taxed lose it. To pause it instead, switch it off.
+              The names it was picked for lose it; the splits it already made stay as they are. To pause it instead,
+              switch it off.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -741,7 +743,7 @@ export function Names({
               disabled={remove.isPending}
               onClick={() => confirm && remove.mutate(confirm.id, { onSuccess: () => setConfirm(null) })}
             >
-              {remove.isPending ? 'Deleting…' : 'Delete agency'}
+              {remove.isPending ? 'Deleting…' : 'Delete split rule'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -751,7 +753,7 @@ export function Names({
 }
 
 /**
- * One filter chip above the list (All, a group, Tax agencies, Unrecognized). step2
+ * One filter chip above the list (All, a group, Split rules, Unrecognized). step2
  * (2026-11-09): a group's chip is also a drop target — drag a name onto "Customers" to move it.
  */
 function FilterChip({
@@ -913,7 +915,7 @@ function GroupSection({
 }
 
 /**
- * A payee. "Other" names (transfers, loans, owner money) are never taxed: no agencies. The
+ * A payee, with its split rules (step9 part 4: any name may have them — In / Out follow the money). The
  * Unclarified name entry (the rows with no name) lists its descriptions, each with Assign,
  * and cannot be renamed itself. step9: its descriptions say which rule ties them here and
  * how many of their rows are exceptions (renamed one time — click to see where they went);
@@ -1006,7 +1008,6 @@ function NameRow({
   const toggleSubs = () => setSubsToggled(!subsOpen)
   const drop = useNameDrop(n.name, onMergeInto, onDescription)
   const many = n.descriptions.length
-  const taxable = n.type !== 'OTHER' || !!n.unclarified
   const matched = (d: { key?: string; description: string }) =>
     (!!d.key && !!matches?.has(d.key)) || (query.length >= 2 && d.description.toLowerCase().includes(query))
   // A search that found it by a description opens it on that description.
@@ -1179,8 +1180,15 @@ function NameRow({
           </div>
         )}
       </div>
-      {taxable && agencies.length > 0 && (
-        <AgencyPicker name={n.name} type={n.type} agencies={agencies} picked={n.agencyIds} pending={pending} onChange={onAgencies} />
+      {agencies.length > 0 && (
+        <AgencyPicker
+          name={n.name}
+          agencies={agencies}
+          picked={n.agencyIds}
+          rows={n.rows}
+          pending={pending}
+          onChange={onAgencies}
+        />
       )}
       <div className="flex shrink-0 gap-1">
         {onFiles && <FolderButton name={n.name} counts={files} onOpen={onFiles} />}

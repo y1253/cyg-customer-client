@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { NameGroup, NameType, SubName, TaxAgency } from '@/api/bookkeeping'
+import type { NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -20,7 +20,7 @@ import { NameFieldsEditor } from './NameFieldsEditor'
 
 /**
  * step9 part 3 (2026-11-15, user: "a subname should have all the settings like a regular name
- * has"): a sub-name's own name, group, tax agencies and profile. Its category is changed on
+ * has"): a sub-name's own name, group, split rules and profile. Its category is changed on
  * its line (every row of it moves); its files are in its own folder (the folder icon).
  */
 export function SubNameDialog({
@@ -29,7 +29,6 @@ export function SubNameDialog({
   onOpenChange,
   groups,
   parentGroup,
-  parentType,
   agencies,
   parentAgencyIds,
 }: {
@@ -38,7 +37,6 @@ export function SubNameDialog({
   onOpenChange: (open: boolean) => void
   groups: NameGroup[]
   parentGroup: string
-  parentType: NameType
   agencies: TaxAgency[]
   parentAgencyIds: number[]
 }) {
@@ -51,7 +49,6 @@ export function SubNameDialog({
             sub={sub}
             groups={groups}
             parentGroup={parentGroup}
-            parentType={parentType}
             agencies={agencies}
             parentAgencyIds={parentAgencyIds}
             onDone={() => onOpenChange(false)}
@@ -66,7 +63,6 @@ function SubNameForm({
   sub,
   groups,
   parentGroup,
-  parentType,
   agencies,
   parentAgencyIds,
   onDone,
@@ -74,7 +70,6 @@ function SubNameForm({
   sub: SubName
   groups: NameGroup[]
   parentGroup: string
-  parentType: NameType
   agencies: TaxAgency[]
   parentAgencyIds: number[]
   onDone: () => void
@@ -110,7 +105,7 @@ function SubNameForm({
         <DialogTitle>Edit {sub.name}</DialogTitle>
         <DialogDescription>
           A sub-name of {sub.parent} in {sub.category}. Its rows still count under {sub.parent}; here it gets its own
-          name, group, taxes and details, like any name.
+          name, group, split rules and details, like any name.
         </DialogDescription>
       </DialogHeader>
 
@@ -151,26 +146,31 @@ function SubNameForm({
               }}
               className="data-checked:bg-brand"
             />
-            Its own taxes
+            Its own split rules
           </Label>
           {own ? (
-            <AgencyPicker
-              name={name || sub.name}
-              type={parentType}
-              agencies={agencies}
-              picked={picked}
-              pending={false}
-              onChange={setPicked}
-            />
+            <>
+              <AgencyPicker
+                name={name || sub.name}
+                agencies={agencies}
+                picked={picked}
+                pending={false}
+                onChange={setPicked}
+                draft
+              />
+              <p className="text-xs text-muted-foreground">
+                A rule added splits its {sub.rows} row{sub.rows === 1 ? '' : 's'} once when you save.
+              </p>
+            </>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Taxed like {sub.parent}
+              Split like {sub.parent}
               {parentAgencyIds.length
                 ? ` (${agencies
                     .filter((a) => parentAgencyIds.includes(a.id))
                     .map((a) => a.name)
                     .join(', ')})`
-                : ' (no tax)'}
+                : ' (no split rules)'}
               . Turn on to pick its own.
             </p>
           )}
