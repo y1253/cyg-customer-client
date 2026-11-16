@@ -13,7 +13,14 @@ import {
   useDeleteCustomColumn,
   useSaveCustomColumn,
 } from '@/hooks/useCustomColumns'
-import { CUSTOM_COLUMN_TYPES, rulesText, TYPE_LABELS, type CustomColumnType } from '@/lib/custom-columns'
+import { ApiError } from '@/api/client'
+import {
+  CUSTOM_COLUMN_TYPES,
+  rulesText,
+  storedAnswerProblem,
+  TYPE_LABELS,
+  type CustomColumnType,
+} from '@/lib/custom-columns'
 
 type Draft = Omit<CustomColumnInput, 'minChars' | 'maxChars'> & {
   id?: number
@@ -51,22 +58,83 @@ function draftProblem(d: Draft): string | null {
   return null
 }
 
+/** step9 part 3: where the dialog opens — its list, the add form ("+"), or one column's form (its header). */
+export type ColumnsDialogStart = { add: true } | { editId: number } | null
+
+/** An answer already entered that the new rules would break (the server's 400 says the same). */
+type Broken = { transactionId: number; date?: string | null; description?: string; value: string; problem: string }
+
+/** "3 answers already in this column don't fit the new rules." */
+function brokenText(n: number): string {
+  return `${n} answer${n === 1 ? '' : 's'} already in this column ${n === 1 ? "doesn't" : "don't"} fit the new rules.`
+}
+
 /**
  * step8 (2026-11-11): the customer's own ledger columns for this company ("Business" with
  * 1 / 2 / 3). Add, edit, remove; a column's type and rules (any text, text only, number only,
  * a dropdown list; min / max characters; required). When their other companies have columns,
  * "Same as <company>" copies them (user's request).
+ * step9 part 3 (2026-11-15): opened straight on the add form (the ledger's "+") or on one
+ * column (its header's "Edit column"); Cancel then closes it. New rules that answers already
+ * entered break cannot be saved: the rows to fix are listed (user's decision: block the save).
  */
-export function CustomColumnsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function CustomColumnsDialog({
+  open,
+  onOpenChange,
+  start = null,
+  rowLabel,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  start?: ColumnsDialogStart
+  /** The ledger's words for a row (date · name), for the list of answers to fix. */
+  rowLabel?: (transactionId: number) => string | undefined
+}) {
   const { data } = useCustomColumns()
   const save = useSaveCustomColumn()
   const remove = useDeleteCustomColumn()
   const copy = useCopyCustomColumns()
-  const [draft, setDraft] = useState<Draft | null>(null)
-  const [tried, setTried] = useState(false)
   const columns = data?.columns ?? []
   const templates = data?.templates ?? []
-  const problem = draft ? draftProblem(draft) : null
+  // Opened from the ledger on one form (the ledger mounts it anew each time): start there,
+  // and Cancel closes the window.
+  const [draft, setDraft] = useState<Draft | null>(() => {
+    if (!start) return null
+    if ('add' in start) return { ...EMPTY }
+    const col = columns.find((c) => c.id === start.editId)
+    return col ? draftOf(col) : null
+  })
+  const [tried, setTried] = useState(false)
+  const direct = !!start
+  const editing = draft?.id ? columns.find((c) => c.id === draft.id) : undefined
+  const broken: Broken[] =
+    draft && editing && !draftProblem(draft)
+      ? Object.entries(data?.answers ?? {}).flatMap(([tid, cells]) => {
+          const a = cells[editing.id]
+          if (!a) return []
+          const problem = storedAnswerProblem(
+            {
+              type: draft.type,
+              minChars: draft.type === 'DROPDOWN' || draft.minChars === '' ? null : Number(draft.minChars),
+              maxChars: draft.type === 'DROPDOWN' || draft.maxChars === '' ? null : Number(draft.maxChars),
+              options: draft.type === 'DROPDOWN' ? draft.options.filter((o) => o.label.trim()) : [],
+            },
+            a,
+            new Set(editing.options.map((o) => o.id)),
+          )
+          return problem ? [{ transactionId: Number(tid), value: a.value ?? '', problem }] : []
+        })
+      : []
+  // The server's list wins when it answered (it also knows each row's date and name).
+  const body = save.error instanceof ApiError ? (save.error.body as { problems?: Broken[] } | null) : null
+  const refused = Array.isArray(body?.problems) ? body.problems : null
+  const toFix = refused ?? broken
+  const problem = draft ? (draftProblem(draft) ?? (broken.length ? brokenText(broken.length) : null)) : null
+  const closeForm = () => {
+    setDraft(null)
+    setTried(false)
+    if (direct) onOpenChange(false)
+  }
 
   const submit = () => {
     if (!draft) return
@@ -80,12 +148,7 @@ export function CustomColumnsDialog({ open, onOpenChange }: { open: boolean; onO
         maxChars: draft.type === 'DROPDOWN' || draft.maxChars === '' ? null : Number(draft.maxChars),
         options: draft.type === 'DROPDOWN' ? draft.options.filter((o) => o.label.trim()) : [],
       },
-      {
-        onSuccess: () => {
-          setDraft(null)
-          setTried(false)
-        },
-      },
+      { onSuccess: closeForm },
     )
   }
 
@@ -295,14 +358,38 @@ export function CustomColumnsDialog({ open, onOpenChange }: { open: boolean; onO
                 onCheckedChange={(v) => setDraft({ ...draft, required: v })}
               />
             </div>
-            {((tried && problem) || save.error) && (
+            {toFix.length > 0 && (
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800 ring-1 ring-red-600/20">
+                <p className="font-medium">
+                  {brokenText(toFix.length)} Fix {toFix.length === 1 ? 'it' : 'them'} in the ledger first, or keep the
+                  old rules.
+                </p>
+                <ul className="mt-1.5 max-h-40 space-y-0.5 overflow-y-auto text-xs">
+                  {toFix.slice(0, 50).map((b) => (
+                    <li key={b.transactionId} className="flex min-w-0 gap-1.5">
+                      <span className="min-w-0 truncate text-red-900/80">
+                        {rowLabel?.(b.transactionId) ??
+                          ([b.date, b.description].filter(Boolean).join(' · ') || `Row ${b.transactionId}`)}
+                      </span>
+                      <span className="max-w-32 shrink-0 truncate font-medium">“{b.value}”</span>
+                      <span className="shrink-0">— {b.problem}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {((tried && problem && !toFix.length) || (save.error && !refused)) && (
               <p className="text-sm text-destructive">{(tried && problem) || save.error?.message}</p>
             )}
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setDraft(null)}>
+              <Button type="button" variant="outline" onClick={closeForm}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={save.isPending} className="bg-brand text-white hover:bg-brand/85">
+              <Button
+                type="submit"
+                disabled={save.isPending || broken.length > 0}
+                className="bg-brand text-white hover:bg-brand/85"
+              >
                 {draft.id ? 'Save' : 'Add column'}
               </Button>
             </div>

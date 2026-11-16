@@ -1,5 +1,5 @@
-import type * as React from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, X } from 'lucide-react'
+import { useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,6 +29,8 @@ export function ColumnHeader({
   thProps,
   title,
   children,
+  onEdit,
+  rules,
 }: {
   column: string
   label: string
@@ -37,12 +39,22 @@ export function ColumnHeader({
   className?: string
   align?: 'start' | 'end'
   /** step8: extra props for the header cell (drag to reorder, its width). */
-  thProps?: React.ComponentProps<'th'>
+  thProps?: ComponentProps<'th'>
   /** step8: the tooltip (default "Sort or filter by …"). */
   title?: string
   /** step8: drawn inside the cell after the label (a resize handle). */
-  children?: React.ReactNode
+  children?: ReactNode
+  /**
+   * step9 part 3: a column of the customer's own — "Edit column…" at the top of the panel
+   * (its name and rules), with `rules` said under it.
+   */
+  onEdit?: () => void
+  rules?: string
 }) {
+  const [open, setOpen] = useState(false)
+  // "Edit column…" opens its window once this panel is fully closed — opened sooner, the
+  // panel's focus going back to the header closes the new window again.
+  const editing = useRef(false)
   const { sort, setSort, filters, setFilter } = controls
   const f: ColumnFilter = filters[column] ?? {}
   const sorted = sort?.key === column ? sort.dir : null
@@ -52,7 +64,15 @@ export function ColumnHeader({
 
   return (
     <TableHead {...thProps} className={className}>
-      <Popover>
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        onOpenChangeComplete={(o) => {
+          if (o || !editing.current) return
+          editing.current = false
+          onEdit?.()
+        }}
+      >
         <PopoverTrigger
           className={cn(
             'inline-flex max-w-full items-center gap-1 rounded px-1 py-0.5 -mx-1 font-medium hover:bg-black/5 hover:text-foreground',
@@ -66,6 +86,22 @@ export function ColumnHeader({
           {filtered && <span className="size-1.5 shrink-0 rounded-full bg-brand" aria-label="filtered" />}
         </PopoverTrigger>
         <PopoverContent align={align} className="w-64 font-normal">
+          {onEdit && (
+            <div className="flex flex-col gap-1 border-b pb-2.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 justify-start gap-1.5"
+                onClick={() => {
+                  editing.current = true
+                  setOpen(false)
+                }}
+              >
+                <Pencil className="size-3.5" /> Edit column…
+              </Button>
+              {rules && <p className="text-xs text-muted-foreground">{rules}</p>}
+            </div>
+          )}
           <div className="flex gap-1.5">
             {(['asc', 'desc'] as const).map((dir) => (
               <Button

@@ -54,7 +54,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
-import { SubNameLine } from './SubNameLine'
+import { SubNameLine, type SubNameTools } from './SubNameLine'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
@@ -361,6 +361,26 @@ export function Names({
       subNames={n.unclarified ? undefined : subNamesOf.get(n.name.toLowerCase())}
       files={fileCounts.get(nameKey(n.name)) ?? EMPTY_COUNTS}
       onFiles={(filter) => setFiles({ kind: 'name', name: n.name, filter })}
+      subTools={{
+        groups,
+        parentGroup: groupOf(n),
+        parentType: n.type,
+        agencies: allAgencies,
+        parentAgencyIds: n.agencyIds,
+        groupChip: (sub, group, pending, onGroup) => (
+          <GroupChip
+            name={sub.name}
+            group={group}
+            label={groupLabel(group)}
+            groups={groups}
+            pending={pending}
+            onGroup={onGroup}
+            onNewGroup={() => setGroupEdit({ name: '' })}
+          />
+        ),
+        files: (name) => fileCounts.get(nameKey(name)) ?? EMPTY_COUNTS,
+        onFiles: (name, filter) => setFiles({ kind: 'name', name, filter }),
+      }}
       onRename={
         mergeable(n)
           ? (to) =>
@@ -917,6 +937,7 @@ function NameRow({
   subNames,
   files = EMPTY_COUNTS,
   onFiles,
+  subTools,
   onRename,
   onEdit,
   onReset,
@@ -953,6 +974,8 @@ function NameRow({
   /** step2 (2026-11-11): its folder's three counts, and opening the folder (or one list). */
   files?: BucketCounts
   onFiles?: (filter: BucketFilter) => void
+  /** step9 part 3: what its sub-names need to show a name's settings. */
+  subTools?: SubNameTools
   /** step2: rename it in place (a NAME rule, like the Edit dialog); throws to keep the field open. */
   onRename?: (to: string) => Promise<unknown>
   onEdit: () => void
@@ -1146,7 +1169,12 @@ function NameRow({
               </button>
             )}
             {subs.map((sub) => (
-              <SubNameLine key={sub.id} sub={sub} onOpen={onOpenSubName && (() => onOpenSubName(sub))} />
+              <SubNameLine
+                key={sub.id}
+                sub={sub}
+                onOpen={onOpenSubName && (() => onOpenSubName(sub))}
+                tools={subTools}
+              />
             ))}
           </div>
         )}

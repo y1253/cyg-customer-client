@@ -9,6 +9,7 @@ import {
   Folder,
   RotateCcw,
   Paperclip,
+  Plus,
   Search,
   Split,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ import {
   TableBody,
   TableCell,
   TableFooter,
+  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
@@ -38,7 +40,7 @@ import { descriptionKey } from '@/lib/description-key'
 import { cn } from '@/lib/utils'
 import { ColumnHeader } from './ColumnHeader'
 import { CustomCell } from './CustomCell'
-import { CustomColumnsDialog } from './CustomColumnsDialog'
+import { CustomColumnsDialog, type ColumnsDialogStart } from './CustomColumnsDialog'
 import { NameRuleDialog } from './NameRuleDialog'
 import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, SplitNameCell } from './SplitCells'
 import { StickyScrollbar } from './StickyScrollbar'
@@ -266,6 +268,20 @@ export function LedgerTable({
   const customIds = useMemo(() => customColumns.map((c) => c.id), [customColumns])
   const layout = useLedgerColumns(customIds)
   const [columnsOpen, setColumnsOpen] = useState(false)
+  // step9 part 3: the "+" header opens the add form, a column's header its own form.
+  const [columnsStart, setColumnsStart] = useState<ColumnsDialogStart>(null)
+  // A new key per opening: the dialog starts on `columnsStart` afresh.
+  const [columnsKey, setColumnsKey] = useState(0)
+  const openColumns = (start: ColumnsDialogStart) => {
+    setColumnsStart(start)
+    setColumnsKey((k) => k + 1)
+    setColumnsOpen(true)
+  }
+  /** A row as the column editor lists an answer to fix: "2026-03-04 · Walmart". */
+  const rowLabel = (id: number) => {
+    const t = transactions.find((x) => x.id === id && !x.kind)
+    return t ? [t.postingDate ?? t.pendingDate, t.name ?? t.description].filter(Boolean).join(' · ') : undefined
+  }
 
   const columns = useMemo<ColumnDef<LedgerTransaction>[]>(
     () => [
@@ -550,7 +566,7 @@ export function LedgerTable({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setColumnsOpen(true)}
+            onClick={() => openColumns(null)}
             className="h-9 gap-1.5"
             title="Add your own columns (e.g. Business 1 / 2 / 3)"
           >
@@ -596,7 +612,7 @@ export function LedgerTable({
         {/* step9: fits the card until the customer resizes a column; only then may it scroll. */}
         <Table
           className={cn('table-fixed', layout.fit ? 'w-full' : 'md:w-(--tw) md:min-w-full')}
-          style={layout.fit ? undefined : ({ '--tw': `${layout.total}px` } as CSSProperties)}
+          style={layout.fit ? undefined : ({ '--tw': `calc(${layout.total}px + 2.5rem)` } as CSSProperties)}
         >
           <colgroup>
             {layout.order.map((id) => (
@@ -606,10 +622,28 @@ export function LedgerTable({
                 style={{ '--w': layout.colWidth(id) } as CSSProperties}
               />
             ))}
+            {/* step9 part 3: the "+" (add a column) — a narrow last column. */}
+            <col className="hidden md:table-column md:w-10" />
           </colgroup>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <LedgerHeaders layout={layout} controls={controls} customById={customById} />
+              <LedgerHeaders
+                layout={layout}
+                controls={controls}
+                customById={customById}
+                onEditColumn={(id) => openColumns({ editId: id })}
+              />
+              <TableHead className="hidden px-1 text-center md:table-cell">
+                <button
+                  type="button"
+                  onClick={() => openColumns({ add: true })}
+                  title="Add a new column of your own"
+                  aria-label="Add a new column"
+                  className="inline-flex size-7 items-center justify-center rounded-full border border-dashed border-brand/60 text-brand transition-colors hover:border-solid hover:bg-brand hover:text-white focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
+                >
+                  <Plus className="size-4" />
+                </button>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -802,7 +836,7 @@ export function LedgerTable({
             })}
             {hasMore && (
               <TableRow key={`more-${shown.length}`} ref={sentinelRef} className="hover:bg-transparent">
-                <TableCell colSpan={layout.order.length} className="py-4 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={layout.order.length + 1} className="py-4 text-center text-xs text-muted-foreground">
                   Showing {shown.length.toLocaleString()} of {rows.length.toLocaleString()} rows — loading more…
                 </TableCell>
               </TableRow>
@@ -872,7 +906,13 @@ export function LedgerTable({
       />
       <TaxLineNameDialog line={renaming} onOpenChange={(o) => !o && setRenaming(null)} />
       <TransactionAttachmentsDialog transaction={attaching} onOpenChange={(o) => !o && setAttaching(null)} />
-      <CustomColumnsDialog open={columnsOpen} onOpenChange={setColumnsOpen} />
+      <CustomColumnsDialog
+        key={columnsKey}
+        open={columnsOpen}
+        onOpenChange={setColumnsOpen}
+        start={columnsStart}
+        rowLabel={rowLabel}
+      />
 
     </div>
   )
@@ -917,10 +957,13 @@ function LedgerHeaders({
   layout,
   controls,
   customById,
+  onEditColumn,
 }: {
   layout: LedgerColumns
   controls: ReturnType<typeof useTableControls>
   customById: Map<number, CustomColumn>
+  /** step9 part 3: a custom column's header → "Edit column…". */
+  onEditColumn: (id: number) => void
 }) {
   const [over, setOver] = useState<string | null>(null)
   const resize = (id: string) => (e: PointerEvent<HTMLSpanElement>) => {
@@ -993,6 +1036,8 @@ function LedgerHeaders({
               over === id && 'shadow-[inset_3px_0_0_var(--color-brand)]',
             )}
             thProps={dragProps(id)}
+            onEdit={col && (() => onEditColumn(col.id))}
+            rules={col && `${rulesText(col)}${col.required ? ' · required' : ''}`}
           >
             <span
               onPointerDown={resize(id)}

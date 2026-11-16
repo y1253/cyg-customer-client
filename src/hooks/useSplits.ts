@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { NAME_FOLDERS_KEY } from '@/api/attachments'
 import {
   deleteSplit,
   deleteSubName,
@@ -10,7 +11,9 @@ import {
   saveSplits,
   setProduct,
   setSubNameCategory,
+  setSubNameSettings,
   type SplitEdit,
+  type SubNameSettings,
   type SplitInput,
 } from '@/api/bookkeeping'
 import { useBook } from './useBook'
@@ -84,6 +87,18 @@ export function useSetSubNameCategory() {
   return useMutation({
     mutationFn: ({ id, category }: { id: number; category: string }) => setSubNameCategory(book.auth, id, category),
     onSettled: invalidate,
+  })
+}
+
+/** step9 part 3: a sub-name's own name, group, profile and agencies. */
+export function useSetSubNameSettings() {
+  const book = useBook()
+  const invalidate = useInvalidateBookkeeping()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }: SubNameSettings & { id: number }) => setSubNameSettings(book.auth, id, body),
+    // A rename moves the sub-name's folders too.
+    onSettled: () => Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: NAME_FOLDERS_KEY })]),
   })
 }
 

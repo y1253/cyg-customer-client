@@ -896,6 +896,30 @@ export interface SubName {
   total: number
   /** step9: the sub-name of the name's tax lines for one agency — follows the agency. */
   tax?: boolean
+  /**
+   * step9 part 3: every setting a name has. `group` null = its parent's; `renamed` = the
+   * customer named it; `ownAgencies` = taxed by `agencyIds`, else by the parent's agencies.
+   */
+  group: string | null
+  fields: NameField[]
+  renamed: boolean
+  ownAgencies: boolean
+  agencyIds: number[]
+}
+
+/** step9 part 3: what a sub-name's settings save changes (absent = unchanged). */
+export type SubNameSettings = {
+  /** '' = back to "<parent> - <category>". */
+  name?: string
+  group?: string | null
+  fields?: NameField[]
+  /** null = follow the parent's agencies; [] = untaxed. */
+  agencyIds?: number[] | null
+}
+
+export async function setSubNameSettings(auth: BookAuth, id: number, body: SubNameSettings): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/sub-names/${id}/settings`, json('PATCH', body))
+  if (!res.ok) throw await errorFrom(res)
 }
 
 export async function fetchSubNames(auth: BookAuth): Promise<SubName[]> {

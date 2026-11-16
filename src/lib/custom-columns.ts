@@ -62,3 +62,26 @@ export function rulesText(rules: CustomColumnRules): string {
   }
   return parts.join(' · ')
 }
+
+/**
+ * step9 part 3 (2026-11-15): does an answer already entered fit a column's NEW rules — the
+ * server's `storedAnswerFit`, so the editor shows the rows to fix before Save (the server
+ * refuses the same). A dropdown answer fits while its option stays, or when its text is one of
+ * the new options; one whose option was already gone (`liveBefore`) never blocks.
+ */
+export function storedAnswerProblem(
+  col: CustomColumnRules & { options: Array<{ id?: number; label: string }> },
+  a: { value: string | null; dropDownId: number | null },
+  liveBefore: ReadonlySet<number>,
+): string | null {
+  const text = (a.value ?? '').trim()
+  if (a.dropDownId !== null && !liveBefore.has(a.dropDownId)) return null
+  if (col.type === 'DROPDOWN') {
+    if (a.dropDownId !== null && col.options.some((o) => o.id === a.dropDownId)) return null
+    if (!text) return null
+    return col.options.some((o) => o.label.trim().toLowerCase() === text.toLowerCase())
+      ? null
+      : 'Not one of the options'
+  }
+  return answerProblem(col, text)
+}
