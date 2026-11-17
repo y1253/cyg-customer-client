@@ -590,6 +590,11 @@ export type NamesData = {
   containsRules: ContainsRule[]
   /** step9: the Names-tab groups — Suppliers, Customers, Other, then the customer's own. */
   groups?: NameGroup[]
+  /**
+   * step9 (2026-11-17, second request): each sub-name's descriptions, by sub-name id — a name
+   * with sub-names is only a wrapper; its sub-names hold its descriptions.
+   */
+  subDescriptions?: Record<number, NameDescription[]>
 }
 
 /** step2 (2026-11-09): what a name's profile field holds. */
@@ -755,6 +760,8 @@ export async function saveNameRule(
     scope: EditScope
     /** step2: take the description from the name it is linked to now (after a RULE_CONFLICT). */
     replace?: boolean
+    /** step9 (2026-11-17, second request): DESCRIPTION — the sub-name of `name` its rows go under. */
+    subNameId?: number | null
   },
 ): Promise<NamesData> {
   const res = await bookFetch(auth, '/api/bookkeeping/names/rule', json('PUT', values))

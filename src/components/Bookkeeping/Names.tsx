@@ -314,10 +314,20 @@ export function Names({
    * step9: a description dropped on a name — every row of it gets that name, now and later.
    * step2: one already linked to another name asks first (RuleConflictDialog).
    */
-  const moveDescription = (target: string, d: { key: string }, replace = false): void =>
+  const moveDescription = (target: string, d: { key: string }, replace = false, sub?: SubName): void =>
     saveRule.mutate(
-      { matchType: 'DESCRIPTION', matchKey: d.key, name: target, category: null, scope: 'ALWAYS', replace },
-      { onError: (e) => conflict.offer(e, target, () => moveDescription(target, d, true)) },
+      {
+        matchType: 'DESCRIPTION',
+        matchKey: d.key,
+        name: target,
+        category: null,
+        scope: 'ALWAYS',
+        replace,
+        ...(sub && { subNameId: sub.id }),
+      },
+      {
+        onError: (e) => conflict.offer(e, sub?.name ?? target, () => moveDescription(target, d, true, sub)),
+      },
     )
 
   const open = (agency: TaxAgency | null) => {
@@ -379,6 +389,9 @@ export function Names({
         ),
         files: (name) => fileCounts.get(nameKey(name)) ?? EMPTY_COUNTS,
         onFiles: (name, filter) => setFiles({ kind: 'name', name, filter }),
+        descriptionsOf: (sub) => names.data?.subDescriptions?.[sub.id] ?? [],
+        onDescription: (sub, d) => moveDescription(n.name, d, false, sub),
+        onOpenDescription: onOpenDescription && ((d: string) => onOpenDescription(n.name, d)),
       }}
       onRename={
         mergeable(n)
@@ -1006,7 +1019,11 @@ function NameRow({
   const subs = subNames ?? []
   const subsOpen = subsToggled || (query.length >= 2 && subs.some((sub) => sub.name.toLowerCase().includes(query)))
   const toggleSubs = () => setSubsToggled(!subsOpen)
-  const drop = useNameDrop(n.name, onMergeInto, onDescription)
+  // step9 (2026-11-17, second request): a name with sub-names is only a wrapper ("a rubber
+  // band") — no settings, nothing dragged into it or out of it; its sub-names are the names.
+  const wrapper = subs.length > 0 && !n.unclarified
+  const drop = useNameDrop(n.name, wrapper ? undefined : onMergeInto, wrapper ? undefined : onDescription)
+  const draggable = mergeable && !wrapper
   const many = n.descriptions.length
   const matched = (d: { key?: string; description: string }) =>
     (!!d.key && !!matches?.has(d.key)) || (query.length >= 2 && d.description.toLowerCase().includes(query))
@@ -1016,12 +1033,12 @@ function NameRow({
   return (
     <li
       id={rowId(n.name)}
-      {...(mergeable ? nameDragProps(n.name) : {})}
+      {...(draggable ? nameDragProps(n.name) : {})}
       {...drop.props}
-      title={mergeable ? 'Drag onto another name to merge them, or onto a group to move it' : undefined}
+      title={draggable ? 'Drag onto another name to merge them, or onto a group to move it' : undefined}
       className={cn(
         'px-5 py-3 transition-colors',
-        mergeable && 'cursor-grab active:cursor-grabbing',
+        draggable && 'cursor-grab active:cursor-grabbing',
         drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
         highlighted && 'bg-amber-50',
       )}
@@ -1063,6 +1080,10 @@ function NameRow({
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {n.unclarified ? (
             <Badge className="bg-orange-100 text-orange-800">Unrecognized</Badge>
+          ) : wrapper ? (
+            <span className="text-xs text-muted-foreground" title="Its settings are on its sub-names">
+              Group of {subs.length} sub-name{subs.length === 1 ? '' : 's'}
+            </span>
           ) : (
             <GroupChip
               name={n.name}
@@ -1074,16 +1095,18 @@ function NameRow({
               onNewGroup={onNewGroup}
             />
           )}
-          {n.rule && <Badge className="bg-brand/10 text-brand">Edited</Badge>}
-          <span className="truncate text-sm text-muted-foreground">
-            {n.category}
-            {n.otherCategories > 0 && ` +${n.otherCategories} more`}
-          </span>
+          {!wrapper && n.rule && <Badge className="bg-brand/10 text-brand">Edited</Badge>}
+          {!wrapper && (
+            <span className="truncate text-sm text-muted-foreground">
+              {n.category}
+              {n.otherCategories > 0 && ` +${n.otherCategories} more`}
+            </span>
+          )}
           <span className="text-xs text-muted-foreground/80 tabular-nums">
             · {n.rows.toLocaleString()} row{n.rows === 1 ? '' : 's'}
           </span>
           <Total total={n.total} />
-          {(n.fields ?? [])
+          {(wrapper ? [] : (n.fields ?? []))
             .filter((f) => f.kind === 'PHONE' || f.kind === 'EMAIL')
             .slice(0, 3)
             .map((f, i) => {
@@ -1101,7 +1124,7 @@ function NameRow({
                 </a>
               )
             })}
-          {exceptionCount > 0 && (
+          {!wrapper && exceptionCount > 0 && (
             <button
               type="button"
               onClick={() => setOpen(true)}
@@ -1112,7 +1135,7 @@ function NameRow({
             </button>
           )}
         </div>
-        {(n.exceptionOf ?? []).map((x) => (
+        {(wrapper ? [] : (n.exceptionOf ?? [])).map((x) => (
           <p key={`${x.main}|${x.key}`} className="mt-0.5 text-xs text-amber-800">
             {x.rows === 1 ? 'One row is' : `${x.rows} rows are`} an exception from{' '}
             <button type="button" onClick={() => onGoTo(x.main)} className="font-medium underline hover:text-amber-950">
@@ -1127,7 +1150,7 @@ function NameRow({
             </DescriptionLink>
           </p>
         ))}
-        {many > 0 && !open && (
+        {!wrapper && many > 0 && !open && (
           <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
             <span className="min-w-0 truncate" title={n.descriptions.map((d) => d.description).join('\n')}>
@@ -1175,12 +1198,14 @@ function NameRow({
                 sub={sub}
                 onOpen={onOpenSubName && (() => onOpenSubName(sub))}
                 tools={subTools}
+                removable={subs.length === 1}
+                matched={matched}
               />
             ))}
           </div>
         )}
       </div>
-      {agencies.length > 0 && (
+      {!wrapper && agencies.length > 0 && (
         <AgencyPicker
           name={n.name}
           agencies={agencies}
@@ -1190,6 +1215,7 @@ function NameRow({
           onChange={onAgencies}
         />
       )}
+      {!wrapper && (
       <div className="flex shrink-0 gap-1">
         {onFiles && <FolderButton name={n.name} counts={files} onOpen={onFiles} />}
         {many > 0 && (
@@ -1210,6 +1236,7 @@ function NameRow({
         )}
         {n.rule && <ResetButton onReset={onReset} resetting={resetting} />}
       </div>
+      )}
       </div>
       {open && unrecognized && (
         <div className="mt-2 ml-13 rounded-lg bg-muted/40 p-2">
@@ -1224,7 +1251,7 @@ function NameRow({
           />
         </div>
       )}
-      {open && !unrecognized && (
+      {open && !unrecognized && !wrapper && (
         <ul className="mt-2 ml-13 flex flex-col gap-1 rounded-lg bg-muted/40 p-2">
           {(n.followsContains ?? []).map((c) => (
             <li key={`c:${c.key}`} className="flex items-center gap-3 px-2 py-1 text-sm">

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { CornerDownRight, Pencil, X } from 'lucide-react'
-import type { NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
+import { ChevronDown, CornerDownRight, Pencil, X } from 'lucide-react'
+import type { NameDescription, NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useDeleteSubName, useSetSubNameCategory, useSetSubNameSettings } from '@/hooks/useSplits'
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { AgencyPicker } from './AgencyPicker'
 import { CategoryField } from './CategoryField'
 import { InlineRename } from './InlineRename'
+import { descriptionDragProps, useNameDrop } from './name-drag'
 import { FolderButton } from './NameFiles/FileCounts'
 import { SubNameDialog } from './SubNameDialog'
 
@@ -27,6 +28,13 @@ export type SubNameTools = {
   groupChip: (sub: SubName, group: string, pending: boolean, onGroup: (key: string) => void) => ReactNode
   files: (name: string) => BucketCounts
   onFiles: (name: string, filter: BucketFilter) => void
+  /**
+   * step9 (2026-11-17, second request): its parent is only a wrapper — the sub-name holds the
+   * descriptions, and a description dropped on it is filed under it (a DESCRIPTION rule).
+   */
+  descriptionsOf?: (sub: SubName) => NameDescription[]
+  onDescription?: (sub: SubName, d: { key: string; description: string }) => void
+  onOpenDescription?: (description: string) => void
 }
 
 /**
@@ -38,8 +46,23 @@ export type SubNameTools = {
  * like any other.
  * step9 part 3: every setting a name has — rename in place, its group, its split rules (its
  * parent's until it has its own), its folder, its details (the Edit dialog).
+ * step9 (2026-11-17, second request): and its descriptions — dragged out of it or dropped on
+ * it. Only its parent's last sub-name can be removed (the parent is a regular name again).
  */
-export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () => void; tools?: SubNameTools }) {
+export function SubNameLine({
+  sub,
+  onOpen,
+  tools,
+  removable = true,
+  matched,
+}: {
+  sub: SubName
+  onOpen?: () => void
+  tools?: SubNameTools
+  removable?: boolean
+  /** The Names-tab search: a description it found is shown open and marked. */
+  matched?: (d: { key?: string; description: string }) => boolean
+}) {
   const set = useSetSubNameCategory()
   const settings = useSetSubNameSettings()
   const [dialog, setDialog] = useState(false)
@@ -54,6 +77,10 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
   }
   const error = set.error ?? remove.error ?? create.error ?? settings.error
   const own = tools ?? null
+  const descriptions = own?.descriptionsOf?.(sub) ?? []
+  const [descToggled, setDescToggled] = useState(false)
+  const descOpen = descToggled || (!!matched && descriptions.some(matched))
+  const drop = useNameDrop(sub.name, undefined, own?.onDescription && ((d) => own.onDescription!(sub, d)))
   const nameButton = onOpen ? (
     <button type="button" onClick={onOpen} className="min-w-0 truncate font-medium text-[#0B1C2C] hover:underline" title="See its rows">
       {sub.name}
@@ -62,7 +89,11 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
     <span className="min-w-0 truncate font-medium text-[#0B1C2C]">{sub.name}</span>
   )
   return (
-    <div className="mt-0.5 text-xs">
+    <div
+      {...drop.props}
+      className={cn('mt-0.5 rounded text-xs', drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset')}
+      title={own?.onDescription ? 'Drop a description here to file its transactions under this sub-name' : undefined}
+    >
       <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
         <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
         {own ? (
@@ -135,6 +166,17 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
         {own && (
           <span className={cn('flex shrink-0 items-center gap-0.5', own.agencies.length === 0 && 'ml-auto')}>
             <FolderButton name={sub.name} counts={own.files(sub.name)} onOpen={(f) => own.onFiles(sub.name, f)} />
+            {descriptions.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                title={descOpen ? 'Hide descriptions' : 'Show the descriptions under this sub-name'}
+                aria-expanded={descOpen}
+                onClick={() => setDescToggled(!descOpen)}
+              >
+                <ChevronDown className={cn('transition-transform', descOpen && 'rotate-180')} />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-xs"
@@ -145,16 +187,57 @@ export function SubNameLine({ sub, onOpen, tools }: { sub: SubName; onOpen?: () 
             </Button>
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => remove.mutate(sub.id)}
-          disabled={remove.isPending}
-          title="Remove this sub-name — its rows go back to the name's category"
-          className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
-        >
-          <X className="size-3.5" />
-        </button>
+        {removable && (
+          <button
+            type="button"
+            onClick={() => remove.mutate(sub.id)}
+            disabled={remove.isPending}
+            title="Remove this sub-name — its rows go back to the name's category"
+            className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
       </div>
+      {descOpen && descriptions.length > 0 && (
+        <ul className="mt-1 ml-5 flex flex-col gap-0.5 rounded-lg bg-muted/40 p-1.5">
+          {descriptions.map((d) => (
+            <li
+              key={d.key ?? d.description}
+              {...(d.key && own?.onDescription ? descriptionDragProps(d.key, d.description) : {})}
+              title={d.key ? 'Drag onto another sub-name to move this description there' : undefined}
+              className={cn(
+                'flex items-center gap-3 rounded px-2 py-0.5',
+                d.key && own?.onDescription && 'cursor-grab active:cursor-grabbing',
+                matched?.(d) && 'bg-amber-100/70',
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={d.description}>
+                {own?.onOpenDescription ? (
+                  <button
+                    type="button"
+                    onClick={() => own.onOpenDescription!(d.description)}
+                    className="truncate text-left hover:text-brand hover:underline"
+                  >
+                    {d.description}
+                  </button>
+                ) : (
+                  d.description
+                )}
+              </span>
+              {d.rule && (
+                <span className="shrink-0 text-brand" title="Your rule files it under this sub-name">
+                  {d.rule.matchType === 'CONTAINS' ? `contains “${d.rule.text}”` : 'your rule'}
+                </span>
+              )}
+              <span className="shrink-0 text-muted-foreground">{d.category}</span>
+              <span className="w-14 shrink-0 text-right text-muted-foreground/80 tabular-nums">
+                {d.rows.toLocaleString()} row{d.rows === 1 ? '' : 's'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {editing && (
         <div className="mt-1 ml-5 flex max-w-sm flex-col gap-1.5">
           <CategoryField value={choice} onChange={setChoice} />
