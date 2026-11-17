@@ -1039,6 +1039,8 @@ function SplitRow({
   order: readonly string[]
   onSplit: () => void
 }) {
+  // step9 (2026-11-17): a split of a split sits further in, under the split it was cut from.
+  const indent = { paddingLeft: `${0.5 + (t.depth ?? 0)}rem` }
   const item = (
     <span className="flex min-w-0 items-center gap-1.5">
       {t.splitRule ? (
@@ -1056,7 +1058,7 @@ function SplitRow({
   )
   const actions = (
     <span className="flex flex-wrap items-center gap-1.5">
-      <SplitButton onClick={onSplit} />
+      <SplitButton onClick={onSplit} ofSplit />
       <DeleteSplitButton t={t} />
     </span>
   )
@@ -1073,7 +1075,7 @@ function SplitRow({
         className={cn('py-1.5 align-top text-sm font-medium whitespace-normal text-[#0B1C2C]', edgeClass(order, 'name'))}
         title={t.subName?.name ?? t.name ?? undefined}
       >
-        <span className="block min-w-0">
+        <span className="block min-w-0" style={(t.depth ?? 0) > 0 ? indent : undefined}>
           <SplitNameCell t={t} />
         </span>
         <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
@@ -1086,7 +1088,7 @@ function SplitRow({
     ),
     description: (
       <TableCell key="description" className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, 'description'))} title={t.description}>
-        <span className="flex min-w-0 items-center gap-1.5 pl-2">
+        <span className="flex min-w-0 items-center gap-1.5" style={indent}>
           <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
           {item}
         </span>
@@ -1150,13 +1152,28 @@ function AttachButton({ count, onClick }: { count: number; onClick: () => void }
 }
 
 /** Shown on hover: one more split of the row, at $0.00, to fill in place. */
-function SplitButton({ onClick, label = 'Split', disabled }: { onClick: () => void; label?: string; disabled?: boolean }) {
+function SplitButton({
+  onClick,
+  label = 'Split',
+  disabled,
+  ofSplit = false,
+}: {
+  onClick: () => void
+  label?: string
+  disabled?: boolean
+  /** step9 (2026-11-17): on a split row the new line is cut from that split. */
+  ofSplit?: boolean
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title="Add a split — a copy of this line at $0.00 with its own amount, name, category and product"
+      title={
+        ofSplit
+          ? 'Split this split — a copy of it at $0.00 under it; what you give it comes out of this split'
+          : 'Add a split — a copy of this line at $0.00 with its own amount, name, category and product'
+      }
       className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-brand opacity-0 ring-1 ring-brand/30 transition-opacity group-hover:opacity-100 hover:bg-brand/10 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
     >
       <Split className="size-3.5" />

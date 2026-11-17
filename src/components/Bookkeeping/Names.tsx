@@ -1258,8 +1258,16 @@ function NameRow({
                     </DescriptionLink>
                   </span>
                   {d.rule && (
-                    <span className="shrink-0 text-xs text-brand" title="Your rule ties it to this name">
+                    <span
+                      className="shrink-0 text-xs text-brand"
+                      title={
+                        d.rule.subName
+                          ? `Saved from a split: every transaction with this description goes under ${d.rule.subName}`
+                          : 'Your rule ties it to this name'
+                      }
+                    >
                       {d.rule.matchType === 'CONTAINS' ? `contains “${d.rule.text}”` : 'your rule'}
+                      {d.rule.subName && ` → ${d.rule.subName}`}
                     </span>
                   )}
                   {exRows > 0 && (

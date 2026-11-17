@@ -144,6 +144,10 @@ export type LedgerTransaction = {
   id: number
   /** On a split, and on a split's tax lines: the transaction it was split from. */
   splitOfId?: number
+  /** step9 (2026-11-17): on a split of a split, the split it was cut from. */
+  parentSplitId?: number
+  /** step9 (2026-11-17): on a split, how deep it sits (0 = cut from the transaction). */
+  depth?: number
   statementId: number
   pendingDate: string | null
   postingDate: string | null
@@ -655,7 +659,14 @@ export type NameDescription = {
   description: string
   category: string
   rows: number
-  rule?: { id: number; matchType: 'DESCRIPTION' | 'CONTAINS'; matchKey: string; text: string } | null
+  rule?: {
+    id: number
+    matchType: 'DESCRIPTION' | 'CONTAINS'
+    matchKey: string
+    text: string
+    /** step9 (2026-11-17): a rule saved from a split files its rows under this sub-name. */
+    subName?: string
+  } | null
   /** Rows of it renamed ONE time — exceptions from this name, under the names they carry now. */
   exceptions?: Array<{ name: string; rows: number }>
 }
