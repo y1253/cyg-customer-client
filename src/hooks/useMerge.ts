@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ACCOUNTS_KEY, mergeAccounts, mergeNames, NAMES_KEY, renameAccount } from '@/api/bookkeeping'
+import { ACCOUNTS_KEY, mergeAccounts, mergeNames, NAMES_KEY, renameAccount, type MergeEnd } from '@/api/bookkeeping'
 import { useBook } from './useBook'
 import { useInvalidateBookkeeping } from './useInvalidateBookkeeping'
 
@@ -9,7 +9,7 @@ export function useMergeNames() {
   const queryClient = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (values: { from: string; into: string }) => mergeNames(book.auth, values),
+    mutationFn: (ends: { from: MergeEnd; into: MergeEnd }) => mergeNames(book.auth, ends),
     onSuccess: (data) => queryClient.setQueryData(book.key(NAMES_KEY), data),
     onSettled: invalidate,
   })

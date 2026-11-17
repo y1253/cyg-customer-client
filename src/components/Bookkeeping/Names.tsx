@@ -31,6 +31,7 @@ import {
   type UnrecognizedName,
   type Statement,
   type SubName,
+  type MergeEnd,
 } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -59,7 +60,7 @@ import { SubNameLine, type SubNameTools } from './SubNameLine'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
-import { useSubNames } from '@/hooks/useSplits'
+import { useSetSubNameSettings, useSubNames } from '@/hooks/useSplits'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useAddName } from '@/hooks/useNameFiles'
 import {
@@ -87,7 +88,8 @@ import { FIELD_KIND_ICON, FIELD_KIND_LABEL, fieldHref } from '@/lib/name-fields'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 import { RuleConflictDialog } from './RuleConflictDialog'
 import { UnclarifiedTable } from './UnclarifiedTable'
-import { descriptionDragProps, nameDragProps, useGroupDrop, useNameDrop } from './name-drag'
+import { DescriptionLink, DescriptionsLine } from './DescriptionsLine'
+import { descriptionDragProps, nameDragProps, useGroupDrop, useNameDrop, type DraggedSubName } from './name-drag'
 import { FolderButton } from './NameFiles/FileCounts'
 import { FilesDialog, type FilesTarget } from './NameFiles/FilesDialog'
 
@@ -220,7 +222,9 @@ export function Names({
   const [categoryOnlyOpen, setCategoryOnlyOpen] = useState(false)
   // step8: drag a name onto another → confirm → merge.
   const merge = useMergeNames()
-  const [merging, setMerging] = useState<{ from: string; into: string } | null>(null)
+  // step9 (2026-11-17, third request): either end may be a sub-name.
+  const [merging, setMerging] = useState<{ from: MergeEnd; into: MergeEnd } | null>(null)
+  const setSubSettings = useSetSubNameSettings()
   // step9: a group being created (id undefined) or renamed; the name an exception link went to.
   // step2 (2026-11-09): `assign` = the name whose group chip asked for the new group — it joins it.
   const [groupEdit, setGroupEdit] = useState<{ id?: number; name: string; assign?: string } | null>(null)
@@ -257,9 +261,15 @@ export function Names({
           n.name.toLowerCase().includes(q) ||
           n.category.toLowerCase().includes(q) ||
           hits.has(n.name.toLowerCase()) ||
-          n.descriptions.some((d) => d.description.toLowerCase().includes(q)),
+          n.descriptions.some((d) => d.description.toLowerCase().includes(q)) ||
+          // step9 (2026-11-17, third request): a wrapper shows when one of its sub-names matches.
+          (subNamesOf.get(n.name.toLowerCase()) ?? []).some(
+            (sub) =>
+              sub.name.toLowerCase().includes(q) ||
+              (names.data?.subDescriptions?.[sub.id] ?? []).some((d) => d.description.toLowerCase().includes(q)),
+          ),
       ),
-    [names.data, q, hits],
+    [names.data, q, hits, subNamesOf],
   )
   const unrecognized = useMemo(
     () =>
@@ -352,6 +362,8 @@ export function Names({
     const n = clarified.find((x) => x.name.toLowerCase() === name.toLowerCase())
     if (n && groupOf(n) !== key) setGroup.mutate({ name: n.name, group: key })
   }
+  /** step9 (2026-11-17, third request): a sub-name dropped on a group joins it. */
+  const dropSubOnGroup = (key: string) => (sub: DraggedSubName) => setSubSettings.mutate({ id: sub.id, group: key })
   const nameRow = (n: LedgerName) => (
     <NameRow
       key={`n:${n.name}`}
@@ -390,8 +402,11 @@ export function Names({
         files: (name) => fileCounts.get(nameKey(name)) ?? EMPTY_COUNTS,
         onFiles: (name, filter) => setFiles({ kind: 'name', name, filter }),
         descriptionsOf: (sub) => names.data?.subDescriptions?.[sub.id] ?? [],
+        containsOf: (sub) => names.data?.subContains?.[sub.id] ?? [],
         onDescription: (sub, d) => moveDescription(n.name, d, false, sub),
         onOpenDescription: onOpenDescription && ((d: string) => onOpenDescription(n.name, d)),
+        onMergeInto: (sub, from) =>
+          setMerging({ from, into: { name: sub.name, subId: sub.id, category: sub.category } }),
       }}
       onRename={
         mergeable(n)
@@ -405,7 +420,12 @@ export function Names({
       unrecognized={n.unclarified ? (names.data?.unrecognized ?? []) : undefined}
       onAssign={(u) => setRuleTarget({ kind: 'unrecognized', view: u })}
       mergeable={mergeable(n)}
-      onMergeInto={mergeable(n) ? (from) => setMerging({ from, into: n.name }) : undefined}
+      onMergeInto={mergeable(n) ? (from) => setMerging({ from: { name: from }, into: { name: n.name } }) : undefined}
+      onSubNameInto={
+        mergeable(n)
+          ? (sub) => setMerging({ from: { name: sub.name, subId: sub.id }, into: { name: n.name } })
+          : undefined
+      }
       onDescription={n.unclarified ? undefined : (d) => moveDescription(n.name, d)}
       matches={hits.get(n.name.toLowerCase())}
       query={q}
@@ -486,6 +506,7 @@ export function Names({
               active={filter === f.id}
               onClick={() => setFilter(f.id)}
               onDropName={groups.some((g) => g.key === f.id) ? dropOnGroup(f.id) : undefined}
+              onDropSub={groups.some((g) => g.key === f.id) ? dropSubOnGroup(f.id) : undefined}
             />
           ))}
         </div>
@@ -601,6 +622,7 @@ export function Names({
                   group={g}
                   count={members.length}
                   onDrop={dropOnGroup(g.key)}
+                  onDropSub={dropSubOnGroup(g.key)}
                   onRename={g.id ? () => setGroupEdit({ id: g.id, name: g.label }) : undefined}
                   onDelete={g.id ? () => deleteGroup.mutate(g.id!) : undefined}
                 >
@@ -720,12 +742,16 @@ export function Names({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Merge {merging?.from} into {merging?.into}?
+              Merge {merging?.from.name} into {merging?.into.name}?
             </DialogTitle>
             <DialogDescription>
-              Every transaction of {merging?.from} takes the name {merging?.into}, its category and its split rules,
-              and new ones follow. {merging?.from}'s own category and split rules are dropped. Dragging back cannot
-              split them again.
+              {merging?.into.subId
+                ? `Every transaction of ${merging.from.name} moves under ${merging.into.name} and takes its category${merging.into.category ? ` (${merging.into.category})` : ''} and split rules, and new ones follow.`
+                : `Every transaction of ${merging?.from.name} takes the name ${merging?.into.name}, its category and its split rules, and new ones follow.`}{' '}
+              {merging?.from.subId
+                ? `${merging.from.name} is removed — its files go along.`
+                : `${merging?.from.name}'s own category and split rules are dropped.`}{' '}
+              Dragging back cannot split them again.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -775,14 +801,17 @@ function FilterChip({
   active,
   onClick,
   onDropName,
+  onDropSub,
 }: {
   label: string
   count: number
   active: boolean
   onClick: () => void
   onDropName?: (name: string) => void
+  /** step9 (2026-11-17, third request): a sub-name dropped here joins the group. */
+  onDropSub?: (sub: DraggedSubName) => void
 }) {
-  const drop = useGroupDrop(onDropName)
+  const drop = useGroupDrop(onDropName, onDropSub)
   return (
     <button
       type="button"
@@ -876,6 +905,7 @@ function GroupSection({
   group,
   count,
   onDrop,
+  onDropSub,
   onRename,
   onDelete,
   children,
@@ -883,11 +913,13 @@ function GroupSection({
   group: NameGroup
   count: number
   onDrop: (name: string) => void
+  /** step9 (2026-11-17, third request): a sub-name dropped here joins the group. */
+  onDropSub?: (sub: DraggedSubName) => void
   onRename?: () => void
   onDelete?: () => void
   children: ReactNode
 }) {
-  const drop = useGroupDrop(onDrop)
+  const drop = useGroupDrop(onDrop, onDropSub)
   return (
     <section
       {...drop.props}
@@ -961,6 +993,7 @@ function NameRow({
   onAssign,
   mergeable = false,
   onMergeInto,
+  onSubNameInto,
   onDescription,
   matches,
   query,
@@ -1002,6 +1035,8 @@ function NameRow({
   mergeable?: boolean
   /** Another name was dropped on this one: merge it into this. */
   onMergeInto?: (from: string) => void
+  /** step9 (2026-11-17, third request): a sub-name was dropped on this one: merge it into this. */
+  onSubNameInto?: (sub: DraggedSubName) => void
   /** step9: a description was dropped on this name: nest it here. */
   onDescription?: (d: { key: string; description: string }) => void
   /** step9: the description keys the search found under it — shown open, marked. */
@@ -1017,12 +1052,24 @@ function NameRow({
   // search that finds one of them opens it unfolded.
   const [subsToggled, setSubsToggled] = useState(false)
   const subs = subNames ?? []
-  const subsOpen = subsToggled || (query.length >= 2 && subs.some((sub) => sub.name.toLowerCase().includes(query)))
+  const subsOpen =
+    subsToggled ||
+    (query.length >= 2 &&
+      subs.some(
+        (sub) =>
+          sub.name.toLowerCase().includes(query) ||
+          (subTools?.descriptionsOf?.(sub) ?? []).some((d) => d.description.toLowerCase().includes(query)),
+      ))
   const toggleSubs = () => setSubsToggled(!subsOpen)
   // step9 (2026-11-17, second request): a name with sub-names is only a wrapper ("a rubber
   // band") — no settings, nothing dragged into it or out of it; its sub-names are the names.
   const wrapper = subs.length > 0 && !n.unclarified
-  const drop = useNameDrop(n.name, wrapper ? undefined : onMergeInto, wrapper ? undefined : onDescription)
+  const drop = useNameDrop(
+    n.name,
+    wrapper ? undefined : onMergeInto,
+    wrapper ? undefined : onDescription,
+    wrapper ? undefined : onSubNameInto,
+  )
   const draggable = mergeable && !wrapper
   const many = n.descriptions.length
   const matched = (d: { key?: string; description: string }) =>
@@ -1150,29 +1197,8 @@ function NameRow({
             </DescriptionLink>
           </p>
         ))}
-        {!wrapper && many > 0 && !open && (
-          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
-            <span className="min-w-0 truncate" title={n.descriptions.map((d) => d.description).join('\n')}>
-              {n.descriptions.slice(0, 2).map((d, i) => (
-                <span key={d.key ?? d.description}>
-                  {i > 0 && ' · '}
-                  <DescriptionLink description={d.description} onOpen={onOpenDescription}>
-                    {d.description}
-                  </DescriptionLink>
-                </span>
-              ))}
-            </span>
-            {many > 2 && (
-              <button
-                type="button"
-                onClick={() => setOpen(true)}
-                className="shrink-0 font-medium text-brand hover:underline"
-              >
-                +{many - 2} more
-              </button>
-            )}
-          </p>
+        {!wrapper && !open && (
+          <DescriptionsLine descriptions={n.descriptions} onOpen={onOpenDescription} onMore={() => setOpen(true)} />
         )}
         {subs.length > 0 && (
           <button
@@ -1552,33 +1578,4 @@ function AddNameDialog({
   )
 }
 
-/**
- * step2 (2026-11-15, `nd.png`): a description on the Names tab is a link — its ledger rows
- * under this name. Plain text where there is nowhere to open it.
- */
-function DescriptionLink({
-  description,
-  onOpen,
-  className,
-  children,
-}: {
-  description: string
-  onOpen?: (description: string) => void
-  className?: string
-  children: ReactNode
-}) {
-  if (!onOpen) return <span className={className}>{children}</span>
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        onOpen(description)
-      }}
-      title="See the transactions with this description"
-      className={cn('max-w-full truncate text-left hover:text-brand hover:underline', className)}
-    >
-      {children}
-    </button>
-  )
-}
+

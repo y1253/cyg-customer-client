@@ -595,6 +595,8 @@ export type NamesData = {
    * with sub-names is only a wrapper; its sub-names hold its descriptions.
    */
   subDescriptions?: Record<number, NameDescription[]>
+  /** step9 (2026-11-17, third request): each sub-name's "description contains" rules, by id. */
+  subContains?: Record<number, Array<{ key: string; text: string; category: string | null; rows: number }>>
 }
 
 /** step2 (2026-11-09): what a name's profile field holds. */
@@ -816,8 +818,21 @@ export async function deleteNameGroup(auth: BookAuth, id: number): Promise<Names
   return res.json()
 }
 
-/** step8: merge name `from` into `into` (it takes `into`'s name, category and tax). */
-export async function mergeNames(auth: BookAuth, values: { from: string; into: string }): Promise<NamesData> {
+/**
+ * step9 (2026-11-17, third request): one end of a merge — a name, or a sub-name (`subId`).
+ * `category` is only for the confirm text.
+ */
+export type MergeEnd = { name: string; subId?: number; category?: string }
+
+/**
+ * step8: merge name `from` into `into` (it takes `into`'s name, category and tax).
+ * step9 (2026-11-17, third request): either end may be a sub-name.
+ */
+export async function mergeNames(auth: BookAuth, ends: { from: MergeEnd; into: MergeEnd }): Promise<NamesData> {
+  const values = {
+    ...(ends.from.subId ? { fromSubNameId: ends.from.subId } : { from: ends.from.name }),
+    ...(ends.into.subId ? { intoSubNameId: ends.into.subId } : { into: ends.into.name }),
+  }
   const res = await bookFetch(auth, '/api/bookkeeping/names/merge', json('POST', values))
   if (!res.ok) throw await errorFrom(res)
   return res.json()

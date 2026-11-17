@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, CornerDownRight, Pencil, X } from 'lucide-react'
-import type { NameDescription, NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
+import type { MergeEnd, NameDescription, NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useDeleteSubName, useSetSubNameCategory, useSetSubNameSettings } from '@/hooks/useSplits'
@@ -11,8 +11,9 @@ import type { BucketCounts, BucketFilter } from '@/lib/name-files'
 import { cn } from '@/lib/utils'
 import { AgencyPicker } from './AgencyPicker'
 import { CategoryField } from './CategoryField'
+import { DescriptionLink, DescriptionsLine } from './DescriptionsLine'
 import { InlineRename } from './InlineRename'
-import { descriptionDragProps, useNameDrop } from './name-drag'
+import { descriptionDragProps, subNameDragProps, useNameDrop } from './name-drag'
 import { FolderButton } from './NameFiles/FileCounts'
 import { SubNameDialog } from './SubNameDialog'
 
@@ -35,6 +36,10 @@ export type SubNameTools = {
   descriptionsOf?: (sub: SubName) => NameDescription[]
   onDescription?: (sub: SubName, d: { key: string; description: string }) => void
   onOpenDescription?: (description: string) => void
+  /** step9 (2026-11-17, third request): its "description contains" rules. */
+  containsOf?: (sub: SubName) => Array<{ key: string; text: string; category: string | null; rows: number }>
+  /** step9 (2026-11-17, third request): a name or another sub-name was dropped on it. */
+  onMergeInto?: (sub: SubName, from: MergeEnd) => void
 }
 
 /**
@@ -48,6 +53,8 @@ export type SubNameTools = {
  * parent's until it has its own), its folder, its details (the Edit dialog).
  * step9 (2026-11-17, second request): and its descriptions — dragged out of it or dropped on
  * it. Only its parent's last sub-name can be removed (the parent is a regular name again).
+ * step9 (2026-11-17, third request): like a name — dragged onto a name, a sub-name or a group,
+ * a name or sub-name dropped on it merges into it, and "Descriptions: …" shows under it.
  */
 export function SubNameLine({
   sub,
@@ -78,9 +85,16 @@ export function SubNameLine({
   const error = set.error ?? remove.error ?? create.error ?? settings.error
   const own = tools ?? null
   const descriptions = own?.descriptionsOf?.(sub) ?? []
+  const contains = own?.containsOf?.(sub) ?? []
   const [descToggled, setDescToggled] = useState(false)
   const descOpen = descToggled || (!!matched && descriptions.some(matched))
-  const drop = useNameDrop(sub.name, undefined, own?.onDescription && ((d) => own.onDescription!(sub, d)))
+  const merge = own?.onMergeInto
+  const drop = useNameDrop(
+    sub.name,
+    merge && ((from) => merge(sub, { name: from })),
+    own?.onDescription && ((d) => own.onDescription!(sub, d)),
+    merge && ((from) => from.id !== sub.id && merge(sub, { name: from.name, subId: from.id })),
+  )
   const nameButton = onOpen ? (
     <button type="button" onClick={onOpen} className="min-w-0 truncate font-medium text-[#0B1C2C] hover:underline" title="See its rows">
       {sub.name}
@@ -92,9 +106,16 @@ export function SubNameLine({
     <div
       {...drop.props}
       className={cn('mt-0.5 rounded text-xs', drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset')}
-      title={own?.onDescription ? 'Drop a description here to file its transactions under this sub-name' : undefined}
+      title={
+        own?.onDescription
+          ? 'Drag it onto a name, a sub-name or a group — or drop a name, a sub-name or a description here'
+          : undefined
+      }
     >
-      <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+      <div
+        {...(merge ? subNameDragProps(sub) : {})}
+        className={cn('flex min-w-0 items-center gap-1.5 text-muted-foreground', merge && 'cursor-grab active:cursor-grabbing')}
+      >
         <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
         {own ? (
           <InlineRename
@@ -166,7 +187,7 @@ export function SubNameLine({
         {own && (
           <span className={cn('flex shrink-0 items-center gap-0.5', own.agencies.length === 0 && 'ml-auto')}>
             <FolderButton name={sub.name} counts={own.files(sub.name)} onOpen={(f) => own.onFiles(sub.name, f)} />
-            {descriptions.length > 0 && (
+            {descriptions.length + contains.length > 0 && (
               <Button
                 variant="ghost"
                 size="icon-xs"
@@ -199,8 +220,28 @@ export function SubNameLine({
           </button>
         )}
       </div>
-      {descOpen && descriptions.length > 0 && (
+      {!descOpen && (
+        <DescriptionsLine
+          className="ml-5"
+          descriptions={descriptions}
+          onOpen={own?.onOpenDescription}
+          onMore={() => setDescToggled(true)}
+        />
+      )}
+      {descOpen && descriptions.length + contains.length > 0 && (
         <ul className="mt-1 ml-5 flex flex-col gap-0.5 rounded-lg bg-muted/40 p-1.5">
+          {contains.map((c) => (
+            <li key={`c:${c.key}`} className="flex items-center gap-3 rounded px-2 py-0.5">
+              <span className="min-w-0 flex-1 truncate text-[#0B1C2C]">
+                Description contains <span className="font-medium">“{c.text}”</span>
+              </span>
+              <span className="shrink-0 text-brand">your rule</span>
+              <span className="shrink-0 text-muted-foreground">{c.category ?? sub.category}</span>
+              <span className="w-14 shrink-0 text-right text-muted-foreground/80 tabular-nums">
+                {c.rows.toLocaleString()} row{c.rows === 1 ? '' : 's'}
+              </span>
+            </li>
+          ))}
           {descriptions.map((d) => (
             <li
               key={d.key ?? d.description}
@@ -213,17 +254,9 @@ export function SubNameLine({
               )}
             >
               <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={d.description}>
-                {own?.onOpenDescription ? (
-                  <button
-                    type="button"
-                    onClick={() => own.onOpenDescription!(d.description)}
-                    className="truncate text-left hover:text-brand hover:underline"
-                  >
-                    {d.description}
-                  </button>
-                ) : (
-                  d.description
-                )}
+                <DescriptionLink description={d.description} onOpen={own?.onOpenDescription}>
+                  {d.description}
+                </DescriptionLink>
               </span>
               {d.rule && (
                 <span className="shrink-0 text-brand" title="Your rule files it under this sub-name">
@@ -232,7 +265,7 @@ export function SubNameLine({
               )}
               <span className="shrink-0 text-muted-foreground">{d.category}</span>
               <span className="w-14 shrink-0 text-right text-muted-foreground/80 tabular-nums">
-                {d.rows.toLocaleString()} row{d.rows === 1 ? '' : 's'}
+                {d.rows ? `${d.rows.toLocaleString()} row${d.rows === 1 ? '' : 's'}` : 'no rows yet'}
               </span>
             </li>
           ))}

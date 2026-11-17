@@ -4,12 +4,29 @@ import { useState, type DragEvent } from 'react'
 const MIME = 'application/x-cyg-name'
 /** step9: a bank description dragged from one name to another — `{ key, description }`. */
 const MIME_DESCRIPTION = 'application/x-cyg-description'
+/** step9 (2026-11-17, third request): a sub-name dragged like a name — `{ id, name }`. */
+const MIME_SUB_NAME = 'application/x-cyg-subname'
+
+export type DraggedSubName = { id: number; name: string }
 
 export function nameDragProps(name: string) {
   return {
     draggable: true,
     onDragStart: (e: DragEvent) => {
       e.dataTransfer.setData(MIME, name)
+      e.dataTransfer.effectAllowed = 'move'
+    },
+  }
+}
+
+/** step9 (2026-11-17, third request): drag a sub-name onto a name, a sub-name or a group. */
+export function subNameDragProps(sub: DraggedSubName) {
+  return {
+    draggable: true,
+    onDragStart: (e: DragEvent) => {
+      // Inside its parent's row: only the sub-name is dragged.
+      e.stopPropagation()
+      e.dataTransfer.setData(MIME_SUB_NAME, JSON.stringify({ id: sub.id, name: sub.name }))
       e.dataTransfer.effectAllowed = 'move'
     },
   }
@@ -32,17 +49,20 @@ export function descriptionDragProps(key: string, description: string) {
  * Drop-target handlers for the name `target`; `over` while another name or a description is
  * above it. A name dropped here merges into it (step8); a description is nested under it
  * (step9). Stops the event so the group section around the row does not take it too.
+ * step9 (2026-11-17, third request): a sub-name dropped here merges into it (`onSubName`).
  */
 export function useNameDrop(
   target: string,
   onDrop?: (from: string) => void,
   onDescription?: (d: { key: string; description: string }) => void,
+  onSubName?: (sub: DraggedSubName) => void,
 ) {
   const [over, setOver] = useState(false)
-  if (!onDrop && !onDescription) return { over: false, props: {} }
+  if (!onDrop && !onDescription && !onSubName) return { over: false, props: {} }
   const accepts = (e: DragEvent) =>
     (!!onDrop && e.dataTransfer.types.includes(MIME)) ||
-    (!!onDescription && e.dataTransfer.types.includes(MIME_DESCRIPTION))
+    (!!onDescription && e.dataTransfer.types.includes(MIME_DESCRIPTION)) ||
+    (!!onSubName && e.dataTransfer.types.includes(MIME_SUB_NAME))
   return {
     over,
     props: {
@@ -65,6 +85,13 @@ export function useNameDrop(
           onDescription(JSON.parse(description) as { key: string; description: string })
           return
         }
+        const sub = onSubName && e.dataTransfer.getData(MIME_SUB_NAME)
+        if (sub) {
+          e.preventDefault()
+          e.stopPropagation()
+          onSubName(JSON.parse(sub) as DraggedSubName)
+          return
+        }
         const from = onDrop && e.dataTransfer.getData(MIME)
         if (!from) return
         e.preventDefault()
@@ -75,15 +102,19 @@ export function useNameDrop(
   }
 }
 
-/** step9: a Names-tab group section — a name dropped on it (not on a name) joins the group. */
-export function useGroupDrop(onDrop?: (name: string) => void) {
+/**
+ * step9: a Names-tab group section — a name dropped on it (not on a name) joins the group.
+ * step9 (2026-11-17, third request): a sub-name too (`onSubName`).
+ */
+export function useGroupDrop(onDrop?: (name: string) => void, onSubName?: (sub: DraggedSubName) => void) {
   const [over, setOver] = useState(false)
-  if (!onDrop) return { over: false, props: {} }
+  if (!onDrop && !onSubName) return { over: false, props: {} }
   return {
     over,
     props: {
       onDragOver: (e: DragEvent) => {
-        if (!e.dataTransfer.types.includes(MIME)) return
+        const types = e.dataTransfer.types
+        if (!(onDrop && types.includes(MIME)) && !(onSubName && types.includes(MIME_SUB_NAME))) return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
         setOver(true)
@@ -93,7 +124,13 @@ export function useGroupDrop(onDrop?: (name: string) => void) {
       },
       onDrop: (e: DragEvent) => {
         setOver(false)
-        const name = e.dataTransfer.getData(MIME)
+        const sub = onSubName && e.dataTransfer.getData(MIME_SUB_NAME)
+        if (sub) {
+          e.preventDefault()
+          onSubName(JSON.parse(sub) as DraggedSubName)
+          return
+        }
+        const name = onDrop && e.dataTransfer.getData(MIME)
         if (!name) return
         e.preventDefault()
         onDrop(name)
