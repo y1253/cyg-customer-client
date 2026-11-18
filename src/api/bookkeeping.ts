@@ -853,7 +853,13 @@ export async function deleteNameGroup(auth: BookAuth, id: number): Promise<Names
  * step9 (2026-11-17, third request): one end of a merge — a name, or a sub-name (`subId`).
  * `category` is only for the confirm text.
  */
-export type MergeEnd = { name: string; subId?: number; category?: string }
+export type MergeEnd = {
+  name: string
+  subId?: number
+  category?: string
+  /** step9 (2026-11-18): a name with sub-names — the merge lands on its sub-name of the same category. */
+  wrapper?: boolean
+}
 
 /**
  * step8: merge name `from` into `into` (it takes `into`'s name, category and tax).

@@ -89,8 +89,8 @@ export function SubNameLine({
   const [descToggled, setDescToggled] = useState(false)
   const descOpen = descToggled || (!!matched && descriptions.some(matched))
   const merge = own?.onMergeInto
-  // step9 (2026-11-17): a split rule's sub-name is never merged (the server refuses it).
-  const draggable = !!merge && !sub.fromRule
+  // step9 (2026-11-18): every sub-name drags — a split rule's ("Walmart - GST") too.
+  const draggable = !!merge
   const drop = useNameDrop(
     sub.name,
     merge && ((from) => merge(sub, { name: from })),
@@ -110,9 +110,7 @@ export function SubNameLine({
       className={cn('mt-0.5 rounded text-xs', drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset')}
       title={
         own?.onDescription
-          ? sub.fromRule
-            ? "Made by a split rule — it can't be merged. Drop a name, a sub-name or a description here"
-            : 'Drag it onto a name or another sub-name to merge them — or drop a name, a sub-name or a description here'
+          ? 'Drag it onto a name or another sub-name to merge them — or drop a name, a sub-name or a description here'
           : undefined
       }
     >

@@ -94,9 +94,11 @@ import { DescriptionLink, DescriptionsLine } from './DescriptionsLine'
 import {
   descriptionDragProps,
   nameDragProps,
+  draggedSubId,
+  joinDragProps,
   useGroupDrop,
+  useHoverOpen,
   useNameDrop,
-  useWrapperDrop,
   type DraggedSubName,
 } from './name-drag'
 import { FolderButton } from './NameFiles/FileCounts'
@@ -533,10 +535,22 @@ export function Names({
       unrecognized={n.unclarified ? (names.data?.unrecognized ?? []) : undefined}
       onAssign={(u) => setRuleTarget({ kind: 'unrecognized', view: u })}
       mergeable={mergeable(n)}
-      onMergeInto={mergeable(n) ? (from) => setMerging({ from: { name: from }, into: { name: n.name } }) : undefined}
+      onMergeInto={
+        mergeable(n)
+          ? (from) =>
+              setMerging({
+                from: { name: from },
+                into: { name: n.name, wrapper: !!subNamesOf.get(n.name.toLowerCase())?.length },
+              })
+          : undefined
+      }
       onSubNameInto={
         mergeable(n)
-          ? (sub) => setMerging({ from: { name: sub.name, subId: sub.id }, into: { name: n.name } })
+          ? (sub) =>
+              setMerging({
+                from: { name: sub.name, subId: sub.id },
+                into: { name: n.name, wrapper: !!subNamesOf.get(n.name.toLowerCase())?.length },
+              })
           : undefined
       }
       onDescription={n.unclarified ? undefined : (d) => moveDescription(n.name, d)}
@@ -957,7 +971,9 @@ export function Names({
               Merge {merging?.from.name} into {merging?.into.name}?
             </DialogTitle>
             <DialogDescription>
-              {merging?.into.subId
+              {merging?.into.wrapper
+                ? `Every transaction of ${merging.from.name} moves under ${merging.into.name}, into its sub-name of the same category (made if it has none), and new ones follow.`
+                : merging?.into.subId
                 ? `Every transaction of ${merging.from.name} moves under ${merging.into.name} and takes its category${merging.into.category ? ` (${merging.into.category})` : ''} and split rules, and new ones follow.`
                 : `Every transaction of ${merging?.from.name} takes the name ${merging?.into.name}, its category and its split rules, and new ones follow.`}{' '}
               {merging?.from.subId
@@ -1281,14 +1297,18 @@ function NameRow({
   // step9 (2026-11-17, second request): a name with sub-names is only a wrapper ("a rubber
   // band") — no settings, nothing dragged into it or out of it; its sub-names are the names.
   const wrapper = subs.length > 0 && !n.unclarified
+  // step9 (2026-11-18): a wrapper takes a name or a sub-name too — it lands on its sub-name of the
+  // same category. Not a description (that goes onto one of its sub-names), nor its own sub-name.
+  const own = (sub: DraggedSubName) => subs.some((s) => s.id === sub.id)
   const drop = useNameDrop(
     n.name,
-    wrapper ? undefined : onMergeInto,
+    onMergeInto,
     wrapper ? undefined : onDescription,
-    wrapper ? undefined : onSubNameInto,
+    onSubNameInto && ((sub) => !own(sub) && onSubNameInto(sub)),
   )
-  // step9 (2026-11-17): a sub-name held over a wrapper unfolds it; dropped on the row itself it does nothing.
-  const wrapperDrop = useWrapperDrop(wrapper, () => setSubsToggled(true))
+  const ownDrag = wrapper && drop.over && subs.some((s) => s.id === draggedSubId())
+  // step9 (2026-11-17): anything held over a folded wrapper unfolds it.
+  const hover = useHoverOpen(wrapper && !subsOpen, () => setSubsToggled(true))
   const draggable = mergeable && !wrapper
   const many = n.descriptions.length
   const matched = (d: { key?: string; description: string }) =>
@@ -1300,13 +1320,13 @@ function NameRow({
     <li
       id={rowId(n.name)}
       {...(draggable ? nameDragProps(n.name) : {})}
-      {...(wrapper ? wrapperDrop.props : drop.props)}
+      {...joinDragProps(drop.props, hover.props)}
       title={draggable ? 'Drag onto another name to merge them, or onto a group to move it' : undefined}
       className={cn(
         'px-5 py-3 transition-colors',
         draggable && 'cursor-grab active:cursor-grabbing',
-        drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
-        wrapperDrop.over && 'bg-muted/50',
+        drop.over && !ownDrag && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
+        ownDrag && 'bg-muted/50',
         highlighted && 'bg-amber-50',
       )}
     >
@@ -1431,8 +1451,10 @@ function NameRow({
             {subsOpen ? 'Hide sub-names' : `${subs.length} sub-name${subs.length === 1 ? '' : 's'}`}
           </button>
         )}
-        {wrapperDrop.over && (
-          <p className="mt-0.5 text-xs text-muted-foreground">Drop it on one of the sub-names of {n.name}.</p>
+        {ownDrag && (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            It is already under {n.name} — drop it on another sub-name.
+          </p>
         )}
         {subsOpen && (
           <div className="mt-1 ml-1 space-y-0.5 border-l-2 border-brand/20 pl-3">

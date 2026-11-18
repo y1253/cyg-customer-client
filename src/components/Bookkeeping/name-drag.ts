@@ -9,6 +9,13 @@ const MIME_SUB_NAME = 'application/x-cyg-subname'
 
 export type DraggedSubName = { id: number; name: string }
 
+/**
+ * step9 (2026-11-18): the sub-name being dragged right now — `dataTransfer` can't be read
+ * during a drag, and a wrapper row needs to know it is its own sub-name (nothing to merge).
+ */
+let draggingSub: number | null = null
+export const draggedSubId = () => draggingSub
+
 export function nameDragProps(name: string) {
   return {
     draggable: true,
@@ -28,6 +35,10 @@ export function subNameDragProps(sub: DraggedSubName) {
       e.stopPropagation()
       e.dataTransfer.setData(MIME_SUB_NAME, JSON.stringify({ id: sub.id, name: sub.name }))
       e.dataTransfer.effectAllowed = 'move'
+      draggingSub = sub.id
+    },
+    onDragEnd: () => {
+      draggingSub = null
     },
   }
 }
@@ -103,51 +114,54 @@ export function useNameDrop(
 }
 
 /**
- * step9 (2026-11-17): a wrapper name's row (a name with sub-names). A sub-name or a description
- * held over it for a moment unfolds it (`onHoverOpen`), so its sub-names can take the drop; one
- * dropped on the row itself does nothing — it must go onto one of its sub-names, never fall
- * through to the group section around it (which would change the sub-name's group).
+ * step9 (2026-11-17): a folded wrapper name's row (a name with sub-names). A name, sub-name or
+ * description held over it for a moment unfolds it (`onHoverOpen`), so its sub-names can take
+ * the drop. step9 (2026-11-18): only that — the row itself takes a name or a sub-name
+ * (`useNameDrop`; it lands on its sub-name of the same category). Join with `joinDragProps`.
  */
-export function useWrapperDrop(enabled: boolean, onHoverOpen: () => void) {
-  const [over, setOver] = useState(false)
+export function useHoverOpen(enabled: boolean, onHoverOpen: () => void) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clear = () => {
     if (timer.current) clearTimeout(timer.current)
     timer.current = null
   }
   useEffect(() => clear, [])
-  if (!enabled) return { over: false, props: {} }
+  if (!enabled) return { props: {} }
   const held = (e: DragEvent) =>
-    e.dataTransfer.types.includes(MIME_SUB_NAME) || e.dataTransfer.types.includes(MIME_DESCRIPTION)
+    [MIME, MIME_SUB_NAME, MIME_DESCRIPTION].some((t) => e.dataTransfer.types.includes(t))
   return {
-    over,
     props: {
       onDragOver: (e: DragEvent) => {
-        if (!held(e)) return
-        e.preventDefault()
-        e.stopPropagation()
-        e.dataTransfer.dropEffect = 'none'
-        if (!over) setOver(true)
-        if (!timer.current)
-          timer.current = setTimeout(() => {
-            timer.current = null
-            onHoverOpen()
-          }, 600)
+        if (!held(e) || timer.current) return
+        timer.current = setTimeout(() => {
+          timer.current = null
+          onHoverOpen()
+        }, 600)
       },
       onDragLeave: (e: DragEvent) => {
-        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
-        clear()
-        setOver(false)
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) clear()
       },
-      onDrop: (e: DragEvent) => {
-        clear()
-        setOver(false)
-        if (!held(e)) return
-        e.preventDefault()
-        e.stopPropagation()
-      },
+      onDrop: () => clear(),
     },
   }
+}
+
+type DragHandlers = Partial<Record<'onDragOver' | 'onDragLeave' | 'onDrop', (e: DragEvent) => void>>
+
+/** Both sets of drag handlers on one element, each called in turn. */
+export function joinDragProps(a: DragHandlers, b: DragHandlers): DragHandlers {
+  const out: DragHandlers = { ...a }
+  for (const k of ['onDragOver', 'onDragLeave', 'onDrop'] as const) {
+    const x = a[k]
+    const y = b[k]
+    if (x && y)
+      out[k] = (e) => {
+        x(e)
+        y(e)
+      }
+    else if (y) out[k] = y
+  }
+  return out
 }
 
 /**
