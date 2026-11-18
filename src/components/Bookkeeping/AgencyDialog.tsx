@@ -12,9 +12,12 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
+import { useSaveSplitGroup } from '@/hooks/useSplitGroups'
+import { useTax } from '@/hooks/useTax'
 import { categoryChoice, choiceReady, resolveChoice, type CategoryChoice } from '@/lib/categoryChoice'
 import { cn } from '@/lib/utils'
 import { CategoryField } from './CategoryField'
@@ -34,6 +37,9 @@ const rateOf = (agency: TaxAgency, kind: TaxKind): RateForm => {
   return { on: true, mode: r.mode, value: String(r.mode === 'FIXED' ? (r.amount ?? '') : r.rate) }
 }
 
+/** The group Select's value for "New group…". */
+const NEW_GROUP = 'new'
+
 const HINT: Record<TaxKind, string> = {
   SALES: 'Money you receive',
   PURCHASE: 'Money you spend',
@@ -43,6 +49,10 @@ const HINT: Record<TaxKind, string> = {
  * step9 part 4 (2026-11-15): add or edit a SPLIT RULE (was a tax agency) — an In rate, an Out rate or both, each
  * a percentage (included in the amount) or a fixed amount, and where its splits go: its own account (the
  * default) or a category picked by hand. `agency` = edit it; null = a new one.
+ *
+ * step9 (2026-11-17): a rule is INDIVIDUAL (cuts what the rules before it left) or in a SPLIT GROUP (its rules cut
+ * the same amount together and are picked as one) — an existing group or a new one made on save. `groupId` = the
+ * group a new rule starts in.
  */
 export function AgencyDialog({
   open,
@@ -51,6 +61,7 @@ export function AgencyDialog({
   title,
   description,
   onSaved,
+  groupId = null,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -58,9 +69,16 @@ export function AgencyDialog({
   title?: string
   description?: string
   onSaved?: (agency: TaxAgency) => void
+  groupId?: number | null
 }) {
   const save = useSaveAgency()
+  const saveGroup = useSaveSplitGroup()
   const create = useCreateAccount()
+  const groups = useTax().data?.groups ?? []
+  /** Individual or in a group; `group` = a group id as text, or NEW_GROUP. */
+  const [inGroup, setInGroup] = useState(false)
+  const [group, setGroup] = useState<string | null>(null)
+  const [newGroup, setNewGroup] = useState('')
   const [name, setName] = useState('')
   /** Per direction: whether the rule takes it, % or $, and the value as typed. */
   const [rates, setRates] = useState<Record<TaxKind, RateForm>>(EMPTY)
@@ -78,8 +96,13 @@ export function AgencyDialog({
     setOwnCategory(!!agency?.category)
     setChoice(categoryChoice(agency?.category ?? null))
     setActive(agency?.active ?? true)
+    const startGroup = agency ? agency.groupId : groupId
+    setInGroup(startGroup !== null)
+    setGroup(startGroup !== null ? String(startGroup) : null)
+    setNewGroup('')
     setError(null)
     save.reset()
+    saveGroup.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, agency])
 
@@ -99,7 +122,19 @@ export function AgencyDialog({
       if (rates[k].mode === 'FIXED' && value <= 0) return setError(`The ${label} amount must be more than 0.`)
     }
     if (ownCategory && !choiceReady(choice)) return setError('Pick the category, or switch "Its own category" off.')
+    if (inGroup && !group) return setError('Pick the group, or make it an individual rule.')
+    if (inGroup && group === NEW_GROUP && !newGroup.trim()) return setError('Give the new group a name.')
     setError(null)
+    let targetGroup: number | null = null
+    if (inGroup && group === NEW_GROUP) {
+      try {
+        targetGroup = (await saveGroup.mutateAsync({ name: newGroup.trim() })).id
+      } catch {
+        return
+      }
+      // Made once: a second Save (if the rule fails) uses it.
+      setGroup(String(targetGroup))
+    } else if (inGroup) targetGroup = Number(group)
     const category = ownCategory ? await resolveChoice(choice, create) : null
     if (ownCategory && !category) return setError('The new category could not be made.')
     const values: TaxAgencyInput = {
@@ -112,6 +147,7 @@ export function AgencyDialog({
       }),
       category,
       active,
+      groupId: targetGroup,
     }
     save.mutate(
       { ...values, id: agency?.id },
@@ -124,7 +160,7 @@ export function AgencyDialog({
     )
   }
 
-  const message = error ?? save.error?.message
+  const message = error ?? saveGroup.error?.message ?? save.error?.message
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -212,6 +248,64 @@ export function AgencyDialog({
               </p>
             </div>
             <div className="grid gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  <span className="block text-sm font-medium">Type</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {inGroup
+                      ? 'The rules of a group split the same amount together, and are picked on a name as one.'
+                      : 'Splits what the rules before it left.'}
+                  </span>
+                </span>
+                <div role="group" aria-label="Individual or group" className="flex rounded-md bg-white p-0.5 ring-1 ring-black/10">
+                  {([false, true] as const).map((g) => (
+                    <button
+                      key={String(g)}
+                      type="button"
+                      onClick={() => setInGroup(g)}
+                      className={cn(
+                        'rounded px-2 py-0.5 text-xs font-medium transition-colors',
+                        inGroup === g ? 'bg-brand text-white' : 'text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      {g ? 'Group' : 'Individual'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {inGroup && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Select value={group} onValueChange={(v) => setGroup(v)}>
+                    <SelectTrigger className="h-9 w-full bg-white" aria-label="Group">
+                      <SelectValue placeholder="Pick a group">
+                        {(v: string | null) =>
+                          v === NEW_GROUP ? 'New group…' : (groups.find((g) => String(g.id) === v)?.name ?? 'Pick a group')
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={NEW_GROUP}>New group…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {group === NEW_GROUP && (
+                    <Input
+                      value={newGroup}
+                      onChange={(e) => setNewGroup(e.target.value)}
+                      placeholder="e.g. Quebec taxes"
+                      maxLength={191}
+                      className="bg-white"
+                      aria-label="New group name"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
               <label className="flex items-center justify-between gap-3">
                 <span>
                   <span className="block text-sm font-medium">Its own category</span>
@@ -241,7 +335,7 @@ export function AgencyDialog({
 
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-            <Button type="submit" disabled={save.isPending || create.isPending} className="bg-brand text-white hover:bg-brand/85">
+            <Button type="submit" disabled={save.isPending || create.isPending || saveGroup.isPending} className="bg-brand text-white hover:bg-brand/85">
               {save.isPending ? 'Saving…' : agency ? 'Save' : 'Add split rule'}
             </Button>
           </DialogFooter>

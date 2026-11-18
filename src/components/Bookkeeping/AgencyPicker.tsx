@@ -4,7 +4,42 @@ import { rateLabel, type TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { useTax } from '@/hooks/useTax'
 import { cn } from '@/lib/utils'
+
+/** step9 (2026-11-17): one switch of the picker — an individual rule, or a split group (all its rules). */
+type Unit = { key: string; name: string; ids: number[]; detail: string; active: boolean; group: boolean }
+
+/** The rules as switches: each split group once (where its first rule is), each individual rule on its own. */
+function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => string | undefined): Unit[] {
+  const units: Unit[] = []
+  const seen = new Set<number>()
+  for (const a of agencies) {
+    if (a.groupId === null) {
+      units.push({
+        key: `r${a.id}`,
+        name: a.name,
+        ids: [a.id],
+        detail: a.rates.map(rateLabel).join(' · '),
+        active: a.active,
+        group: false,
+      })
+      continue
+    }
+    if (seen.has(a.groupId)) continue
+    seen.add(a.groupId)
+    const members = agencies.filter((m) => m.groupId === a.groupId)
+    units.push({
+      key: `g${a.groupId}`,
+      name: groupName(a.groupId) ?? 'Group',
+      ids: members.map((m) => m.id),
+      detail: members.map((m) => `${m.name} ${m.rates.map(rateLabel).join(' · ')}`).join(' + '),
+      active: members.some((m) => m.active),
+      group: true,
+    })
+  }
+  return units
+}
 
 /**
  * step9 part 4 (2026-11-15): the SPLIT RULES of one name (were tax agencies): a chip with what is picked ("No
@@ -12,6 +47,8 @@ import { cn } from '@/lib/utils'
  * splits the name's existing transactions now (asked first), and new ones as they come in. Turning one off
  * leaves the splits it made. `rows` = how many transactions the name has (for the question); `draft` = a name
  * not saved yet: picks are only held, nothing is asked.
+ *
+ * step9 (2026-11-17): a split group is ONE switch — it turns all its rules on or off together.
  */
 export function AgencyPicker({
   name,
@@ -30,13 +67,17 @@ export function AgencyPicker({
   rows?: number
   draft?: boolean
 }) {
-  const chosen = agencies.filter((a) => picked.includes(a.id))
-  /** A rule switched on, waiting for "Split them". */
-  const [asking, setAsking] = useState<TaxAgency | null>(null)
-  const turn = (a: TaxAgency, on: boolean) => {
-    if (!on) return onChange(picked.filter((id) => id !== a.id))
-    if (draft || rows === 0) return onChange([...picked, a.id])
-    setAsking(a)
+  const groups = useTax().data?.groups ?? []
+  const units = pickerUnits(agencies, (id) => groups.find((g) => g.id === id)?.name)
+  const isOn = (u: Unit) => u.ids.some((id) => picked.includes(id))
+  const chosen = units.filter(isOn)
+  /** A rule (or group) switched on, waiting for "Split them". */
+  const [asking, setAsking] = useState<Unit | null>(null)
+  const withUnit = (u: Unit) => [...new Set([...picked, ...u.ids])]
+  const turn = (u: Unit, on: boolean) => {
+    if (!on) return onChange(picked.filter((id) => !u.ids.includes(id)))
+    if (draft || rows === 0) return onChange(withUnit(u))
+    setAsking(u)
   }
   return (
     <Popover onOpenChange={(open) => !open && setAsking(null)}>
@@ -75,7 +116,7 @@ export function AgencyPicker({
                 disabled={pending}
                 className="bg-brand text-white hover:bg-brand/85"
                 onClick={() => {
-                  onChange([...picked, asking.id])
+                  onChange(withUnit(asking))
                   setAsking(null)
                 }}
               >
@@ -86,19 +127,30 @@ export function AgencyPicker({
         ) : (
           <>
             <ul className="flex flex-col gap-1">
-              {agencies.map((a) => (
-                <li key={a.id}>
-                  <label className={cn('flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm', !a.active && 'opacity-60')}>
+              {units.map((u) => (
+                <li key={u.key}>
+                  <label className={cn('flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm', !u.active && 'opacity-60')}>
                     <Switch
-                      checked={picked.includes(a.id)}
+                      checked={isOn(u)}
                       disabled={pending}
-                      onCheckedChange={(v) => turn(a, v)}
+                      onCheckedChange={(v) => turn(u, v)}
                       className="data-checked:bg-brand"
                     />
-                    <span className="min-w-0 flex-1 truncate">{a.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                      {a.rates.map(rateLabel).join(' · ')}
-                    </span>
+                    {u.group ? (
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">
+                          {u.name} <span className="text-xs text-muted-foreground">(group)</span>
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground tabular-nums" title={u.detail}>
+                          {u.detail}
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{u.detail}</span>
+                      </>
+                    )}
                   </label>
                 </li>
               ))}

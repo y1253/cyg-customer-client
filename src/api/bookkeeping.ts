@@ -492,6 +492,19 @@ export type TaxAgency = {
   /** Where its splits post; null = the rule's own name. */
   category: string | null
   active: boolean
+  /** step9 (2026-11-17): its split group; null = an individual rule. */
+  groupId: number | null
+}
+
+/**
+ * step9 (2026-11-17): a SPLIT GROUP — its rules run together on the same amount (one included denominator) and are
+ * picked on a name as one. An individual rule cuts what the rules before it left.
+ */
+export type SplitGroup = {
+  id: number
+  name: string
+  /** Its live rules, oldest first. */
+  agencyIds: number[]
 }
 
 export type TaxAgencyInput = Omit<TaxAgency, 'id' | 'rates'> & {
@@ -501,6 +514,7 @@ export type TaxAgencyInput = Omit<TaxAgency, 'id' | 'rates'> & {
 /** The customer's split rules. Which names they split is picked per NAME (Names tab). */
 export type TaxSettings = {
   agencies: TaxAgency[]
+  groups: SplitGroup[]
 }
 
 export const TAX_KIND_LABEL: Record<TaxKind, string> = {
@@ -728,6 +742,23 @@ export async function saveAgency(
 
 export async function deleteAgency(auth: BookAuth, id: number): Promise<void> {
   const res = await bookFetch(auth, `/api/bookkeeping/agencies/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** step9 (2026-11-17): create (no id) or rename a split group. */
+export async function saveSplitGroup(auth: BookAuth, values: { id?: number; name: string }): Promise<SplitGroup> {
+  const res = await bookFetch(
+    auth,
+    values.id ? `/api/bookkeeping/split-groups/${values.id}` : '/api/bookkeeping/split-groups',
+    json(values.id ? 'PATCH' : 'POST', { name: values.name }),
+  )
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** Removes the group; its rules become individual rules and names keep them. */
+export async function deleteSplitGroup(auth: BookAuth, id: number): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/split-groups/${id}`, { method: 'DELETE' })
   if (!res.ok) throw await errorFrom(res)
 }
 

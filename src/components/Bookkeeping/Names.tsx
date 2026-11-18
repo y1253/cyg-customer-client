@@ -27,6 +27,7 @@ import {
   type NameGroup,
   type NameRuleRef,
   type NameType,
+  type SplitGroup,
   type TaxAgency,
   type UnrecognizedName,
   type Statement,
@@ -75,6 +76,7 @@ import {
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
 import { useDeleteNameGroup, useNameSearch, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
+import { useDeleteSplitGroup, useSaveSplitGroup } from '@/hooks/useSplitGroups'
 import { useTax } from '@/hooks/useTax'
 import { useMergeNames } from '@/hooks/useMerge'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
@@ -215,6 +217,12 @@ export function Names({
   const [editing, setEditing] = useState<TaxAgency | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirm, setConfirm] = useState<TaxAgency | null>(null)
+  // step9 (2026-11-17): split groups — the group a new rule starts in, one being renamed, one being deleted.
+  const [ruleGroup, setRuleGroup] = useState<number | null>(null)
+  const [splitGroupEdit, setSplitGroupEdit] = useState<{ id: number; name: string } | null>(null)
+  const [splitGroupConfirm, setSplitGroupConfirm] = useState<SplitGroup | null>(null)
+  const saveSplitGroup = useSaveSplitGroup()
+  const deleteSplitGroup = useDeleteSplitGroup()
   const [filter, setFilter] = useState<Filter>('ALL')
   const [query, setQuery] = useState('')
   const [containsOpen, setContainsOpen] = useState(false)
@@ -249,9 +257,16 @@ export function Names({
     }
     return out
   }, [search.data, q])
+  const splitGroups = useMemo(() => tax.data?.groups ?? [], [tax.data])
   const agencies = useMemo(
-    () => (tax.data?.agencies ?? []).filter((a) => !q || a.name.toLowerCase().includes(q)),
-    [tax.data, q],
+    () =>
+      (tax.data?.agencies ?? []).filter(
+        (a) =>
+          !q ||
+          a.name.toLowerCase().includes(q) ||
+          !!splitGroups.find((g) => g.id === a.groupId)?.name.toLowerCase().includes(q),
+      ),
+    [tax.data, splitGroups, q],
   )
   const payees = useMemo(
     () =>
@@ -299,6 +314,11 @@ export function Names({
           ? unrecognized.length
           : clarified.filter((n) => groupOf(n) === f).length
   const shownAgencies = filter === 'ALL' || filter === 'AGENCY' ? agencies : []
+  // step9 (2026-11-17): a split group is listed with its rules under it (an empty one only when not searching).
+  const shownSplitGroups =
+    filter === 'ALL' || filter === 'AGENCY'
+      ? splitGroups.filter((g) => agencies.some((a) => a.groupId === g.id) || (!q && !g.agencyIds.length))
+      : []
   const shownGroups = filter === 'ALL' ? groups : groups.filter((g) => g.key === filter)
   const shownUnrecognized = filter === 'UNRECOGNIZED' ? unrecognized : []
   const shownContains = filter === 'ALL' || filter === 'UNRECOGNIZED' ? containsRules : []
@@ -340,10 +360,53 @@ export function Names({
       },
     )
 
-  const open = (agency: TaxAgency | null) => {
+  const open = (agency: TaxAgency | null, groupId: number | null = null) => {
     setEditing(agency)
+    setRuleGroup(groupId)
     setDialogOpen(true)
   }
+  const agencyRow = (a: TaxAgency, nested = false) => (
+    <li
+      key={`a:${a.id}`}
+      className={cn('flex items-center gap-4 px-5 py-3.5', nested && 'pl-12 sm:pl-16', !a.active && 'opacity-60')}
+    >
+      <TypeIcon type="AGENCY" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-[#0B1C2C]">{a.name}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          <Badge className={TYPE_BADGE.AGENCY}>{TYPE_LABEL.AGENCY}</Badge>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {a.rates.map(rateLabel).join(' · ')}
+            {a.category && <> → {a.category}</>}
+          </span>
+        </div>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="hidden sm:inline">{a.active ? 'Active' : 'Off'}</span>
+        <Switch
+          checked={a.active}
+          disabled={save.isPending}
+          onCheckedChange={(active) => save.mutate({ id: a.id, active })}
+          className="data-checked:bg-brand"
+          aria-label={`${a.name} active`}
+        />
+      </label>
+      <div className="flex shrink-0 gap-1">
+        <Button variant="ghost" size="icon-sm" title="Edit" onClick={() => open(a)}>
+          <Pencil />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Delete"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={() => setConfirm(a)}
+        >
+          <Trash2 />
+        </Button>
+      </div>
+    </li>
+  )
   const loading = tax.isLoading || names.isLoading
   const error =
     tax.error ??
@@ -566,45 +629,52 @@ export function Names({
               </ul>
             </div>
           )}
-          {shownAgencies.length > 0 && (
+          {(shownAgencies.length > 0 || shownSplitGroups.length > 0) && (
             <ul className="divide-y">
-              {shownAgencies.map((a) => (
-                <li key={`a:${a.id}`} className={cn('flex items-center gap-4 px-5 py-3.5', !a.active && 'opacity-60')}>
-                  <TypeIcon type="AGENCY" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-[#0B1C2C]">{a.name}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <Badge className={TYPE_BADGE.AGENCY}>{TYPE_LABEL.AGENCY}</Badge>
-                      <span className="text-sm text-muted-foreground tabular-nums">
-                        {a.rates.map(rateLabel).join(' · ')}
-                        {a.category && <> → {a.category}</>}
-                      </span>
+              {shownAgencies.filter((a) => a.groupId === null).map((a) => agencyRow(a))}
+              {shownSplitGroups.map((g) => (
+                <li key={`g:${g.id}`}>
+                  <div className="flex items-center gap-4 bg-amber-50/40 px-5 py-3.5">
+                    <TypeIcon type="AGENCY" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-[#0B1C2C]">{g.name}</p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <Badge className={TYPE_BADGE.AGENCY}>Split group</Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {g.agencyIds.length
+                            ? `${g.agencyIds.length} rule${g.agencyIds.length === 1 ? '' : 's'} — they split the same amount together`
+                            : 'No rules yet'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button variant="ghost" size="icon-sm" title="Add a rule to this group" onClick={() => open(null, g.id)}>
+                        <Plus />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Rename group"
+                        onClick={() => setSplitGroupEdit({ id: g.id, name: g.name })}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Delete group"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setSplitGroupConfirm(g)}
+                      >
+                        <Trash2 />
+                      </Button>
                     </div>
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span className="hidden sm:inline">{a.active ? 'Active' : 'Off'}</span>
-                    <Switch
-                      checked={a.active}
-                      disabled={save.isPending}
-                      onCheckedChange={(active) => save.mutate({ id: a.id, active })}
-                      className="data-checked:bg-brand"
-                      aria-label={`${a.name} active`}
-                    />
-                  </label>
-                  <div className="flex shrink-0 gap-1">
-                    <Button variant="ghost" size="icon-sm" title="Edit" onClick={() => open(a)}>
-                      <Pencil />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      title="Delete"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setConfirm(a)}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
+                  {g.agencyIds.length > 0 && (
+                    <ul className="divide-y border-t">
+                      {shownAgencies.filter((a) => a.groupId === g.id).map((a) => agencyRow(a, true))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>
@@ -675,7 +745,65 @@ export function Names({
       {error && !ruleConflictOf(error) && <p className="px-5 pb-4 text-sm text-destructive">{error.message}</p>}
       <RuleConflictDialog conflict={conflict} />
 
-      <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} />
+      <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} groupId={ruleGroup} />
+
+      <Dialog open={!!splitGroupEdit} onOpenChange={(o) => !o && setSplitGroupEdit(null)}>
+        <DialogContent>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const name = splitGroupEdit?.name.trim()
+              if (!splitGroupEdit || !name) return
+              saveSplitGroup.mutate({ id: splitGroupEdit.id, name }, { onSuccess: () => setSplitGroupEdit(null) })
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Rename split group</DialogTitle>
+              <DialogDescription>Its rules and the names that use it stay as they are.</DialogDescription>
+            </DialogHeader>
+            <Input
+              autoFocus
+              maxLength={191}
+              value={splitGroupEdit?.name ?? ''}
+              onChange={(e) => setSplitGroupEdit((g) => (g ? { ...g, name: e.target.value } : g))}
+            />
+            {saveSplitGroup.error && <p className="text-sm text-destructive">{saveSplitGroup.error.message}</p>}
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <Button type="submit" disabled={saveSplitGroup.isPending || !splitGroupEdit?.name.trim()}>
+                {saveSplitGroup.isPending ? 'Saving…' : 'Rename'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!splitGroupConfirm} onOpenChange={(o) => !o && setSplitGroupConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete the group {splitGroupConfirm?.name}?</DialogTitle>
+            <DialogDescription>
+              Its rules become individual rules, and the names that use them keep them. From then on each one splits
+              what the rules before it left. The splits already made stay as they are.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteSplitGroup.error && <p className="text-sm text-destructive">{deleteSplitGroup.error.message}</p>}
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <Button
+              variant="destructive"
+              disabled={deleteSplitGroup.isPending}
+              onClick={() =>
+                splitGroupConfirm &&
+                deleteSplitGroup.mutate(splitGroupConfirm.id, { onSuccess: () => setSplitGroupConfirm(null) })
+              }
+            >
+              {deleteSplitGroup.isPending ? 'Deleting…' : 'Delete group'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <FilesDialog
         target={files}
         onOpenChange={(o) => !o && setFiles(null)}
