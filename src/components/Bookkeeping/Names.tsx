@@ -91,7 +91,14 @@ import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 import { RuleConflictDialog } from './RuleConflictDialog'
 import { UnclarifiedTable } from './UnclarifiedTable'
 import { DescriptionLink, DescriptionsLine } from './DescriptionsLine'
-import { descriptionDragProps, nameDragProps, useGroupDrop, useNameDrop, type DraggedSubName } from './name-drag'
+import {
+  descriptionDragProps,
+  nameDragProps,
+  useGroupDrop,
+  useNameDrop,
+  useWrapperDrop,
+  type DraggedSubName,
+} from './name-drag'
 import { FolderButton } from './NameFiles/FileCounts'
 import { FilesDialog, type FilesTarget } from './NameFiles/FilesDialog'
 
@@ -155,6 +162,31 @@ function TypeIcon({ type }: { type: NameType | 'AGENCY' | string }) {
 
 /** The id a name's row carries, so an exception link can scroll to it. */
 const rowId = (name: string) => `name-row-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+
+/**
+ * step9 (2026-11-17): whether a name's sub-names are unfolded, as the customer last left it
+ * (localStorage `names-subs-open`, name → open); none = the default (open with ≤ 5 sub-names).
+ */
+const SUBS_OPEN_KEY = 'names-subs-open'
+const SUBS_OPEN_DEFAULT_MAX = 5
+function readSubsOpen(name: string): boolean | null {
+  try {
+    const all = JSON.parse(localStorage.getItem(SUBS_OPEN_KEY) ?? '{}') as Record<string, boolean>
+    const v = all[name.toLowerCase()]
+    return typeof v === 'boolean' ? v : null
+  } catch {
+    return null
+  }
+}
+function writeSubsOpen(name: string, open: boolean) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SUBS_OPEN_KEY) ?? '{}') as Record<string, boolean>
+    all[name.toLowerCase()] = open
+    localStorage.setItem(SUBS_OPEN_KEY, JSON.stringify(all))
+  } catch {
+    // A blocked storage only loses the remembered fold.
+  }
+}
 
 /**
  * The Names tab: every name on the ledger — the split rules (step9 part 4, were tax agencies: rates,
@@ -235,7 +267,15 @@ export function Names({
   const setSubSettings = useSetSubNameSettings()
   // step9: a group being created (id undefined) or renamed; the name an exception link went to.
   // step2 (2026-11-09): `assign` = the name whose group chip asked for the new group — it joins it.
-  const [groupEdit, setGroupEdit] = useState<{ id?: number; name: string; assign?: string } | null>(null)
+  // step9 (2026-11-17): `assignSub` = the sub-name whose group chip asked for it.
+  const [groupEdit, setGroupEdit] = useState<{
+    id?: number
+    name: string
+    assign?: string
+    assignSub?: { id: number; name: string }
+  } | null>(null)
+  // step9 (2026-11-17): a sub-name dropped on a group section — confirmed first.
+  const [subGroupMove, setSubGroupMove] = useState<{ sub: SubName; key: string } | null>(null)
   const [highlight, setHighlight] = useState<string | null>(null)
   const search = useNameSearch(query)
 
@@ -418,15 +458,25 @@ export function Names({
     saveRule.error ??
     setGroup.error ??
     saveGroup.error ??
-    deleteGroup.error
+    deleteGroup.error ??
+    setSubSettings.error
 
   /** step2 (2026-11-09): a name dropped on a group (its section or its filter chip) joins it. */
   const dropOnGroup = (key: string) => (name: string) => {
     const n = clarified.find((x) => x.name.toLowerCase() === name.toLowerCase())
     if (n && groupOf(n) !== key) setGroup.mutate({ name: n.name, group: key })
   }
-  /** step9 (2026-11-17, third request): a sub-name dropped on a group joins it. */
-  const dropSubOnGroup = (key: string) => (sub: DraggedSubName) => setSubSettings.mutate({ id: sub.id, group: key })
+  /**
+   * step9 (2026-11-17, third request): a sub-name dropped on a group joins it. step9 (2026-11-17): only a
+   * real move, and asked first — a drop that missed a name must never change its group silently.
+   */
+  const dropSubOnGroup = (key: string) => (dragged: DraggedSubName) => {
+    const sub = (subNames.data ?? []).find((x) => x.id === dragged.id)
+    if (!sub) return
+    const parent = clarified.find((x) => x.name.toLowerCase() === sub.parent.toLowerCase())
+    const current = sub.group ?? (parent ? groupOf(parent) : null)
+    if (current !== key) setSubGroupMove({ sub, key })
+  }
   const nameRow = (n: LedgerName) => (
     <NameRow
       key={`n:${n.name}`}
@@ -459,7 +509,7 @@ export function Names({
             groups={groups}
             pending={pending}
             onGroup={onGroup}
-            onNewGroup={() => setGroupEdit({ name: '' })}
+            onNewGroup={() => setGroupEdit({ name: '', assignSub: { id: sub.id, name: sub.name } })}
           />
         ),
         files: (name) => fileCounts.get(nameKey(name)) ?? EMPTY_COUNTS,
@@ -833,6 +883,7 @@ export function Names({
                   onSuccess: (data) => {
                     const made = data.groups?.find((g) => g.label.toLowerCase() === name.toLowerCase())
                     if (groupEdit.assign && made) setGroup.mutate({ name: groupEdit.assign, group: made.key })
+                    if (groupEdit.assignSub && made) setSubSettings.mutate({ id: groupEdit.assignSub.id, group: made.key })
                     setGroupEdit(null)
                   },
                 },
@@ -841,7 +892,11 @@ export function Names({
           >
             <DialogHeader>
               <DialogTitle>
-                {groupEdit?.id ? 'Rename group' : groupEdit?.assign ? `New group for ${groupEdit.assign}` : 'Add a group'}
+                {groupEdit?.id
+                  ? 'Rename group'
+                  : groupEdit?.assign || groupEdit?.assignSub
+                    ? `New group for ${groupEdit.assign ?? groupEdit.assignSub?.name}`
+                    : 'Add a group'}
               </DialogTitle>
               <DialogDescription>
                 A group of your own next to Suppliers, Customers and Other — e.g. “Employees”. Drag names onto it.
@@ -863,6 +918,35 @@ export function Names({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!subGroupMove} onOpenChange={(o) => !o && setSubGroupMove(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Put {subGroupMove?.sub.name} in {subGroupMove ? groupLabel(subGroupMove.key) : ''}?
+            </DialogTitle>
+            <DialogDescription>
+              Its group tag changes. It stays listed under {subGroupMove?.sub.parent}. To merge it, drop it on a name
+              or on another sub-name instead.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <Button
+              disabled={setSubSettings.isPending}
+              onClick={() =>
+                subGroupMove &&
+                setSubSettings.mutate(
+                  { id: subGroupMove.sub.id, group: subGroupMove.key },
+                  { onSettled: () => setSubGroupMove(null) },
+                )
+              }
+            >
+              {setSubSettings.isPending ? 'Saving…' : 'Change group'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1178,17 +1262,22 @@ function NameRow({
   const [exceptionsOf, setExceptionsOf] = useState<string | null>(null)
   // step9: a name with sub-names unfolds them under it (click the name or "N sub-names"); a
   // search that finds one of them opens it unfolded.
-  const [subsToggled, setSubsToggled] = useState(false)
+  // step9 (2026-11-17): open by default with a few sub-names (so they and their descriptions show
+  // and take drops at once); the customer's last choice is remembered.
+  const [subsToggled, setSubsToggled] = useState<boolean | null>(() => readSubsOpen(n.name))
   const subs = subNames ?? []
   const subsOpen =
-    subsToggled ||
+    (subsToggled ?? subs.length <= SUBS_OPEN_DEFAULT_MAX) ||
     (query.length >= 2 &&
       subs.some(
         (sub) =>
           sub.name.toLowerCase().includes(query) ||
           (subTools?.descriptionsOf?.(sub) ?? []).some((d) => d.description.toLowerCase().includes(query)),
       ))
-  const toggleSubs = () => setSubsToggled(!subsOpen)
+  const toggleSubs = () => {
+    setSubsToggled(!subsOpen)
+    writeSubsOpen(n.name, !subsOpen)
+  }
   // step9 (2026-11-17, second request): a name with sub-names is only a wrapper ("a rubber
   // band") — no settings, nothing dragged into it or out of it; its sub-names are the names.
   const wrapper = subs.length > 0 && !n.unclarified
@@ -1198,6 +1287,8 @@ function NameRow({
     wrapper ? undefined : onDescription,
     wrapper ? undefined : onSubNameInto,
   )
+  // step9 (2026-11-17): a sub-name held over a wrapper unfolds it; dropped on the row itself it does nothing.
+  const wrapperDrop = useWrapperDrop(wrapper, () => setSubsToggled(true))
   const draggable = mergeable && !wrapper
   const many = n.descriptions.length
   const matched = (d: { key?: string; description: string }) =>
@@ -1209,12 +1300,13 @@ function NameRow({
     <li
       id={rowId(n.name)}
       {...(draggable ? nameDragProps(n.name) : {})}
-      {...drop.props}
+      {...(wrapper ? wrapperDrop.props : drop.props)}
       title={draggable ? 'Drag onto another name to merge them, or onto a group to move it' : undefined}
       className={cn(
         'px-5 py-3 transition-colors',
         draggable && 'cursor-grab active:cursor-grabbing',
         drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
+        wrapperDrop.over && 'bg-muted/50',
         highlighted && 'bg-amber-50',
       )}
     >
@@ -1338,6 +1430,9 @@ function NameRow({
             <CornerDownRight className="size-3.5" />
             {subsOpen ? 'Hide sub-names' : `${subs.length} sub-name${subs.length === 1 ? '' : 's'}`}
           </button>
+        )}
+        {wrapperDrop.over && (
+          <p className="mt-0.5 text-xs text-muted-foreground">Drop it on one of the sub-names of {n.name}.</p>
         )}
         {subsOpen && (
           <div className="mt-1 ml-1 space-y-0.5 border-l-2 border-brand/20 pl-3">

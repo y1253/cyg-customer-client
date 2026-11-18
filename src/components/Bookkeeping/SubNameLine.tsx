@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, CornerDownRight, Pencil, X } from 'lucide-react'
+import { ChevronDown, CornerDownRight, GripVertical, Pencil, X } from 'lucide-react'
 import type { MergeEnd, NameDescription, NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
@@ -89,6 +89,8 @@ export function SubNameLine({
   const [descToggled, setDescToggled] = useState(false)
   const descOpen = descToggled || (!!matched && descriptions.some(matched))
   const merge = own?.onMergeInto
+  // step9 (2026-11-17): a split rule's sub-name is never merged (the server refuses it).
+  const draggable = !!merge && !sub.fromRule
   const drop = useNameDrop(
     sub.name,
     merge && ((from) => merge(sub, { name: from })),
@@ -108,15 +110,24 @@ export function SubNameLine({
       className={cn('mt-0.5 rounded text-xs', drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset')}
       title={
         own?.onDescription
-          ? 'Drag it onto a name, a sub-name or a group — or drop a name, a sub-name or a description here'
+          ? sub.fromRule
+            ? "Made by a split rule — it can't be merged. Drop a name, a sub-name or a description here"
+            : 'Drag it onto a name or another sub-name to merge them — or drop a name, a sub-name or a description here'
           : undefined
       }
     >
       <div
-        {...(merge ? subNameDragProps(sub) : {})}
-        className={cn('flex min-w-0 items-center gap-1.5 text-muted-foreground', merge && 'cursor-grab active:cursor-grabbing')}
+        {...(draggable ? subNameDragProps(sub) : {})}
+        className={cn(
+          'flex min-w-0 items-center gap-1.5 text-muted-foreground',
+          draggable && 'cursor-grab active:cursor-grabbing',
+        )}
       >
-        <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
+        {draggable ? (
+          <GripVertical className="size-3.5 shrink-0 text-muted-foreground/60" aria-label="Drag to merge" />
+        ) : (
+          <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
+        )}
         {own ? (
           <InlineRename
             value={sub.name}
@@ -163,6 +174,7 @@ export function SubNameLine({
                 <a
                   key={`${i}:${f.value}`}
                   href={fieldHref(f) ?? undefined}
+                  draggable={false}
                   title={`${f.label || FIELD_KIND_LABEL[f.kind]}: ${f.value}`}
                   className="inline-flex max-w-40 shrink-0 items-center gap-1 truncate hover:text-brand"
                 >
@@ -224,6 +236,7 @@ export function SubNameLine({
         <DescriptionsLine
           className="ml-5"
           descriptions={descriptions}
+          contains={contains.map((c) => c.text)}
           onOpen={own?.onOpenDescription}
           onMore={() => setDescToggled(true)}
         />

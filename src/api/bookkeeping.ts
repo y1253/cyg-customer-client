@@ -993,6 +993,8 @@ export interface SubName {
   renamed: boolean
   ownAgencies: boolean
   agencyIds: number[]
+  /** step9 (2026-11-17): it holds a split rule's splits ("Walmart - GST") — it can't be merged or dragged. */
+  fromRule: boolean
 }
 
 /** step9 part 3: what a sub-name's settings save changes (absent = unchanged). */

@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 
 /** step8: the drag payload for a payee name being merged into another (Names tab). */
 const MIME = 'application/x-cyg-name'
@@ -97,6 +97,54 @@ export function useNameDrop(
         e.preventDefault()
         e.stopPropagation()
         if (from.toLowerCase() !== target.toLowerCase()) onDrop(from)
+      },
+    },
+  }
+}
+
+/**
+ * step9 (2026-11-17): a wrapper name's row (a name with sub-names). A sub-name or a description
+ * held over it for a moment unfolds it (`onHoverOpen`), so its sub-names can take the drop; one
+ * dropped on the row itself does nothing — it must go onto one of its sub-names, never fall
+ * through to the group section around it (which would change the sub-name's group).
+ */
+export function useWrapperDrop(enabled: boolean, onHoverOpen: () => void) {
+  const [over, setOver] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clear = () => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+  }
+  useEffect(() => clear, [])
+  if (!enabled) return { over: false, props: {} }
+  const held = (e: DragEvent) =>
+    e.dataTransfer.types.includes(MIME_SUB_NAME) || e.dataTransfer.types.includes(MIME_DESCRIPTION)
+  return {
+    over,
+    props: {
+      onDragOver: (e: DragEvent) => {
+        if (!held(e)) return
+        e.preventDefault()
+        e.stopPropagation()
+        e.dataTransfer.dropEffect = 'none'
+        if (!over) setOver(true)
+        if (!timer.current)
+          timer.current = setTimeout(() => {
+            timer.current = null
+            onHoverOpen()
+          }, 600)
+      },
+      onDragLeave: (e: DragEvent) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+        clear()
+        setOver(false)
+      },
+      onDrop: (e: DragEvent) => {
+        clear()
+        setOver(false)
+        if (!held(e)) return
+        e.preventDefault()
+        e.stopPropagation()
       },
     },
   }

@@ -38,25 +38,38 @@ export function DescriptionLink({
  */
 export function DescriptionsLine({
   descriptions,
+  contains = [],
   onOpen,
   onMore,
   className,
 }: {
   descriptions: ReadonlyArray<{ key?: string; description: string }>
+  /** step9 (2026-11-17): its "description contains" rule texts, shown first. */
+  contains?: readonly string[]
   onOpen?: (description: string) => void
   /** "+N more" opens the full list. */
   onMore: () => void
   className?: string
 }) {
-  const many = descriptions.length
+  const many = contains.length + descriptions.length
   if (!many) return null
+  const shownContains = contains.slice(0, 2)
+  const shownDescriptions = descriptions.slice(0, 2 - shownContains.length)
   return (
     <p className={cn('mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground', className)}>
       <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
-      <span className="min-w-0 truncate" title={descriptions.map((d) => d.description).join('\n')}>
-        {descriptions.slice(0, 2).map((d, i) => (
+      <span
+        className="min-w-0 truncate"
+        title={[...contains.map((t) => `contains “${t}”`), ...descriptions.map((d) => d.description)].join('\n')}
+      >
+        {shownContains.map((t, i) => (
+          <span key={`c:${t}`}>
+            {i > 0 && ' · '}contains “{t}”
+          </span>
+        ))}
+        {shownDescriptions.map((d, i) => (
           <span key={d.key ?? d.description}>
-            {i > 0 && ' · '}
+            {(i > 0 || shownContains.length > 0) && ' · '}
             <DescriptionLink description={d.description} onOpen={onOpen}>
               {d.description}
             </DescriptionLink>
