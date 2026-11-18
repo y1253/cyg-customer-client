@@ -84,3 +84,65 @@ export function DescriptionsLine({
     </p>
   )
 }
+
+/**
+ * step9 (2026-11-18, part 2): a wrapper name's folded line — its sub-names' descriptions in
+ * one "Descriptions: A (Office) · B (Repairs) +N more", each with the sub-name it is under, so
+ * it shows which sub-name has them without unfolding. "+N more" / a sub-name chip unfolds.
+ */
+export function SubDescriptionsLine({
+  parent,
+  entries,
+  onOpen,
+  onMore,
+  className,
+}: {
+  parent: string
+  entries: ReadonlyArray<{ sub: string; key?: string; description: string; contains?: boolean }>
+  onOpen?: (description: string) => void
+  onMore: () => void
+  className?: string
+}) {
+  if (!entries.length) return null
+  const shown = entries.slice(0, 3)
+  const prefix = `${parent} - `
+  const short = (sub: string) => (sub.toLowerCase().startsWith(prefix.toLowerCase()) ? sub.slice(prefix.length) : sub)
+  return (
+    <p className={cn('mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground', className)}>
+      <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
+      <span
+        className="min-w-0 truncate"
+        title={entries.map((e) => `${e.contains ? `contains “${e.description}”` : e.description} → ${e.sub}`).join('\n')}
+      >
+        {shown.map((e, i) => (
+          <span key={`${e.sub}:${e.contains ? 'c' : 'd'}:${e.key ?? e.description}`}>
+            {i > 0 && ' · '}
+            {e.contains ? (
+              <>contains “{e.description}”</>
+            ) : (
+              <DescriptionLink description={e.description} onOpen={onOpen}>
+                {e.description}
+              </DescriptionLink>
+            )}{' '}
+            <button
+              type="button"
+              onClick={(ev) => {
+                ev.stopPropagation()
+                onMore()
+              }}
+              title={`Under ${e.sub} — show the sub-names`}
+              className="rounded bg-brand/10 px-1 py-px text-[11px] font-medium text-brand hover:bg-brand/15"
+            >
+              {short(e.sub)}
+            </button>
+          </span>
+        ))}
+      </span>
+      {entries.length > shown.length && (
+        <button type="button" onClick={onMore} className="shrink-0 font-medium text-brand hover:underline">
+          +{entries.length - shown.length} more
+        </button>
+      )}
+    </p>
+  )
+}

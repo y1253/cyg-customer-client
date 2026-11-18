@@ -156,6 +156,16 @@ export function SubNameLine({
         <span className="shrink-0 tabular-nums">
           · {sub.rows} row{sub.rows === 1 ? '' : 's'}
         </span>
+        {descriptions.length + contains.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setDescToggled(!descOpen)}
+            title={descOpen ? 'Hide its descriptions' : 'Show its descriptions'}
+            className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800 tabular-nums hover:bg-amber-200"
+          >
+            {descriptions.length + contains.length} description{descriptions.length + contains.length === 1 ? '' : 's'}
+          </button>
+        )}
         <span
           className={cn('shrink-0 font-medium tabular-nums', sub.total < 0 ? 'text-red-600' : 'text-emerald-700')}
           title="Total of this sub-name"

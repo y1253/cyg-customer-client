@@ -90,7 +90,7 @@ import { FIELD_KIND_ICON, FIELD_KIND_LABEL, fieldHref } from '@/lib/name-fields'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 import { RuleConflictDialog } from './RuleConflictDialog'
 import { UnclarifiedTable } from './UnclarifiedTable'
-import { DescriptionLink, DescriptionsLine } from './DescriptionsLine'
+import { DescriptionLink, DescriptionsLine, SubDescriptionsLine } from './DescriptionsLine'
 import {
   descriptionDragProps,
   nameDragProps,
@@ -1002,7 +1002,12 @@ export function Names({
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
             <Button
               disabled={merge.isPending}
-              onClick={() => merging && merge.mutate(merging, { onSettled: () => setMerging(null) })}
+              onClick={() => {
+                if (!merging) return
+                // step9 (2026-11-18, part 2): a sub-name is already gone from the list — close now.
+                merge.mutate(merging, { onSettled: () => setMerging(null) })
+                if (merging.from.subId) setMerging(null)
+              }}
             >
               {merge.isPending ? 'Merging…' : 'Merge'}
             </Button>
@@ -1455,6 +1460,17 @@ function NameRow({
         ))}
         {!wrapper && !open && (
           <DescriptionsLine descriptions={n.descriptions} onOpen={onOpenDescription} onMore={() => setOpen(true)} />
+        )}
+        {wrapper && !subsOpen && (
+          <SubDescriptionsLine
+            parent={n.name}
+            entries={subs.flatMap((sub) => [
+              ...(subTools?.containsOf?.(sub) ?? []).map((c) => ({ sub: sub.name, key: c.key, description: c.text, contains: true })),
+              ...(subTools?.descriptionsOf?.(sub) ?? []).map((d) => ({ sub: sub.name, key: d.key, description: d.description })),
+            ])}
+            onOpen={onOpenDescription}
+            onMore={toggleSubs}
+          />
         )}
         {subs.length > 0 && (
           <button

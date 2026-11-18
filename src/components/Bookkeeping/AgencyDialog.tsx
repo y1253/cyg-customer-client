@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronLeft, Layers, Plus, Split, X } from 'lucide-react'
-import { TAX_KIND_LABEL, type RateMode, type TaxAgency, type TaxAgencyInput, type TaxKind } from '@/api/bookkeeping'
+import { Check, ChevronDown, ChevronLeft, Layers, Plus, Split } from 'lucide-react'
+import { rateLabel, TAX_KIND_LABEL, type RateMode, type TaxAgency, type TaxAgencyInput, type TaxKind } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,12 +27,10 @@ const KINDS: TaxKind[] = ['SALES', 'PURCHASE']
 
 /** One direction of a rule as typed; a blank value = the rule does not take that side. */
 type RateForm = { mode: RateMode; value: string }
-/** One rule of the form; `key` only keys the group's list. */
-type RuleForm = { key: number; name: string; rates: Record<TaxKind, RateForm> }
+/** The rule being typed. */
+type RuleForm = { name: string; rates: Record<TaxKind, RateForm> }
 
-let nextKey = 1
 const blankRule = (): RuleForm => ({
-  key: nextKey++,
   name: '',
   rates: { SALES: { mode: 'PERCENT', value: '' }, PURCHASE: { mode: 'PERCENT', value: '' } },
 })
@@ -43,7 +41,7 @@ const ruleOf = (agency: TaxAgency): RuleForm => {
     if (!r) return { mode: 'PERCENT', value: '' }
     return { mode: r.mode, value: String(r.mode === 'FIXED' ? (r.amount ?? '') : r.rate) }
   }
-  return { key: nextKey++, name: agency.name, rates: { SALES: rate('SALES'), PURCHASE: rate('PURCHASE') } }
+  return { name: agency.name, rates: { SALES: rate('SALES'), PURCHASE: rate('PURCHASE') } }
 }
 
 /** The rule's rates for the API, or the message to show. `label` names it in the message. */
@@ -78,6 +76,9 @@ const NO_GROUP = 'none'
  * step9 (2026-11-18): kept simple. A new rule first asks Individual or Group. Individual = Name, In, Out (a blank
  * side is off); Group = the group's name and one or more of those rules, saved together. Its own category, Active
  * and (when editing) its group sit under "More options". `agency` = edit it; `groupId` = add a rule to that group.
+ *
+ * step9 (2026-11-18, part 2): a group is made of EXISTING individual rules, picked from a list; "Create a new split
+ * rule" opens the individual form on top (`individual`) and the rule it saves comes back picked.
  */
 export function AgencyDialog({
   open,
@@ -87,6 +88,7 @@ export function AgencyDialog({
   description,
   onSaved,
   groupId = null,
+  individual = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -95,15 +97,21 @@ export function AgencyDialog({
   description?: string
   onSaved?: (agency: TaxAgency) => void
   groupId?: number | null
+  /** Only the individual form (no Individual / Group choice). */
+  individual?: boolean
 }) {
   const save = useSaveAgency()
   const saveGroup = useSaveSplitGroup()
   const create = useCreateAccount()
-  const groups = useTax().data?.groups ?? []
+  const tax = useTax().data
+  const groups = tax?.groups ?? []
+  const singles = (tax?.agencies ?? []).filter((a) => a.groupId === null)
   const [step, setStep] = useState<'choose' | 'individual' | 'group'>('choose')
   const [rule, setRule] = useState<RuleForm>(blankRule)
   const [groupName, setGroupName] = useState('')
-  const [rules, setRules] = useState<RuleForm[]>(() => [blankRule(), blankRule()])
+  /** The individual rules picked for the group, in pick order. */
+  const [picked, setPicked] = useState<number[]>([])
+  const [creating, setCreating] = useState(false)
   /** An individual rule's group (an id as text, or NO_GROUP). */
   const [group, setGroup] = useState<string>(NO_GROUP)
   const [more, setMore] = useState(false)
@@ -111,18 +119,19 @@ export function AgencyDialog({
   const [choice, setChoice] = useState<CategoryChoice>(categoryChoice(null))
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  /** A group save that failed half way: the group made and the rules saved, so a retry repeats neither. */
+  /** A group save that failed half way: the group made and the rules moved in, so a retry repeats neither. */
   const [madeGroup, setMadeGroup] = useState<number | null>(null)
-  const [savedKeys, setSavedKeys] = useState<number[]>([])
+  const [joined, setJoined] = useState<number[]>([])
 
   // A fresh form every time it opens.
   useEffect(() => {
     if (!open) return
     const startGroup = agency ? agency.groupId : groupId
-    setStep(agency || groupId !== null ? 'individual' : 'choose')
+    setStep(agency || groupId !== null || individual ? 'individual' : 'choose')
     setRule(agency ? ruleOf(agency) : blankRule())
     setGroupName('')
-    setRules([blankRule(), blankRule()])
+    setPicked([])
+    setCreating(false)
     setGroup(startGroup !== null ? String(startGroup) : NO_GROUP)
     setMore(false)
     setOwnCategory(!!agency?.category)
@@ -130,7 +139,7 @@ export function AgencyDialog({
     setActive(agency?.active ?? true)
     setError(null)
     setMadeGroup(null)
-    setSavedKeys([])
+    setJoined([])
     save.reset()
     saveGroup.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,13 +171,11 @@ export function AgencyDialog({
 
   const submitGroup = async () => {
     if (!groupName.trim()) return setError('Give the group a name.')
-    if (!rules.length) return setError('Add at least one rule to the group.')
-    const all: Array<{ rule: RuleForm; rates: TaxAgencyInput['rates'] }> = []
-    for (const [i, r] of rules.entries()) {
-      const rates = ratesOf(r, `rule ${i + 1}`)
-      if (typeof rates === 'string') return setError(rates)
-      all.push({ rule: r, rates })
-    }
+    // A picked rule moved into another group meanwhile is no longer offered.
+    const ids = picked.filter(
+      (id) => joined.includes(id) || !(tax?.agencies ?? []).some((a) => a.id === id && a.groupId !== null),
+    )
+    if (!ids.length) return setError('Pick at least one split rule for the group.')
     setError(null)
     let id = madeGroup
     if (id === null) {
@@ -180,16 +187,16 @@ export function AgencyDialog({
       setMadeGroup(id)
     }
     let last: TaxAgency | null = null
-    const saved = [...savedKeys]
-    for (const { rule: r, rates } of all) {
-      if (saved.includes(r.key)) continue
+    const moved = [...joined]
+    for (const ruleId of ids) {
+      if (moved.includes(ruleId)) continue
       try {
-        last = await save.mutateAsync({ name: r.name.trim(), rates, category: null, groupId: id })
+        last = await save.mutateAsync({ id: ruleId, groupId: id })
       } catch {
         return
       }
-      saved.push(r.key)
-      setSavedKeys([...saved])
+      moved.push(ruleId)
+      setJoined([...moved])
     }
     if (last) done(last)
     else onOpenChange(false)
@@ -240,7 +247,7 @@ export function AgencyDialog({
             </div>
           ) : (
             <div className="grid min-w-0 gap-4">
-              {!agency && groupId === null && (
+              {!agency && groupId === null && !individual && (
                 <button
                   type="button"
                   onClick={() => {
@@ -276,43 +283,65 @@ export function AgencyDialog({
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Rules</Label>
-                    {rules.map((r, i) => (
-                      <div key={r.key} className="relative rounded-lg bg-muted/50 p-3 pr-9">
-                        <RuleFields
-                          rule={r}
-                          onChange={(next) => setRules((all) => all.map((x) => (x.key === r.key ? next : x)))}
-                          placeholder={i === 0 ? 'e.g. GST' : i === 1 ? 'e.g. QST' : 'Rule name'}
-                        />
-                        {rules.length > 1 && !savedKeys.includes(r.key) && (
-                          <button
-                            type="button"
-                            onClick={() => setRules((all) => all.filter((x) => x.key !== r.key))}
-                            title="Remove this rule"
-                            className="absolute top-2 right-2 rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600"
-                          >
-                            <X className="size-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    <Label>Split rules in the group</Label>
+                    {singles.length === 0 ? (
+                      <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
+                        You have no individual split rules yet — create one below.
+                      </p>
+                    ) : (
+                      <ul className="grid max-h-64 gap-1 overflow-y-auto rounded-lg bg-muted/50 p-1.5">
+                        {singles.map((a) => {
+                          const on = picked.includes(a.id)
+                          return (
+                            <li key={a.id}>
+                              <button
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() =>
+                                  setPicked((all) => (on ? all.filter((x) => x !== a.id) : [...all, a.id]))
+                                }
+                                className={cn(
+                                  'flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-white',
+                                  on && 'bg-white',
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    'flex size-4 shrink-0 items-center justify-center rounded border',
+                                    on ? 'border-brand bg-brand text-white' : 'border-muted-foreground/40 bg-white',
+                                  )}
+                                >
+                                  {on && <Check className="size-3" />}
+                                </span>
+                                <span className="min-w-0 truncate font-medium text-[#0B1C2C]">{a.name}</span>
+                                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                                  {a.rates.map(rateLabel).join(' · ')}
+                                </span>
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setRules((all) => [...all, blankRule()])}
+                      onClick={() => setCreating(true)}
                       className="w-fit gap-1.5"
                     >
                       <Plus className="size-4" />
-                      Add another rule
+                      Create a new split rule
                     </Button>
                   </div>
                 </>
               )}
 
-              <p className="text-xs text-muted-foreground">
-                A percentage is taken out of the amount: $100 at 10% splits off $9.09.
-              </p>
+              {step === 'individual' && (
+                <p className="text-xs text-muted-foreground">
+                  A percentage is taken out of the amount: $100 at 10% splits off $9.09.
+                </p>
+              )}
 
               <div className="grid gap-3">
                 <button
@@ -409,6 +438,18 @@ export function AgencyDialog({
             )}
           </DialogFooter>
         </form>
+        {/* Inside the content (so it nests) but outside the form (so its submit never reaches this one). */}
+        {step === 'group' && (
+          <AgencyDialog
+            open={creating}
+            onOpenChange={setCreating}
+            agency={null}
+            individual
+            title="New split rule"
+            description="It joins the list, picked for this group."
+            onSaved={(a) => setPicked((all) => (all.includes(a.id) ? all : [...all, a.id]))}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )
