@@ -34,6 +34,7 @@ function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => string | 
       name: groupName(a.groupId) ?? 'Group',
       ids: members.map((m) => m.id),
       detail: members.map((m) => `${m.name} ${m.rates.map(rateLabel).join(' · ')}`).join(' + '),
+      // step9 (2026-11-18): every member carries its group's switch.
       active: members.some((m) => m.active),
       group: true,
     })

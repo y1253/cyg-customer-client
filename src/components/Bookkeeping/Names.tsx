@@ -410,7 +410,7 @@ export function Names({
   const agencyRow = (a: TaxAgency, nested = false) => (
     <li
       key={`a:${a.id}`}
-      className={cn('flex items-center gap-4 px-5 py-3.5', nested && 'pl-12 sm:pl-16', !a.active && 'opacity-60')}
+      className={cn('flex items-center gap-4 px-5 py-3.5', nested && 'pl-12 sm:pl-16', !a.active && !nested && 'opacity-60')}
     >
       <TypeIcon type="AGENCY" />
       <div className="min-w-0 flex-1">
@@ -423,16 +423,21 @@ export function Names({
           </span>
         </div>
       </div>
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="hidden sm:inline">{a.active ? 'Active' : 'Off'}</span>
-        <Switch
-          checked={a.active}
-          disabled={save.isPending}
-          onCheckedChange={(active) => save.mutate({ id: a.id, active })}
-          className="data-checked:bg-brand"
-          aria-label={`${a.name} active`}
-        />
-      </label>
+      {nested ? (
+        // step9 (2026-11-18): a rule in a group is switched on / off on its group.
+        <span className="text-xs text-muted-foreground">{a.active ? 'On' : 'Off'} with its group</span>
+      ) : (
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="hidden sm:inline">{a.active ? 'Active' : 'Off'}</span>
+          <Switch
+            checked={a.active}
+            disabled={save.isPending}
+            onCheckedChange={(active) => save.mutate({ id: a.id, active })}
+            className="data-checked:bg-brand"
+            aria-label={`${a.name} active`}
+          />
+        </label>
+      )}
       <div className="flex shrink-0 gap-1">
         <Button variant="ghost" size="icon-sm" title="Edit" onClick={() => open(a)}>
           <Pencil />
@@ -697,7 +702,7 @@ export function Names({
             <ul className="divide-y">
               {shownAgencies.filter((a) => a.groupId === null).map((a) => agencyRow(a))}
               {shownSplitGroups.map((g) => (
-                <li key={`g:${g.id}`}>
+                <li key={`g:${g.id}`} className={cn(!g.active && 'opacity-60')}>
                   <div className="flex items-center gap-4 bg-amber-50/40 px-5 py-3.5">
                     <TypeIcon type="AGENCY" />
                     <div className="min-w-0 flex-1">
@@ -711,6 +716,17 @@ export function Names({
                         </span>
                       </div>
                     </div>
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="hidden sm:inline">{g.active ? 'Active' : 'Off'}</span>
+                      <Switch
+                        checked={g.active}
+                        disabled={saveSplitGroup.isPending}
+                        onCheckedChange={(active) => saveSplitGroup.mutate({ id: g.id, active })}
+                        className="data-checked:bg-brand"
+                        aria-label={`${g.name} active — all its rules`}
+                        title="Switches every rule of the group on or off"
+                      />
+                    </label>
                     <div className="flex shrink-0 gap-1">
                       <Button variant="ghost" size="icon-sm" title="Add a rule to this group" onClick={() => open(null, g.id)}>
                         <Plus />

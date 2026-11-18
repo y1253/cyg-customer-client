@@ -148,12 +148,14 @@ export function AgencyDialog({
     setError(null)
     const category = ownCategory ? await resolveChoice(choice, create) : null
     if (ownCategory && !category) return setError('The new category could not be made.')
-    const values: TaxAgencyInput = {
+    const groupId = group === NO_GROUP ? null : Number(group)
+    // step9 (2026-11-18): a rule in a group is switched on / off on its group.
+    const values: Partial<TaxAgencyInput> = {
       name: rule.name.trim(),
       rates,
       category,
-      active,
-      groupId: group === NO_GROUP ? null : Number(group),
+      groupId,
+      ...(groupId === null && { active }),
     }
     save.mutate({ ...values, id: agency?.id }, { onSuccess: done })
   }
@@ -171,7 +173,7 @@ export function AgencyDialog({
     let id = madeGroup
     if (id === null) {
       try {
-        id = (await saveGroup.mutateAsync({ name: groupName.trim() })).id
+        id = (await saveGroup.mutateAsync({ name: groupName.trim(), active })).id
       } catch {
         return
       }
@@ -182,7 +184,7 @@ export function AgencyDialog({
     for (const { rule: r, rates } of all) {
       if (saved.includes(r.key)) continue
       try {
-        last = await save.mutateAsync({ name: r.name.trim(), rates, category: null, active, groupId: id })
+        last = await save.mutateAsync({ name: r.name.trim(), rates, category: null, groupId: id })
       } catch {
         return
       }
@@ -369,15 +371,23 @@ export function AgencyDialog({
                         </div>
                       </>
                     )}
-                    <label className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
-                      <span>
-                        <span className="block text-sm font-medium">Active</span>
-                        <span className="block text-xs text-muted-foreground">
-                          Only active rules split new transactions.
+                    {step === 'individual' && group !== NO_GROUP ? (
+                      <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
+                        A rule in a group is switched on and off on its group.
+                      </p>
+                    ) : (
+                      <label className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
+                        <span>
+                          <span className="block text-sm font-medium">Active</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {step === 'group'
+                              ? 'Switches all the rules of the group on or off. Only active rules split new transactions.'
+                              : 'Only active rules split new transactions.'}
+                          </span>
                         </span>
-                      </span>
-                      <Switch checked={active} onCheckedChange={setActive} className="data-checked:bg-brand" />
-                    </label>
+                        <Switch checked={active} onCheckedChange={setActive} className="data-checked:bg-brand" />
+                      </label>
+                    )}
                   </div>
                 )}
               </div>

@@ -491,6 +491,7 @@ export type TaxAgency = {
   rates: SplitRuleRate[]
   /** Where its splits post; null = the rule's own name. */
   category: string | null
+  /** step9 (2026-11-18): whether it splits — for a rule in a group, its group's switch. */
   active: boolean
   /** step9 (2026-11-17): its split group; null = an individual rule. */
   groupId: number | null
@@ -503,6 +504,8 @@ export type TaxAgency = {
 export type SplitGroup = {
   id: number
   name: string
+  /** step9 (2026-11-18): its rules' on / off switch — a rule in a group has none of its own. */
+  active: boolean
   /** Its live rules, oldest first. */
   agencyIds: number[]
 }
@@ -746,11 +749,15 @@ export async function deleteAgency(auth: BookAuth, id: number): Promise<void> {
 }
 
 /** step9 (2026-11-17): create (no id) or rename a split group. */
-export async function saveSplitGroup(auth: BookAuth, values: { id?: number; name: string }): Promise<SplitGroup> {
+export async function saveSplitGroup(
+  auth: BookAuth,
+  values: { id?: number; name?: string; active?: boolean },
+): Promise<SplitGroup> {
+  const { id, ...body } = values
   const res = await bookFetch(
     auth,
-    values.id ? `/api/bookkeeping/split-groups/${values.id}` : '/api/bookkeeping/split-groups',
-    json(values.id ? 'PATCH' : 'POST', { name: values.name }),
+    id ? `/api/bookkeeping/split-groups/${id}` : '/api/bookkeeping/split-groups',
+    json(id ? 'PATCH' : 'POST', body),
   )
   if (!res.ok) throw await errorFrom(res)
   return res.json()
