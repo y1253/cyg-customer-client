@@ -66,7 +66,9 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
           <p className="text-sm text-muted-foreground">No receipts or files on this transaction yet.</p>
         )}
         {mine.map((a) => {
-          const canSplit = a.kind === 'RECEIPT' && (a.reading?.items.length ?? 0) > 0
+          // step12: a split's file never splits it again — items split a whole transaction.
+          const canSplit =
+            transaction.kind !== 'split' && a.kind === 'RECEIPT' && (a.reading?.items.length ?? 0) > 0
           return (
             <div key={a.id} className="flex flex-col gap-3 rounded-xl bg-muted/30 p-3 ring-1 ring-black/5">
               <div className="flex items-center gap-2">

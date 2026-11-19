@@ -7,6 +7,7 @@ import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useNames } from '@/hooks/useNames'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { useDeleteSplit, useEditSplit, useSetProduct } from '@/hooks/useSplits'
+import { useEditTransaction } from '@/hooks/useEditTransaction'
 import { categoryChoice, choiceReady, NEW_CATEGORY, resolveChoice } from '@/lib/categoryChoice'
 import { cn } from '@/lib/utils'
 import { CategoryField } from './CategoryField'
@@ -228,6 +229,93 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
                   onClick={() => void save('SUB')}
                 >
                   Only this — as “{owner} - {choice.category === NEW_CATEGORY ? choice.newName : choice.category}”
+                </Button>
+              </span>
+            </>
+          )}
+        </ScopeStrip>
+      ) : (
+        <button type="button" onClick={close} className="mt-1 self-start text-[11px] text-muted-foreground hover:underline">
+          Cancel
+        </button>
+      )}
+      <CellError error={edit.error ?? create.error} />
+    </span>
+  )
+}
+
+/**
+ * step12 (2026-11-19): a transaction's category, changed in place like a split's — the chip
+ * opens the category dropdown right in the cell. A category other than its name's asks: every
+ * row of the name (`ALWAYS`), or only this transaction (`ONCE`, a one-time exception).
+ */
+export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
+  const edit = useEditTransaction()
+  const create = useCreateAccount()
+  const names = useNames()
+  const [editing, setEditing] = useState(false)
+  const [choice, setChoice] = useState(categoryChoice(t.offsetAccount))
+  const owner = t.name ?? ''
+  const ownCategory = names.data?.names.find((n) => !n.unclarified && n.name.toLowerCase() === owner.toLowerCase())?.category
+  const close = () => {
+    setEditing(false)
+    setChoice(categoryChoice(t.offsetAccount))
+  }
+  const save = async (scope: 'ALWAYS' | 'ONCE') => {
+    const category = await resolveChoice(choice, create)
+    if (!category) return
+    edit.mutate({ id: t.id, name: null, category, scope }, { onSuccess: close })
+  }
+  const picked = choiceReady(choice) && choice.category !== t.offsetAccount
+  const shown = choice.category === NEW_CATEGORY ? choice.newName : choice.category
+  // No name, or the name's own category: nothing to ask.
+  const plain = !owner || (!!ownCategory && choice.category === ownCategory)
+  if (!editing) {
+    return (
+      <span className="flex flex-col items-start">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          title="Change the category"
+          className="inline-flex max-w-full truncate rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand ring-brand/40 hover:bg-brand/15 hover:ring-1"
+        >
+          {t.offsetAccount}
+        </button>
+        <CellError error={edit.error ?? create.error} />
+      </span>
+    )
+  }
+  return (
+    <span className="flex flex-col font-normal">
+      <CategoryField value={choice} onChange={setChoice} />
+      {picked ? (
+        <ScopeStrip onCancel={close}>
+          {plain ? (
+            <Button type="button" size="xs" className="self-start" disabled={edit.isPending} onClick={() => void save('ALWAYS')}>
+              Save
+            </Button>
+          ) : (
+            <>
+              <span>Put it in “{shown}” for:</span>
+              <span className="flex flex-col gap-1">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  className="h-auto justify-start py-1 text-left whitespace-normal"
+                  disabled={edit.isPending}
+                  onClick={() => void save('ALWAYS')}
+                >
+                  All {owner} rows
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  className="h-auto justify-start py-1 text-left whitespace-normal"
+                  disabled={edit.isPending}
+                  onClick={() => void save('ONCE')}
+                >
+                  Only this transaction
                 </Button>
               </span>
             </>

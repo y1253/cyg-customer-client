@@ -42,7 +42,7 @@ import { ColumnHeader } from './ColumnHeader'
 import { CustomCell } from './CustomCell'
 import { CustomColumnsDialog, type ColumnsDialogStart } from './CustomColumnsDialog'
 import { NameRuleDialog } from './NameRuleDialog'
-import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, SplitNameCell } from './SplitCells'
+import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, SplitNameCell, TransactionCategoryCell } from './SplitCells'
 import { StickyScrollbar } from './StickyScrollbar'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 import { folderOf, groupByAccount } from './statement-folders'
@@ -73,7 +73,8 @@ const toCents = (n: number) => Math.round(n * 100)
 const MD = 'hidden md:table-cell'
 /** The columns a phone shows, and their widths there. */
 const PHONE: Record<string, string> = { date: 'w-[5.5rem]', name: '', amount: 'w-[7.5rem]' }
-const isCustom = (id: string) => id.startsWith('c')
+/** A custom column's id is `c<number>` — never a fixed one ("credit" starts with c too). */
+const isCustom = (id: string) => /^c\d+$/.test(id)
 const customIdOf = (id: string) => Number(id.slice(1))
 
 /** step8 (user's rule): the POSTING date is the date; the pending one, when different, under it. */
@@ -285,7 +286,8 @@ export function LedgerTable({
           key: `c${c.id}`,
           kind: c.type === 'NUMBER' ? 'number' : 'text',
           value: (t) => {
-            const v = t.kind ? null : answerText(c, custom.data, t.id)
+            // step9 (2026-11-19): a split has its own answer, like a transaction.
+            const v = t.kind && t.kind !== 'split' ? null : answerText(c, custom.data, t.id)
             return c.type === 'NUMBER' ? (v == null || v === '' ? null : Number(v.replace(',', '.'))) : v
           },
         }),
@@ -637,7 +639,10 @@ export function LedgerTable({
                     focus={t.id === newSplitId}
                     joined={joined}
                     order={layout.order}
+                    customById={customById}
+                    answers={custom.data?.answers[t.id]}
                     onSplit={() => addSplit(t.id, t.splitOfId!)}
+                    onAttach={() => setAttaching(t)}
                   />
                 )
               }
@@ -776,12 +781,20 @@ export function LedgerTable({
                 ),
                 debit: (
                   <TableCell key="debit" className={cn(MD, 'overflow-hidden align-top', edgeClass(layout.order, 'debit'))}>
-                    <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} onEdit={edit} />
+                    {!t.kind && t.debitAccount === t.offsetAccount ? (
+                      <TransactionCategoryCell t={t} />
+                    ) : (
+                      <AccountCell name={t.debitAccount} offset={t.debitAccount === t.offsetAccount} onEdit={edit} />
+                    )}
                   </TableCell>
                 ),
                 credit: (
                   <TableCell key="credit" className={cn(MD, 'overflow-hidden align-top', edgeClass(layout.order, 'credit'))}>
-                    <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} onEdit={edit} />
+                    {!t.kind && t.creditAccount === t.offsetAccount ? (
+                      <TransactionCategoryCell t={t} />
+                    ) : (
+                      <AccountCell name={t.creditAccount} offset={t.creditAccount === t.offsetAccount} onEdit={edit} />
+                    )}
                   </TableCell>
                 ),
                 statement: (
@@ -1030,14 +1043,22 @@ function SplitRow({
   focus,
   joined,
   order,
+  customById,
+  answers,
   onSplit,
+  onAttach,
 }: {
   t: LedgerTransaction
   /** Just made by Split: its amount field takes the focus. */
   focus: boolean
   joined: boolean
   order: readonly string[]
+  customById: Map<number, CustomColumn>
+  /** step9 (2026-11-19): this split's own answers in the custom columns. */
+  answers: CustomColumnsData['answers'][number] | undefined
   onSplit: () => void
+  /** step12 (2026-11-19): a split has its own paperclip. */
+  onAttach: () => void
 }) {
   // step9 (2026-11-17): a split of a split sits further in, under the split it was cut from.
   const indent = { paddingLeft: `${0.5 + (t.depth ?? 0)}rem` }
@@ -1058,6 +1079,7 @@ function SplitRow({
   )
   const actions = (
     <span className="flex flex-wrap items-center gap-1.5">
+      <AttachButton count={t.attachments?.length ?? 0} onClick={onAttach} />
       <SplitButton onClick={onSplit} ofSplit />
       <DeleteSplitButton t={t} />
     </span>
@@ -1123,7 +1145,15 @@ function SplitRow({
   }
   return (
     <TableRow className={cn('group bg-brand/[0.03] hover:bg-brand/[0.06]', joined && 'border-b-0')}>
-      {order.map((id) => cells[id] ?? <TableCell key={id} className={cn(MD, 'py-1.5', edgeClass(order, id))} />)}
+      {order.map((id) => {
+        if (!isCustom(id)) return cells[id] ?? <TableCell key={id} className={cn(MD, 'py-1.5', edgeClass(order, id))} />
+        const col = customById.get(customIdOf(id))
+        return (
+          <TableCell key={id} className={cn(MD, 'overflow-hidden py-1.5 align-top', edgeClass(order, id))}>
+            {col && <CustomCell column={col} answer={answers?.[col.id]} transactionId={t.id} />}
+          </TableCell>
+        )
+      })}
     </TableRow>
   )
 }
