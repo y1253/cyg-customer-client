@@ -251,9 +251,8 @@ export function Names({
   const [editing, setEditing] = useState<TaxAgency | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirm, setConfirm] = useState<TaxAgency | null>(null)
-  // step9 (2026-11-17): split groups — the group a new rule starts in, one being renamed, one being deleted.
-  const [ruleGroup, setRuleGroup] = useState<number | null>(null)
-  const [splitGroupEdit, setSplitGroupEdit] = useState<{ id: number; name: string } | null>(null)
+  // step9 (2026-11-17): split groups — one open in the group window, one being deleted.
+  const [splitGroupEdit, setSplitGroupEdit] = useState<SplitGroup | null>(null)
   const [splitGroupConfirm, setSplitGroupConfirm] = useState<SplitGroup | null>(null)
   const saveSplitGroup = useSaveSplitGroup()
   const deleteSplitGroup = useDeleteSplitGroup()
@@ -356,11 +355,13 @@ export function Names({
           ? unrecognized.length
           : clarified.filter((n) => groupOf(n) === f).length
   const shownAgencies = filter === 'ALL' || filter === 'AGENCY' ? agencies : []
-  // step9 (2026-11-17): a split group is listed with its rules under it (an empty one only when not searching).
+  // step9 (2026-11-18, part 4): every rule is its own row; a group is its own row after them, listing its rules
+  // by name (shown when it or one of its rules matches the search).
   const shownSplitGroups =
     filter === 'ALL' || filter === 'AGENCY'
-      ? splitGroups.filter((g) => agencies.some((a) => a.groupId === g.id) || (!q && !g.agencyIds.length))
+      ? splitGroups.filter((g) => !q || g.name.toLowerCase().includes(q) || agencies.some((a) => a.groupId === g.id))
       : []
+  const splitGroupName = (id: number | null) => splitGroups.find((g) => g.id === id)?.name
   const shownGroups = filter === 'ALL' ? groups : groups.filter((g) => g.key === filter)
   const shownUnrecognized = filter === 'UNRECOGNIZED' ? unrecognized : []
   const shownContains = filter === 'ALL' || filter === 'UNRECOGNIZED' ? containsRules : []
@@ -402,16 +403,15 @@ export function Names({
       },
     )
 
-  const open = (agency: TaxAgency | null, groupId: number | null = null) => {
+  const open = (agency: TaxAgency | null) => {
     setEditing(agency)
-    setRuleGroup(groupId)
     setDialogOpen(true)
   }
-  const agencyRow = (a: TaxAgency, nested = false) => (
-    <li
-      key={`a:${a.id}`}
-      className={cn('flex items-center gap-4 px-5 py-3.5', nested && 'pl-12 sm:pl-16', !a.active && !nested && 'opacity-60')}
-    >
+  // step9 (2026-11-18, part 4): a rule looks individual even in a group — the group only shows as a chip.
+  const agencyRow = (a: TaxAgency) => {
+    const inGroup = splitGroupName(a.groupId)
+    return (
+    <li key={`a:${a.id}`} className={cn('flex items-center gap-4 px-5 py-3.5', !a.active && 'opacity-60')}>
       <TypeIcon type="AGENCY" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-[#0B1C2C]">{a.name}</p>
@@ -421,11 +421,18 @@ export function Names({
             {a.rates.map(rateLabel).join(' · ')}
             {a.category && <> → {a.category}</>}
           </span>
+          {inGroup && (
+            <span className="rounded bg-amber-100 px-1.5 text-xs text-amber-800" title="Its group is changed in the group's window">
+              in {inGroup}
+            </span>
+          )}
         </div>
       </div>
-      {nested ? (
+      {inGroup ? (
         // step9 (2026-11-18): a rule in a group is switched on / off on its group.
-        <span className="text-xs text-muted-foreground">{a.active ? 'On' : 'Off'} with its group</span>
+        <span className="text-xs text-muted-foreground">
+          {a.active ? 'On' : 'Off'} with {inGroup}
+        </span>
       ) : (
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="hidden sm:inline">{a.active ? 'Active' : 'Off'}</span>
@@ -453,7 +460,8 @@ export function Names({
         </Button>
       </div>
     </li>
-  )
+    )
+  }
   const loading = tax.isLoading || names.isLoading
   const error =
     tax.error ??
@@ -700,10 +708,10 @@ export function Names({
           )}
           {(shownAgencies.length > 0 || shownSplitGroups.length > 0) && (
             <ul className="divide-y">
-              {shownAgencies.filter((a) => a.groupId === null).map((a) => agencyRow(a))}
+              {shownAgencies.map((a) => agencyRow(a))}
               {shownSplitGroups.map((g) => (
                 <li key={`g:${g.id}`} className={cn(!g.active && 'opacity-60')}>
-                  <div className="flex items-center gap-4 bg-amber-50/40 px-5 py-3.5">
+                  <div className="flex items-center gap-4 px-5 py-3.5">
                     <TypeIcon type="AGENCY" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-[#0B1C2C]">{g.name}</p>
@@ -711,7 +719,10 @@ export function Names({
                         <Badge className={TYPE_BADGE.AGENCY}>Split group</Badge>
                         <span className="text-sm text-muted-foreground">
                           {g.agencyIds.length
-                            ? `${g.agencyIds.length} rule${g.agencyIds.length === 1 ? '' : 's'} — they split the same amount together`
+                            ? `${g.agencyIds
+                                .map((id) => (tax.data?.agencies ?? []).find((a) => a.id === id)?.name)
+                                .filter(Boolean)
+                                .join(' · ')} — split the same amount together`
                             : 'No rules yet'}
                         </span>
                       </div>
@@ -728,14 +739,11 @@ export function Names({
                       />
                     </label>
                     <div className="flex shrink-0 gap-1">
-                      <Button variant="ghost" size="icon-sm" title="Add a rule to this group" onClick={() => open(null, g.id)}>
-                        <Plus />
-                      </Button>
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        title="Rename group"
-                        onClick={() => setSplitGroupEdit({ id: g.id, name: g.name })}
+                        title="Edit group — its name, its rules and Active"
+                        onClick={() => setSplitGroupEdit(g)}
                       >
                         <Pencil />
                       </Button>
@@ -750,11 +758,6 @@ export function Names({
                       </Button>
                     </div>
                   </div>
-                  {g.agencyIds.length > 0 && (
-                    <ul className="divide-y border-t">
-                      {shownAgencies.filter((a) => a.groupId === g.id).map((a) => agencyRow(a, true))}
-                    </ul>
-                  )}
                 </li>
               ))}
             </ul>
@@ -825,39 +828,13 @@ export function Names({
       {error && !ruleConflictOf(error) && <p className="px-5 pb-4 text-sm text-destructive">{error.message}</p>}
       <RuleConflictDialog conflict={conflict} />
 
-      <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} groupId={ruleGroup} />
-
-      <Dialog open={!!splitGroupEdit} onOpenChange={(o) => !o && setSplitGroupEdit(null)}>
-        <DialogContent>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const name = splitGroupEdit?.name.trim()
-              if (!splitGroupEdit || !name) return
-              saveSplitGroup.mutate({ id: splitGroupEdit.id, name }, { onSuccess: () => setSplitGroupEdit(null) })
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>Rename split group</DialogTitle>
-              <DialogDescription>Its rules and the names that use it stay as they are.</DialogDescription>
-            </DialogHeader>
-            <Input
-              autoFocus
-              maxLength={191}
-              value={splitGroupEdit?.name ?? ''}
-              onChange={(e) => setSplitGroupEdit((g) => (g ? { ...g, name: e.target.value } : g))}
-            />
-            {saveSplitGroup.error && <p className="text-sm text-destructive">{saveSplitGroup.error.message}</p>}
-            <DialogFooter>
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-              <Button type="submit" disabled={saveSplitGroup.isPending || !splitGroupEdit?.name.trim()}>
-                {saveSplitGroup.isPending ? 'Saving…' : 'Rename'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AgencyDialog open={dialogOpen} onOpenChange={setDialogOpen} agency={editing} />
+      <AgencyDialog
+        open={!!splitGroupEdit}
+        onOpenChange={(o) => !o && setSplitGroupEdit(null)}
+        agency={null}
+        splitGroup={splitGroupEdit}
+      />
 
       <Dialog open={!!splitGroupConfirm} onOpenChange={(o) => !o && setSplitGroupConfirm(null)}>
         <DialogContent>
