@@ -50,6 +50,9 @@ function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => string | 
  * not saved yet: picks are only held, nothing is asked.
  *
  * step9 (2026-11-17): a split group is ONE switch — it turns all its rules on or off together.
+ *
+ * step9 (2026-11-18, part 3): ONE pick per name — a single rule or a single group. Turning one on replaces what was
+ * picked (its splits stay); several rules together = put them in a split group and pick the group.
  */
 export function AgencyPicker({
   name,
@@ -74,10 +77,11 @@ export function AgencyPicker({
   const chosen = units.filter(isOn)
   /** A rule (or group) switched on, waiting for "Split them". */
   const [asking, setAsking] = useState<Unit | null>(null)
-  const withUnit = (u: Unit) => [...new Set([...picked, ...u.ids])]
+  /** What turning `u` on replaces. */
+  const replaced = (u: Unit) => chosen.filter((c) => c.key !== u.key)
   const turn = (u: Unit, on: boolean) => {
-    if (!on) return onChange(picked.filter((id) => !u.ids.includes(id)))
-    if (draft || rows === 0) return onChange(withUnit(u))
+    if (!on) return onChange([])
+    if (draft || rows === 0) return onChange(u.ids)
     setAsking(u)
   }
   return (
@@ -103,6 +107,11 @@ export function AgencyPicker({
               Split {rows !== undefined ? `the ${rows} transaction${rows === 1 ? '' : 's'}` : 'the transactions'} of{' '}
               <span className="font-medium">{name}</span> by <span className="font-medium">{asking.name}</span> now?
             </p>
+            {replaced(asking).length > 0 && (
+              <p className="text-xs text-amber-800">
+                This replaces {replaced(asking).map((c) => c.name).join(', ')} — the splits it made stay.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               New transactions of {name} are split as they come in. The splits are regular splits — you can change
               them afterwards.
@@ -117,7 +126,7 @@ export function AgencyPicker({
                 disabled={pending}
                 className="bg-brand text-white hover:bg-brand/85"
                 onClick={() => {
-                  onChange(withUnit(asking))
+                  onChange(asking.ids)
                   setAsking(null)
                 }}
               >
@@ -156,6 +165,12 @@ export function AgencyPicker({
                 </li>
               ))}
             </ul>
+            {chosen.length > 1 && (
+              <p className="text-[11px] text-amber-800">{name} has several picks — pick one.</p>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              One split rule or one group per name — to use several rules together, put them in a split group.
+            </p>
             {chosen.length > 0 && !draft && (
               <p className="text-[11px] text-muted-foreground">Turning one off keeps the splits it already made.</p>
             )}
