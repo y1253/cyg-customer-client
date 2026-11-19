@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/switch'
 import { useSetSubNameSettings } from '@/hooks/useSplits'
 import { AgencyPicker } from './AgencyPicker'
 import { GroupPicker } from './GroupPicker'
+import { NameColumnAnswersSection } from './NameColumnAnswers'
 import { NameFieldsEditor } from './NameFieldsEditor'
 
 /**
@@ -80,6 +81,7 @@ function SubNameForm({
   const [group, setGroup] = useState<string | null>(sub.group)
   const [own, setOwn] = useState(sub.ownAgencies)
   const [picked, setPicked] = useState(sub.ownAgencies ? sub.agencyIds : parentAgencyIds)
+  const [alone, setAlone] = useState(sub.ownAgencies && sub.agencyAlone)
   const labelOf = (key: string) => groups.find((g) => g.key === key)?.label ?? key
 
   const submit = () =>
@@ -89,6 +91,7 @@ function SubNameForm({
         ...(name.trim() !== sub.name && { name: name.trim() }),
         ...(group !== sub.group && { group }),
         agencyIds: own ? picked : null,
+        ...(own && alone && { alone }),
       },
       { onSuccess: onDone },
     )
@@ -142,7 +145,10 @@ function SubNameForm({
               checked={own}
               onCheckedChange={(v) => {
                 setOwn(v)
-                if (!v) setPicked(parentAgencyIds)
+                if (!v) {
+                  setPicked(parentAgencyIds)
+                  setAlone(false)
+                }
               }}
               className="data-checked:bg-brand"
             />
@@ -154,8 +160,12 @@ function SubNameForm({
                 name={name || sub.name}
                 agencies={agencies}
                 picked={picked}
+                alone={alone}
                 pending={false}
-                onChange={setPicked}
+                onChange={(ids, a) => {
+                  setPicked(ids)
+                  setAlone(a)
+                }}
                 draft
               />
               <p className="text-xs text-muted-foreground">
@@ -186,6 +196,8 @@ function SubNameForm({
           onChange={(next) => fields.mutateAsync({ id: sub.id, fields: next })}
         />
       </div>
+
+      <NameColumnAnswersSection target={{ subNameId: sub.id }} />
 
       {save.error && <p className="text-sm text-red-600">{save.error.message}</p>}
       <DialogFooter>

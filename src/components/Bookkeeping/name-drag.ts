@@ -146,6 +146,37 @@ export function useHoverOpen(enabled: boolean, onHoverOpen: () => void) {
   }
 }
 
+/**
+ * step9 (2026-11-19): a wrapper name's row (a name with sub-names) never takes a sub-name — it goes onto one of
+ * its sub-names, or onto a name with none. The row shows "no drop" and `over` (for its hint), and stops the event
+ * so the group section around it does not take the sub-name instead.
+ */
+export function useRefuseSubName(enabled: boolean) {
+  const [over, setOver] = useState(false)
+  if (!enabled) return { over: false, props: {} }
+  return {
+    over,
+    props: {
+      onDragOver: (e: DragEvent) => {
+        if (!e.dataTransfer.types.includes(MIME_SUB_NAME)) return
+        e.preventDefault()
+        e.stopPropagation()
+        e.dataTransfer.dropEffect = 'none'
+        setOver(true)
+      },
+      onDragLeave: (e: DragEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false)
+      },
+      onDrop: (e: DragEvent) => {
+        setOver(false)
+        if (!e.dataTransfer.types.includes(MIME_SUB_NAME)) return
+        e.preventDefault()
+        e.stopPropagation()
+      },
+    },
+  }
+}
+
 type DragHandlers = Partial<Record<'onDragOver' | 'onDragLeave' | 'onDrop', (e: DragEvent) => void>>
 
 /** Both sets of drag handlers on one element, each called in turn. */

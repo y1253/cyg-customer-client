@@ -9,7 +9,8 @@ export function useNameAgencies() {
   const queryClient = useQueryClient()
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
-    mutationFn: (values: { name: string; agencyIds: number[] }) => setNameAgencies(book.auth, values),
+    mutationFn: (values: { name: string; agencyIds: number[]; alone?: boolean }) =>
+      setNameAgencies(book.auth, values),
     onSuccess: (names) => queryClient.setQueryData(book.key(NAMES_KEY), names),
     onSettled: invalidate,
   })

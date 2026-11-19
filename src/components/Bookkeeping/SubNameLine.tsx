@@ -198,9 +198,10 @@ export function SubNameLine({
               name={sub.name}
               agencies={own.agencies}
               picked={sub.ownAgencies ? sub.agencyIds : own.parentAgencyIds}
+              alone={sub.ownAgencies && sub.agencyAlone}
               rows={sub.rows}
               pending={settings.isPending && settings.variables?.agencyIds !== undefined}
-              onChange={(agencyIds) => settings.mutate({ id: sub.id, agencyIds })}
+              onChange={(agencyIds, alone) => settings.mutate({ id: sub.id, agencyIds, alone })}
             />
           </span>
         )}

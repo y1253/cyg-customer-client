@@ -7,10 +7,25 @@ import { Switch } from '@/components/ui/switch'
 import { useTax } from '@/hooks/useTax'
 import { cn } from '@/lib/utils'
 
-/** step9 (2026-11-17): one switch of the picker — an individual rule, or a split group (all its rules). */
-type Unit = { key: string; name: string; ids: number[]; detail: string; active: boolean; group: boolean }
+/**
+ * step9 (2026-11-17): one switch of the picker — an individual rule, or a split group (all its rules). step9
+ * (2026-11-19): `alone` = one rule of a group picked ON ITS OWN (`inGroup` = its group's name).
+ */
+type Unit = {
+  key: string
+  name: string
+  ids: number[]
+  detail: string
+  active: boolean
+  group: boolean
+  alone: boolean
+  inGroup?: string
+}
 
-/** The rules as switches: each split group once (where its first rule is), each individual rule on its own. */
+/**
+ * The rules as switches: each split group once (where its first rule is), then each of its rules on its own; each
+ * individual rule on its own.
+ */
 function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => string | undefined): Unit[] {
   const units: Unit[] = []
   const seen = new Set<number>()
@@ -23,21 +38,36 @@ function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => string | 
         detail: a.rates.map(rateLabel).join(' · '),
         active: a.active,
         group: false,
+        alone: false,
       })
       continue
     }
     if (seen.has(a.groupId)) continue
     seen.add(a.groupId)
     const members = agencies.filter((m) => m.groupId === a.groupId)
+    const group = groupName(a.groupId) ?? 'Group'
     units.push({
       key: `g${a.groupId}`,
-      name: groupName(a.groupId) ?? 'Group',
+      name: group,
       ids: members.map((m) => m.id),
       detail: members.map((m) => `${m.name} ${m.rates.map(rateLabel).join(' · ')}`).join(' + '),
       // step9 (2026-11-18): every member carries its group's switch.
       active: members.some((m) => m.active),
       group: true,
+      alone: false,
     })
+    // step9 (2026-11-19): each rule of the group can be picked on its own too.
+    for (const m of members)
+      units.push({
+        key: `a${m.id}`,
+        name: m.name,
+        ids: [m.id],
+        detail: m.rates.map(rateLabel).join(' · '),
+        active: m.active,
+        group: false,
+        alone: true,
+        inGroup: group,
+      })
   }
   return units
 }
@@ -53,11 +83,15 @@ function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => string | 
  *
  * step9 (2026-11-18, part 3): ONE pick per name — a single rule or a single group. Turning one on replaces what was
  * picked (its splits stay); several rules together = put them in a split group and pick the group.
+ *
+ * step9 (2026-11-19): a rule of a group can also be picked ON ITS OWN (`alone`, listed under its group) — it then
+ * splits like an individual rule.
  */
 export function AgencyPicker({
   name,
   agencies,
   picked,
+  alone = false,
   pending,
   onChange,
   rows,
@@ -66,22 +100,24 @@ export function AgencyPicker({
   name: string
   agencies: TaxAgency[]
   picked: number[]
+  /** step9 (2026-11-19): `picked` is one rule of a group taken on its own. */
+  alone?: boolean
   pending: boolean
-  onChange: (agencyIds: number[]) => void
+  onChange: (agencyIds: number[], alone: boolean) => void
   rows?: number
   draft?: boolean
 }) {
   const groups = useTax().data?.groups ?? []
   const units = pickerUnits(agencies, (id) => groups.find((g) => g.id === id)?.name)
-  const isOn = (u: Unit) => u.ids.some((id) => picked.includes(id))
+  const isOn = (u: Unit) => u.alone === alone && u.ids.some((id) => picked.includes(id))
   const chosen = units.filter(isOn)
   /** A rule (or group) switched on, waiting for "Split them". */
   const [asking, setAsking] = useState<Unit | null>(null)
   /** What turning `u` on replaces. */
   const replaced = (u: Unit) => chosen.filter((c) => c.key !== u.key)
   const turn = (u: Unit, on: boolean) => {
-    if (!on) return onChange([])
-    if (draft || rows === 0) return onChange(u.ids)
+    if (!on) return onChange([], false)
+    if (draft || rows === 0) return onChange(u.ids, u.alone)
     setAsking(u)
   }
   return (
@@ -97,7 +133,11 @@ export function AgencyPicker({
         )}
       >
         <Split className="size-3.5 shrink-0" />
-        <span className="truncate">{chosen.length ? chosen.map((a) => a.name).join(', ') : 'No split rules'}</span>
+        <span className="truncate">
+          {chosen.length
+            ? chosen.map((a) => (a.inGroup ? `${a.name} (alone)` : a.name)).join(', ')
+            : 'No split rules'}
+        </span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">
         <p className="text-xs font-medium text-muted-foreground">Split rules of {name}</p>
@@ -126,7 +166,7 @@ export function AgencyPicker({
                 disabled={pending}
                 className="bg-brand text-white hover:bg-brand/85"
                 onClick={() => {
-                  onChange(asking.ids)
+                  onChange(asking.ids, asking.alone)
                   setAsking(null)
                 }}
               >
@@ -138,8 +178,11 @@ export function AgencyPicker({
           <>
             <ul className="flex flex-col gap-1">
               {units.map((u) => (
-                <li key={u.key}>
-                  <label className={cn('flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm', !u.active && 'opacity-60')}>
+                <li key={u.key} className={cn(u.inGroup && 'pl-5')}>
+                  <label
+                    className={cn('flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm', !u.active && 'opacity-60')}
+                    title={u.inGroup ? `${u.name} on its own — not with the rest of ${u.inGroup}` : undefined}
+                  >
                     <Switch
                       checked={isOn(u)}
                       disabled={pending}
@@ -157,7 +200,10 @@ export function AgencyPicker({
                       </span>
                     ) : (
                       <>
-                        <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {u.name}
+                          {u.inGroup && <span className="text-xs text-muted-foreground"> alone</span>}
+                        </span>
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{u.detail}</span>
                       </>
                     )}
@@ -169,7 +215,8 @@ export function AgencyPicker({
               <p className="text-[11px] text-amber-800">{name} has several picks — pick one.</p>
             )}
             <p className="text-[11px] text-muted-foreground">
-              One split rule or one group per name — to use several rules together, put them in a split group.
+              One split rule or one group per name — to use several rules together, put them in a split group. A
+              group's rule picked alone splits on its own, not with its group.
             </p>
             {chosen.length > 0 && !draft && (
               <p className="text-[11px] text-muted-foreground">Turning one off keeps the splits it already made.</p>

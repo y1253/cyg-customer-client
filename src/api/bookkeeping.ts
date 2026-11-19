@@ -550,6 +550,8 @@ export type LedgerName = {
   total: number
   /** The split rules picked for this name — none = the default. */
   agencyIds: number[]
+  /** step9 (2026-11-19): its pick is one rule of a split group taken on its own. */
+  agencyAlone: boolean
   /** The descriptions the AI put under this name. */
   descriptions: NameDescription[]
   /** step9: the "description contains …" rules that give rows this name. */
@@ -781,7 +783,7 @@ export async function fetchNames(auth: BookAuth): Promise<NamesData> {
  */
 export async function setNameAgencies(
   auth: BookAuth,
-  values: { name: string; agencyIds: number[] },
+  values: { name: string; agencyIds: number[]; alone?: boolean },
 ): Promise<NamesData> {
   const res = await bookFetch(auth, '/api/bookkeeping/names/agencies', json('PUT', values))
   if (!res.ok) throw await errorFrom(res)
@@ -1006,6 +1008,8 @@ export interface SubName {
   renamed: boolean
   ownAgencies: boolean
   agencyIds: number[]
+  /** step9 (2026-11-19): its pick is one rule of a split group taken on its own. */
+  agencyAlone: boolean
   /** step9 (2026-11-17): it holds a split rule's splits ("Walmart - GST") — it can't be merged or dragged. */
   fromRule: boolean
 }
@@ -1018,6 +1022,8 @@ export type SubNameSettings = {
   fields?: NameField[]
   /** null = follow the parent's split rules; [] = none. */
   agencyIds?: number[] | null
+  /** step9 (2026-11-19): `agencyIds` is one rule of a split group picked on its own. */
+  alone?: boolean
 }
 
 export async function setSubNameSettings(auth: BookAuth, id: number, body: SubNameSettings): Promise<void> {

@@ -13,6 +13,7 @@ import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { useTax } from '@/hooks/useTax'
 import { AgencyPicker } from './AgencyPicker'
 import { GroupPicker } from './GroupPicker'
+import { NameColumnAnswersSection } from './NameColumnAnswers'
 import { NameFieldsEditor } from './NameFieldsEditor'
 import { RuleConflictDialog } from './RuleConflictDialog'
 
@@ -143,9 +144,10 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
             name={live.name}
             agencies={agencies}
             picked={live.agencyIds}
+            alone={live.agencyAlone}
             rows={live.rows}
             pending={setTax.isPending}
-            onChange={(agencyIds) => setTax.mutate({ name: live.name, agencyIds })}
+            onChange={(agencyIds, alone) => setTax.mutate({ name: live.name, agencyIds, alone })}
           />
         </div>
       )}
@@ -158,6 +160,8 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
           onChange={(fields) => setFields.mutateAsync({ name: live.name, fields })}
         />
       )}
+
+      {!live.unclarified && <NameColumnAnswersSection target={{ name: live.name }} />}
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">

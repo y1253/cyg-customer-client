@@ -156,6 +156,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [draftGroup, setDraftGroup] = useState<string | null>(null)
   const [draftAgencies, setDraftAgencies] = useState<number[]>([])
+  const [draftAlone, setDraftAlone] = useState(false)
   const [draftFields, setDraftFields] = useState<NameField[]>([])
   // step8 (2026-11-11, `descr.png`): a NEW name's descriptions — every description holding
   // one of these texts gets the name (a CONTAINS rule each), saved right after the name.
@@ -173,7 +174,8 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const applyDraft = async () => {
     if (!newName) return
     if (draftGroup) await setGroup.mutateAsync({ name: trimmed, group: draftGroup })
-    if (draftAgencies.length) await setTax.mutateAsync({ name: trimmed, agencyIds: draftAgencies })
+    if (draftAgencies.length)
+      await setTax.mutateAsync({ name: trimmed, agencyIds: draftAgencies, alone: draftAlone })
     if (draftFields.length) await setFields.mutateAsync({ name: trimmed, fields: draftFields })
     await saveTexts(0)
   }
@@ -446,8 +448,12 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                         name={trimmed}
                         agencies={tax.data?.agencies ?? []}
                         picked={draftAgencies}
+                        alone={draftAlone}
                         pending={false}
-                        onChange={setDraftAgencies}
+                        onChange={(ids, alone) => {
+                          setDraftAgencies(ids)
+                          setDraftAlone(alone)
+                        }}
                         draft
                       />
                     </div>

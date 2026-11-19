@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import type { CustomColumn, CustomColumnInput } from '@/api/customColumns'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -21,6 +21,7 @@ import {
   TYPE_LABELS,
   type CustomColumnType,
 } from '@/lib/custom-columns'
+import { ColumnNameAnswers } from './NameColumnAnswers'
 
 type Draft = Omit<CustomColumnInput, 'minChars' | 'maxChars'> & {
   id?: number
@@ -77,6 +78,8 @@ function brokenText(n: number): string {
  * step9 part 3 (2026-11-15): opened straight on the add form (the ledger's "+") or on one
  * column (its header's "Edit column"); Cancel then closes it. New rules that answers already
  * entered break cannot be saved: the rows to fix are listed (user's decision: block the save).
+ * step9 (2026-11-19): each column has "Answers per name" — a default answer per name / sub-name that fills its empty
+ * cells; a new column opens on it right after it is added.
  */
 export function CustomColumnsDialog({
   open,
@@ -105,6 +108,9 @@ export function CustomColumnsDialog({
     return col ? draftOf(col) : null
   })
   const [tried, setTried] = useState(false)
+  /** step9 (2026-11-19): the column whose "Answers per name" is open. */
+  const [namesFor, setNamesFor] = useState<number | null>(null)
+  const namesColumn = namesFor !== null ? columns.find((c) => c.id === namesFor) : undefined
   const direct = !!start
   const editing = draft?.id ? columns.find((c) => c.id === draft.id) : undefined
   const broken: Broken[] =
@@ -140,6 +146,7 @@ export function CustomColumnsDialog({
     if (!draft) return
     setTried(true)
     if (problem) return
+    const before = new Set(columns.map((c) => c.id))
     save.mutate(
       {
         ...draft,
@@ -148,7 +155,16 @@ export function CustomColumnsDialog({
         maxChars: draft.type === 'DROPDOWN' || draft.maxChars === '' ? null : Number(draft.maxChars),
         options: draft.type === 'DROPDOWN' ? draft.options.filter((o) => o.label.trim()) : [],
       },
-      { onSuccess: closeForm },
+      {
+        // step9 (2026-11-19): a NEW column goes on to its answers per name.
+        onSuccess: (data) => {
+          const made = draft.id ? undefined : data.columns.find((c) => !before.has(c.id))
+          if (!made) return closeForm()
+          setDraft(null)
+          setTried(false)
+          setNamesFor(made.id)
+        },
+      },
     )
   }
 
@@ -172,6 +188,7 @@ export function CustomColumnsDialog({
         if (!o) {
           setDraft(null)
           setTried(false)
+          setNamesFor(null)
         }
       }}
     >
@@ -184,7 +201,25 @@ export function CustomColumnsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!draft && (
+        {!draft && namesColumn && (
+          <div className="flex min-w-0 flex-col gap-3">
+            <ColumnNameAnswers column={namesColumn} />
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNamesFor(null)
+                  if (direct) onOpenChange(false)
+                }}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!draft && !namesColumn && (
           <div className="flex min-w-0 flex-col gap-3">
             {columns.length === 0 && <p className="text-sm text-muted-foreground">No columns of your own yet.</p>}
             {columns.map((c) => (
@@ -197,6 +232,9 @@ export function CustomColumnsDialog({
                     {c.required && ' · required'}
                   </p>
                 </div>
+                <Button variant="ghost" size="icon-sm" onClick={() => setNamesFor(c.id)} title="Answers per name">
+                  <Users className="size-4" />
+                </Button>
                 <Button variant="ghost" size="icon-sm" onClick={() => setDraft(draftOf(c))} title="Edit">
                   <Pencil className="size-4" />
                 </Button>
@@ -381,7 +419,21 @@ export function CustomColumnsDialog({
             {((tried && problem && !toFix.length) || (save.error && !refused)) && (
               <p className="text-sm text-destructive">{(tried && problem) || save.error?.message}</p>
             )}
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              {editing && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="mr-auto gap-1.5"
+                  onClick={() => {
+                    setDraft(null)
+                    setTried(false)
+                    setNamesFor(editing.id)
+                  }}
+                >
+                  <Users className="size-4" /> Answers per name
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={closeForm}>
                 Cancel
               </Button>

@@ -99,6 +99,7 @@ import {
   useGroupDrop,
   useHoverOpen,
   useNameDrop,
+  useRefuseSubName,
   type DraggedSubName,
 } from './name-drag'
 import { FolderButton } from './NameFiles/FileCounts'
@@ -504,7 +505,7 @@ export function Names({
       onNewGroup={() => setGroupEdit({ name: '', assign: n.name })}
       agencies={allAgencies}
       pending={setNameTax.isPending && setNameTax.variables?.name === n.name}
-      onAgencies={(agencyIds) => setNameTax.mutate({ name: n.name, agencyIds })}
+      onAgencies={(agencyIds, alone) => setNameTax.mutate({ name: n.name, agencyIds, alone })}
       onOpen={onOpenName && (() => onOpenName(n.name))}
       onOpenDescription={onOpenDescription && ((d: string) => onOpenDescription(n.name, d))}
       onOpenSubName={onOpenSubName && ((sub: SubName) => onOpenSubName(n.name, { id: sub.id, name: sub.name }))}
@@ -968,6 +969,8 @@ export function Names({
                 ? `Every transaction of ${merging.from.name} moves under ${merging.into.name}, into its sub-name of the same category (made if it has none), and new ones follow.`
                 : merging?.into.subId
                 ? `Every transaction of ${merging.from.name} moves under ${merging.into.name} and takes its category${merging.into.category ? ` (${merging.into.category})` : ''} and split rules, and new ones follow.`
+                : merging?.from.subId
+                ? `Every transaction of ${merging.from.name} takes the plain name ${merging.into.name} (no sub-name), its category and its split rules, and new ones follow.`
                 : `Every transaction of ${merging?.from.name} takes the name ${merging?.into.name}, its category and its split rules, and new ones follow.`}{' '}
               {merging?.from.subId
                 ? `${merging.from.name} is removed — its files go along.`
@@ -1237,7 +1240,7 @@ function NameRow({
   onNewGroup: () => void
   agencies: TaxAgency[]
   pending: boolean
-  onAgencies: (agencyIds: number[]) => void
+  onAgencies: (agencyIds: number[], alone: boolean) => void
   onOpen?: () => void
   /** step2 (2026-11-15): one of its descriptions clicked — its ledger rows of it. */
   onOpenDescription?: (description: string) => void
@@ -1295,16 +1298,17 @@ function NameRow({
   // step9 (2026-11-17, second request): a name with sub-names is only a wrapper ("a rubber
   // band") — no settings, nothing dragged into it or out of it; its sub-names are the names.
   const wrapper = subs.length > 0 && !n.unclarified
-  // step9 (2026-11-18): a wrapper takes a name or a sub-name too — it lands on its sub-name of the
-  // same category. Not a description (that goes onto one of its sub-names), nor its own sub-name.
-  const own = (sub: DraggedSubName) => subs.some((s) => s.id === sub.id)
+  // step9 (2026-11-18): a wrapper takes a name — it lands on its sub-name of the same category. Not a
+  // description (that goes onto one of its sub-names). step9 (2026-11-19): nor a sub-name — a wrapper is only a
+  // rubber band; a sub-name goes onto one of its sub-names, or onto a name with none.
   const drop = useNameDrop(
     n.name,
     onMergeInto,
     wrapper ? undefined : onDescription,
-    onSubNameInto && ((sub) => !own(sub) && onSubNameInto(sub)),
+    wrapper ? undefined : onSubNameInto,
   )
-  const ownDrag = wrapper && drop.over && subs.some((s) => s.id === draggedSubId())
+  const refuse = useRefuseSubName(wrapper)
+  const ownDrag = refuse.over && subs.some((s) => s.id === draggedSubId())
   // step9 (2026-11-17): anything held over a folded wrapper unfolds it.
   const hover = useHoverOpen(wrapper && !subsOpen, () => setSubsToggled(true))
   const draggable = mergeable && !wrapper
@@ -1318,13 +1322,13 @@ function NameRow({
     <li
       id={rowId(n.name)}
       {...(draggable ? nameDragProps(n.name) : {})}
-      {...joinDragProps(drop.props, hover.props)}
+      {...joinDragProps(joinDragProps(drop.props, refuse.props), hover.props)}
       title={draggable ? 'Drag onto another name to merge them, or onto a group to move it' : undefined}
       className={cn(
         'px-5 py-3 transition-colors',
         draggable && 'cursor-grab active:cursor-grabbing',
-        drop.over && !ownDrag && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
-        ownDrag && 'bg-muted/50',
+        drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
+        refuse.over && 'cursor-not-allowed bg-muted/50',
         highlighted && 'bg-amber-50',
       )}
     >
@@ -1338,25 +1342,23 @@ function NameRow({
       )}
       <div className="min-w-0 flex-1">
         <RenameName name={n.name} onRename={onRename}>
-          {onOpen || subs.length > 0 ? (
+          {onOpen ? (
+            // step9 (2026-11-19): a name with sub-names opens ALL its rows too (its sub-names' included); the
+            // sub-names unfold from the "N sub-names" link under it.
             <button
               type="button"
-              onClick={subs.length > 0 ? toggleSubs : onOpen}
+              onClick={onOpen}
               title={
                 subs.length > 0
-                  ? `${subsOpen ? 'Hide' : 'Show'} the sub-names of ${n.name}`
+                  ? `See every transaction of ${n.name}, its sub-names' included`
                   : `See every transaction of ${n.name}`
               }
-              aria-expanded={subs.length > 0 ? subsOpen : undefined}
               className={cn(
                 'inline-flex max-w-full items-center gap-1 text-left font-medium text-[#0B1C2C] hover:text-brand hover:underline',
                 n.unclarified && 'italic',
               )}
             >
               <span className="truncate">{n.name}</span>
-              {subs.length > 0 && (
-                <ChevronDown className={cn('size-4 shrink-0 text-brand transition-transform', subsOpen && 'rotate-180')} />
-              )}
             </button>
           ) : (
             <p className="truncate font-medium text-[#0B1C2C]">{n.name}</p>
@@ -1458,20 +1460,18 @@ function NameRow({
           >
             <CornerDownRight className="size-3.5" />
             {subsOpen ? 'Hide sub-names' : `${subs.length} sub-name${subs.length === 1 ? '' : 's'}`}
+            <ChevronDown className={cn('size-3.5 transition-transform', subsOpen && 'rotate-180')} />
           </button>
         )}
-        {ownDrag && (
+        {refuse.over && (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            It is already under {n.name} — drop it on another sub-name.
+            {ownDrag
+              ? `It is already under ${n.name} — drop it on another sub-name.`
+              : `${n.name} has sub-names — drop it on one of its sub-names.`}
           </p>
         )}
         {subsOpen && (
           <div className="mt-1 ml-1 space-y-0.5 border-l-2 border-brand/20 pl-3">
-            {onOpen && (
-              <button type="button" onClick={onOpen} className="text-xs font-medium text-brand hover:underline">
-                See all {n.rows.toLocaleString()} row{n.rows === 1 ? '' : 's'} of {n.name}
-              </button>
-            )}
             {subs.map((sub) => (
               <SubNameLine
                 key={sub.id}
@@ -1490,6 +1490,7 @@ function NameRow({
           name={n.name}
           agencies={agencies}
           picked={n.agencyIds}
+          alone={n.agencyAlone}
           rows={n.rows}
           pending={pending}
           onChange={onAgencies}

@@ -6,8 +6,10 @@ import {
   fetchCustomColumns,
   saveCustomAnswer,
   saveCustomColumn,
+  saveNameAnswer,
   type CustomColumnInput,
   type CustomColumnsData,
+  type NameAnswerTarget,
 } from '@/api/customColumns'
 import { useBook } from './useBook'
 
@@ -34,6 +36,12 @@ export const useSaveCustomColumn = () =>
   useWrite((auth, v: CustomColumnInput & { id?: number }) => saveCustomColumn(auth, v))
 export const useDeleteCustomColumn = () => useWrite((auth, id: number) => deleteCustomColumn(auth, id))
 export const useCopyCustomColumns = () => useWrite((auth, fromBookId: number) => copyCustomColumns(auth, fromBookId))
+/** step9 (2026-11-19): a name's / sub-name's default answer — the view comes back with its rows filled. */
+export const useSaveNameAnswer = () =>
+  useWrite(
+    (auth, v: NameAnswerTarget & { columnId: number; value?: string | null; dropDownId?: number | null }) =>
+      saveNameAnswer(auth, v),
+  )
 export const useSaveCustomAnswer = () =>
   useWrite(
     (auth, v: { transactionId: number; columnId: number; value?: string | null; dropDownId?: number | null }) =>
