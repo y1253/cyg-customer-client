@@ -12,6 +12,7 @@ import { useNames } from '@/hooks/useNames'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { useTax } from '@/hooks/useTax'
 import { AgencyPicker } from './AgencyPicker'
+import { ExceptionList } from './Exceptions'
 import { GroupPicker } from './GroupPicker'
 import { NameColumnAnswersSection } from './NameColumnAnswers'
 import { NameFieldsEditor } from './NameFieldsEditor'
@@ -242,6 +243,8 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
                     </Button>
                   )}
                 </div>
+                {/* step12 (2026-11-20): its rows changed one time, here too. */}
+                {!!d.exceptions?.length && <ExceptionList exceptions={d.exceptions} />}
                 {narrowing === id &&
                   editor(() =>
                     void saveContains(

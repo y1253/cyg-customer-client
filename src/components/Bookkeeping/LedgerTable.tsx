@@ -42,7 +42,7 @@ import { ColumnHeader } from './ColumnHeader'
 import { CustomCell } from './CustomCell'
 import { CustomColumnsDialog, type ColumnsDialogStart } from './CustomColumnsDialog'
 import { NameRuleDialog } from './NameRuleDialog'
-import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, SplitNameCell, TransactionCategoryCell } from './SplitCells'
+import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, TransactionCategoryCell } from './SplitCells'
 import { StickyScrollbar } from './StickyScrollbar'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 import { folderOf, groupByAccount } from './statement-folders'
@@ -643,6 +643,7 @@ export function LedgerTable({
                     answers={custom.data?.answers[t.id]}
                     onSplit={() => addSplit(t.id, t.splitOfId!)}
                     onAttach={() => setAttaching(t)}
+                    onEditName={() => setEditing(t)}
                   />
                 )
               }
@@ -1047,6 +1048,7 @@ function SplitRow({
   answers,
   onSplit,
   onAttach,
+  onEditName,
 }: {
   t: LedgerTransaction
   /** Just made by Split: its amount field takes the focus. */
@@ -1059,6 +1061,8 @@ function SplitRow({
   onSplit: () => void
   /** step12 (2026-11-19): a split has its own paperclip. */
   onAttach: () => void
+  /** step12 (2026-11-20): its name opens the same window as a transaction's (`NameRuleDialog`). */
+  onEditName: () => void
 }) {
   // step9 (2026-11-17): a split of a split sits further in, under the split it was cut from.
   const indent = { paddingLeft: `${0.5 + (t.depth ?? 0)}rem` }
@@ -1098,7 +1102,19 @@ function SplitRow({
         title={t.subName?.name ?? t.name ?? undefined}
       >
         <span className="block min-w-0" style={(t.depth ?? 0) > 0 ? indent : undefined}>
-          <SplitNameCell t={t} />
+          <button
+            type="button"
+            onClick={onEditName}
+            title="Change this split's name or category"
+            className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
+          >
+            {t.subName?.name ?? t.name ?? <Unclarified />}
+          </button>
+          {t.subName && (
+            <span className="block truncate text-[11px] font-normal text-muted-foreground" title="Counted under this name">
+              under {t.name}
+            </span>
+          )}
         </span>
         <span className="mt-1 flex flex-col gap-1 font-normal md:hidden">
           {item}

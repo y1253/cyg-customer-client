@@ -45,7 +45,7 @@ export function SubNameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         {open && (
-          <SubNameForm
+          <SubNameSettings
             key={sub.id}
             sub={sub}
             groups={groups}
@@ -60,20 +60,26 @@ export function SubNameDialog({
   )
 }
 
-function SubNameForm({
+/**
+ * The sub-name's settings. step12 (2026-11-20): also shown INSIDE the ledger's name window
+ * (`inline`) — a plain block with its own Save there, since it sits inside that window's form.
+ */
+export function SubNameSettings({
   sub,
   groups,
   parentGroup,
   agencies,
   parentAgencyIds,
   onDone,
+  inline = false,
 }: {
   sub: SubName
   groups: NameGroup[]
   parentGroup: string
   agencies: TaxAgency[]
   parentAgencyIds: number[]
-  onDone: () => void
+  onDone?: () => void
+  inline?: boolean
 }) {
   const save = useSetSubNameSettings()
   const fields = useSetSubNameSettings()
@@ -82,7 +88,10 @@ function SubNameForm({
   const [own, setOwn] = useState(sub.ownAgencies)
   const [picked, setPicked] = useState(sub.ownAgencies ? sub.agencyIds : parentAgencyIds)
   const [alone, setAlone] = useState(sub.ownAgencies && sub.agencyAlone)
+  const [saved, setSaved] = useState(false)
   const labelOf = (key: string) => groups.find((g) => g.key === key)?.label ?? key
+  const nameId = inline ? 'sub-inline-name' : 'sub-name'
+  const changed = () => setSaved(false)
 
   const submit = () =>
     save.mutate(
@@ -93,32 +102,34 @@ function SubNameForm({
         agencyIds: own ? picked : null,
         ...(own && alone && { alone }),
       },
-      { onSuccess: onDone },
+      {
+        onSuccess: () => {
+          setSaved(true)
+          onDone?.()
+        },
+      },
     )
 
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        submit()
-      }}
-      className="flex flex-col gap-4"
-    >
-      <DialogHeader>
-        <DialogTitle>Edit {sub.name}</DialogTitle>
-        <DialogDescription>
-          A sub-name of {sub.parent} in {sub.category}. Its rows still count under {sub.parent}; here it gets its own
-          name, group, split rules and details, like any name.
-        </DialogDescription>
-      </DialogHeader>
-
+  const body = (
+    <>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="sub-name">Name</Label>
-        <Input id="sub-name" value={name} maxLength={191} onChange={(e) => setName(e.target.value)} />
+        <Label htmlFor={nameId}>{inline ? 'Its own name' : 'Name'}</Label>
+        <Input
+          id={nameId}
+          value={name}
+          maxLength={191}
+          onChange={(e) => {
+            setName(e.target.value)
+            changed()
+          }}
+        />
         {sub.renamed && (
           <button
             type="button"
-            onClick={() => setName('')}
+            onClick={() => {
+              setName('')
+              changed()
+            }}
             className="self-start text-xs font-medium text-brand hover:underline"
           >
             Use “{sub.parent} - {sub.category}” again
@@ -128,10 +139,24 @@ function SubNameForm({
 
       <div className="flex flex-col gap-1.5">
         <Label>Group</Label>
-        <GroupPicker groups={groups} value={group ?? parentGroup} onChange={setGroup} />
+        <GroupPicker
+          groups={groups}
+          value={group ?? parentGroup}
+          onChange={(g) => {
+            setGroup(g)
+            changed()
+          }}
+        />
         <p className="text-xs text-muted-foreground">
           {group === null ? `Same as ${sub.parent} (${labelOf(parentGroup)}).` : (
-            <button type="button" onClick={() => setGroup(null)} className="font-medium text-brand hover:underline">
+            <button
+              type="button"
+              onClick={() => {
+                setGroup(null)
+                changed()
+              }}
+              className="font-medium text-brand hover:underline"
+            >
               Same group as {sub.parent} again
             </button>
           )}
@@ -145,6 +170,7 @@ function SubNameForm({
               checked={own}
               onCheckedChange={(v) => {
                 setOwn(v)
+                changed()
                 if (!v) {
                   setPicked(parentAgencyIds)
                   setAlone(false)
@@ -165,6 +191,7 @@ function SubNameForm({
                 onChange={(ids, a) => {
                   setPicked(ids)
                   setAlone(a)
+                  changed()
                 }}
                 draft
               />
@@ -200,6 +227,38 @@ function SubNameForm({
       <NameColumnAnswersSection target={{ subNameId: sub.id }} />
 
       {save.error && <p className="text-sm text-red-600">{save.error.message}</p>}
+    </>
+  )
+
+  if (inline) {
+    return (
+      <div className="flex flex-col gap-3">
+        {body}
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={submit}>
+            {save.isPending ? 'Saving…' : 'Save these settings'}
+          </Button>
+          {saved && !save.isPending && <span className="text-xs text-emerald-700">Saved</span>}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+      className="flex flex-col gap-4"
+    >
+      <DialogHeader>
+        <DialogTitle>Edit {sub.name}</DialogTitle>
+        <DialogDescription>
+          A sub-name of {sub.parent} in {sub.category}. Its rows still count under {sub.parent}; here it gets its own
+          name, group, split rules and details, like any name.
+        </DialogDescription>
+      </DialogHeader>
+      {body}
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
         <Button type="submit" disabled={save.isPending}>

@@ -86,6 +86,7 @@ import { AgencyDialog } from './AgencyDialog'
 import { AgencyPicker } from './AgencyPicker'
 import { ContainsRuleDialog } from './ContainsRuleDialog'
 import { InlineRename } from './InlineRename'
+import { exceptionCount } from '@/lib/name-exceptions'
 import { FIELD_KIND_ICON, FIELD_KIND_LABEL, fieldHref } from '@/lib/name-fields'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 import { RuleConflictDialog } from './RuleConflictDialog'
@@ -102,6 +103,8 @@ import {
   useRefuseSubName,
   type DraggedSubName,
 } from './name-drag'
+import { nameGroupOf } from '@/hooks/useSubNameTools'
+import { ExceptionList, ExceptionOfLines } from './Exceptions'
 import { FolderButton } from './NameFiles/FileCounts'
 import { FilesDialog, type FilesTarget } from './NameFiles/FilesDialog'
 
@@ -284,7 +287,7 @@ export function Names({
   const allAgencies = tax.data?.agencies ?? []
   const groups = names.data?.groups ?? BUILTIN_GROUPS
   const groupLabel = (key: string) => groups.find((g) => g.key === key)?.label ?? TYPE_LABEL[key as NameType] ?? key
-  const groupOf = (n: LedgerName) => (n.unclarified ? 'OTHER' : (n.group ?? n.type))
+  const groupOf = nameGroupOf
   /** A name that is a tax agency (or the nameless rows) is not a payee: it never merges. */
   const mergeable = (n: LedgerName) =>
     !n.unclarified && !allAgencies.some((a) => a.name.toLowerCase() === n.name.toLowerCase())
@@ -532,6 +535,8 @@ export function Names({
         onFiles: (name, filter) => setFiles({ kind: 'name', name, filter }),
         descriptionsOf: (sub) => names.data?.subDescriptions?.[sub.id] ?? [],
         containsOf: (sub) => names.data?.subContains?.[sub.id] ?? [],
+        exceptionOf: (sub) => names.data?.subExceptionOf?.[sub.id] ?? [],
+        onGoTo: goTo,
         onDescription: (sub, d) => moveDescription(n.name, d, false, sub),
         onOpenDescription: onOpenDescription && ((d: string) => onOpenDescription(n.name, d)),
         onMergeInto: (sub, from) =>
@@ -571,6 +576,7 @@ export function Names({
       matches={hits.get(n.name.toLowerCase())}
       query={q}
       highlighted={highlight === n.name.toLowerCase()}
+      highlight={highlight}
       onGoTo={goTo}
     />
   )
@@ -1227,6 +1233,7 @@ function NameRow({
   matches,
   query,
   highlighted,
+  highlight,
   onGoTo,
 }: {
   n: LedgerName
@@ -1273,6 +1280,8 @@ function NameRow({
   query: string
   /** step9: an exception link just jumped here. */
   highlighted?: boolean
+  /** step12 (2026-11-20): the name / sub-name an exception link went to — its wrapper unfolds. */
+  highlight?: string | null
   onGoTo: (name: string) => void
 }) {
   const [toggled, setOpen] = useState(false)
@@ -1285,6 +1294,7 @@ function NameRow({
   const subs = subNames ?? []
   const subsOpen =
     (subsToggled ?? subs.length <= SUBS_OPEN_DEFAULT_MAX) ||
+    (!!highlight && subs.some((sub) => sub.name.toLowerCase() === highlight)) ||
     (query.length >= 2 &&
       subs.some(
         (sub) =>
@@ -1317,7 +1327,11 @@ function NameRow({
     (!!d.key && !!matches?.has(d.key)) || (query.length >= 2 && d.description.toLowerCase().includes(query))
   // A search that found it by a description opens it on that description.
   const open = toggled || (!!query && n.descriptions.some(matched))
-  const exceptionCount = n.descriptions.reduce((c, d) => c + (d.exceptions?.reduce((x, e) => x + e.rows, 0) ?? 0), 0)
+  // step12 (2026-11-20): a wrapper counts its sub-names' exceptions too, and lists its own.
+  const subDescriptions = wrapper ? subs.flatMap((sub) => subTools?.descriptionsOf?.(sub) ?? []) : []
+  const exceptionTotal = exceptionCount(n.descriptions) + exceptionCount(subDescriptions)
+  const [wrapperExceptions, setWrapperExceptions] = useState(false)
+  const ownExceptions = n.descriptions.filter((d) => d.exceptions?.length)
   return (
     <li
       id={rowId(n.name)}
@@ -1411,32 +1425,38 @@ function NameRow({
                 </a>
               )
             })}
-          {!wrapper && exceptionCount > 0 && (
+          {exceptionTotal > 0 && (
             <button
               type="button"
-              onClick={() => setOpen(true)}
+              onClick={() => {
+                if (!wrapper) return setOpen(true)
+                setWrapperExceptions(!wrapperExceptions)
+                if (!subsOpen) toggleSubs()
+              }}
               className="text-xs font-medium text-amber-700 hover:underline"
-              title="Rows of its descriptions that were renamed one time"
+              title={
+                wrapper
+                  ? 'Rows of its descriptions changed one time — shown here and under each sub-name'
+                  : 'Rows of its descriptions that were changed one time'
+              }
             >
-              · {exceptionCount} exception{exceptionCount === 1 ? '' : 's'}
+              · {exceptionTotal} exception{exceptionTotal === 1 ? '' : 's'}
             </button>
           )}
         </div>
-        {(wrapper ? [] : (n.exceptionOf ?? [])).map((x) => (
-          <p key={`${x.main}|${x.key}`} className="mt-0.5 text-xs text-amber-800">
-            {x.rows === 1 ? 'One row is' : `${x.rows} rows are`} an exception from{' '}
-            <button type="button" onClick={() => onGoTo(x.main)} className="font-medium underline hover:text-amber-950">
-              {x.main}
-            </button>{' '}
-            <DescriptionLink
-              description={x.description}
-              onOpen={onOpenDescription}
-              className="text-amber-800/70"
-            >
-              (“{x.description}”)
-            </DescriptionLink>
-          </p>
-        ))}
+        <ExceptionOfLines items={n.exceptionOf ?? []} onGoTo={onGoTo} onOpenDescription={onOpenDescription} />
+        {wrapper && wrapperExceptions && ownExceptions.length > 0 && (
+          <ul className="mt-1 flex flex-col gap-0.5 rounded-lg bg-amber-50/60 p-1.5 text-xs">
+            {ownExceptions.map((d) => (
+              <li key={d.key ?? d.description}>
+                <DescriptionLink description={d.description} onOpen={onOpenDescription} className="text-[#0B1C2C]">
+                  “{d.description}”
+                </DescriptionLink>
+                <ExceptionList exceptions={d.exceptions ?? []} onGoTo={onGoTo} />
+              </li>
+            ))}
+          </ul>
+        )}
         {!wrapper && !open && (
           <DescriptionsLine descriptions={n.descriptions} onOpen={onOpenDescription} onMore={() => setOpen(true)} />
         )}
@@ -1475,6 +1495,8 @@ function NameRow({
             {subs.map((sub) => (
               <SubNameLine
                 key={sub.id}
+                id={rowId(sub.name)}
+                highlighted={highlight === sub.name.toLowerCase()}
                 sub={sub}
                 onOpen={onOpenSubName && (() => onOpenSubName(sub))}
                 tools={subTools}
@@ -1583,7 +1605,7 @@ function NameRow({
                       type="button"
                       onClick={() => setExceptionsOf(exceptionsOf === id ? null : id)}
                       className="shrink-0 text-xs font-medium text-amber-700 hover:underline"
-                      title="Rows of this description renamed one time"
+                      title="Rows of this description changed one time"
                     >
                       {exRows} exception{exRows === 1 ? '' : 's'}
                     </button>
@@ -1593,25 +1615,7 @@ function NameRow({
                     {d.rows.toLocaleString()} row{d.rows === 1 ? '' : 's'}
                   </span>
                 </div>
-                {exceptionsOf === id && (
-                  <ul className="mt-0.5 mb-1 ml-4 flex flex-col gap-0.5 border-l-2 border-amber-300 pl-3 text-xs">
-                    {exceptions.map((e) => (
-                      <li key={e.name} className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Renamed one time to</span>
-                        <button
-                          type="button"
-                          onClick={() => onGoTo(e.name)}
-                          className="font-medium text-amber-800 underline hover:text-amber-950"
-                        >
-                          {e.name}
-                        </button>
-                        <span className="text-muted-foreground/80 tabular-nums">
-                          · {e.rows} row{e.rows === 1 ? '' : 's'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                {exceptionsOf === id && <ExceptionList exceptions={exceptions} onGoTo={onGoTo} />}
               </li>
             )
           })}

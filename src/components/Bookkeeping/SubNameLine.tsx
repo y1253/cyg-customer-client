@@ -1,17 +1,19 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, CornerDownRight, GripVertical, Pencil, X } from 'lucide-react'
-import type { MergeEnd, NameDescription, NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
+import type { MergeEnd, NameDescription, NameExceptionOf, NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useDeleteSubName, useSetSubNameCategory, useSetSubNameSettings } from '@/hooks/useSplits'
 import { categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
 import { money } from '@/lib/money'
+import { exceptionCount } from '@/lib/name-exceptions'
 import { FIELD_KIND_ICON, FIELD_KIND_LABEL, fieldHref } from '@/lib/name-fields'
 import type { BucketCounts, BucketFilter } from '@/lib/name-files'
 import { cn } from '@/lib/utils'
 import { AgencyPicker } from './AgencyPicker'
 import { CategoryField } from './CategoryField'
 import { DescriptionLink, DescriptionsLine } from './DescriptionsLine'
+import { ExceptionList, ExceptionOfLines } from './Exceptions'
 import { InlineRename } from './InlineRename'
 import { descriptionDragProps, subNameDragProps, useNameDrop } from './name-drag'
 import { FolderButton } from './NameFiles/FileCounts'
@@ -40,6 +42,10 @@ export type SubNameTools = {
   containsOf?: (sub: SubName) => Array<{ key: string; text: string; category: string | null; rows: number }>
   /** step9 (2026-11-17, third request): a name or another sub-name was dropped on it. */
   onMergeInto?: (sub: SubName, from: MergeEnd) => void
+  /** step12 (2026-11-20): its rows that are exceptions from another name / sub-name. */
+  exceptionOf?: (sub: SubName) => NameExceptionOf[]
+  /** step12 (2026-11-20): an exception's link — to the name / sub-name it names. */
+  onGoTo?: (name: string) => void
 }
 
 /**
@@ -62,6 +68,8 @@ export function SubNameLine({
   tools,
   removable = true,
   matched,
+  id,
+  highlighted,
 }: {
   sub: SubName
   onOpen?: () => void
@@ -69,6 +77,9 @@ export function SubNameLine({
   removable?: boolean
   /** The Names-tab search: a description it found is shown open and marked. */
   matched?: (d: { key?: string; description: string }) => boolean
+  /** step12 (2026-11-20): where an exception link scrolls to, and the flash when it does. */
+  id?: string
+  highlighted?: boolean
 }) {
   const set = useSetSubNameCategory()
   const settings = useSetSubNameSettings()
@@ -86,6 +97,8 @@ export function SubNameLine({
   const own = tools ?? null
   const descriptions = own?.descriptionsOf?.(sub) ?? []
   const contains = own?.containsOf?.(sub) ?? []
+  const exceptionOf = own?.exceptionOf?.(sub) ?? []
+  const exceptions = exceptionCount(descriptions)
   const [descToggled, setDescToggled] = useState(false)
   const descOpen = descToggled || (!!matched && descriptions.some(matched))
   const merge = own?.onMergeInto
@@ -106,8 +119,13 @@ export function SubNameLine({
   )
   return (
     <div
+      id={id}
       {...drop.props}
-      className={cn('mt-0.5 rounded text-xs', drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset')}
+      className={cn(
+        'mt-0.5 rounded text-xs',
+        highlighted && 'bg-amber-50',
+        drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
+      )}
       title={
         own?.onDescription
           ? 'Drag it onto a name or another sub-name to merge them — or drop a name, a sub-name or a description here'
@@ -164,6 +182,16 @@ export function SubNameLine({
             className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800 tabular-nums hover:bg-amber-200"
           >
             {descriptions.length + contains.length} description{descriptions.length + contains.length === 1 ? '' : 's'}
+          </button>
+        )}
+        {exceptions > 0 && (
+          <button
+            type="button"
+            onClick={() => setDescToggled(true)}
+            title="Rows of its descriptions changed one time"
+            className="shrink-0 font-medium text-amber-700 hover:underline"
+          >
+            · {exceptions} exception{exceptions === 1 ? '' : 's'}
           </button>
         )}
         <span
@@ -241,6 +269,12 @@ export function SubNameLine({
           </button>
         )}
       </div>
+      <ExceptionOfLines
+        className="ml-5"
+        items={exceptionOf}
+        onGoTo={own?.onGoTo}
+        onOpenDescription={own?.onOpenDescription}
+      />
       {!descOpen && (
         <DescriptionsLine
           className="ml-5"
@@ -265,30 +299,32 @@ export function SubNameLine({
             </li>
           ))}
           {descriptions.map((d) => (
-            <li
-              key={d.key ?? d.description}
-              {...(d.key && own?.onDescription ? descriptionDragProps(d.key, d.description) : {})}
-              title={d.key ? 'Drag onto another sub-name to move this description there' : undefined}
-              className={cn(
-                'flex items-center gap-3 rounded px-2 py-0.5',
-                d.key && own?.onDescription && 'cursor-grab active:cursor-grabbing',
-                matched?.(d) && 'bg-amber-100/70',
-              )}
-            >
-              <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={d.description}>
-                <DescriptionLink description={d.description} onOpen={own?.onOpenDescription}>
-                  {d.description}
-                </DescriptionLink>
-              </span>
-              {d.rule && (
-                <span className="shrink-0 text-brand" title="Your rule files it under this sub-name">
-                  {d.rule.matchType === 'CONTAINS' ? `contains “${d.rule.text}”` : 'your rule'}
+            <li key={d.key ?? d.description}>
+              <div
+                {...(d.key && own?.onDescription ? descriptionDragProps(d.key, d.description) : {})}
+                title={d.key ? 'Drag onto another sub-name to move this description there' : undefined}
+                className={cn(
+                  'flex items-center gap-3 rounded px-2 py-0.5',
+                  d.key && own?.onDescription && 'cursor-grab active:cursor-grabbing',
+                  matched?.(d) && 'bg-amber-100/70',
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={d.description}>
+                  <DescriptionLink description={d.description} onOpen={own?.onOpenDescription}>
+                    {d.description}
+                  </DescriptionLink>
                 </span>
-              )}
-              <span className="shrink-0 text-muted-foreground">{d.category}</span>
-              <span className="w-14 shrink-0 text-right text-muted-foreground/80 tabular-nums">
-                {d.rows ? `${d.rows.toLocaleString()} row${d.rows === 1 ? '' : 's'}` : 'no rows yet'}
-              </span>
+                {d.rule && (
+                  <span className="shrink-0 text-brand" title="Your rule files it under this sub-name">
+                    {d.rule.matchType === 'CONTAINS' ? `contains “${d.rule.text}”` : 'your rule'}
+                  </span>
+                )}
+                <span className="shrink-0 text-muted-foreground">{d.category}</span>
+                <span className="w-14 shrink-0 text-right text-muted-foreground/80 tabular-nums">
+                  {d.rows ? `${d.rows.toLocaleString()} row${d.rows === 1 ? '' : 's'}` : 'no rows yet'}
+                </span>
+              </div>
+              {!!d.exceptions?.length && <ExceptionList exceptions={d.exceptions} onGoTo={own?.onGoTo} />}
             </li>
           ))}
         </ul>

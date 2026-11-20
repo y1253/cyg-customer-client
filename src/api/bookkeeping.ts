@@ -557,7 +557,7 @@ export type LedgerName = {
   /** step9: the "description contains …" rules that give rows this name. */
   followsContains?: Array<{ key: string; text: string; category: string | null; rows: number }>
   /** step9: this name's rows that are one-time exceptions from another name. */
-  exceptionOf?: Array<{ main: string; key: string; description: string; rows: number }>
+  exceptionOf?: NameExceptionOf[]
   /** step9: its Names-tab group key (CUSTOMER | SUPPLIER | OTHER | g<id>). */
   group?: string
   /** step2 (2026-11-09): the customer's own profile fields (phone, email, address, …). */
@@ -616,6 +616,8 @@ export type NamesData = {
   subDescriptions?: Record<number, NameDescription[]>
   /** step9 (2026-11-17, third request): each sub-name's "description contains" rules, by id. */
   subContains?: Record<number, Array<{ key: string; text: string; category: string | null; rows: number }>>
+  /** step12 (2026-11-20): each sub-name's rows that are exceptions from another name / sub-name, by id. */
+  subExceptionOf?: Record<number, NameExceptionOf[]>
 }
 
 /** step2 (2026-11-09): what a name's profile field holds. */
@@ -693,8 +695,22 @@ export type NameDescription = {
     /** step9 (2026-11-17): a rule saved from a split files its rows under this sub-name. */
     subName?: string
   } | null
-  /** Rows of it renamed ONE time — exceptions from this name, under the names they carry now. */
-  exceptions?: Array<{ name: string; rows: number }>
+  /**
+   * Rows of it changed ONE time — exceptions from this name, under the names they carry now.
+   * step12 (2026-11-20): `category` = only their category changed (to this one); `split` =
+   * splits named apart from their transaction.
+   */
+  exceptions?: Array<{ name: string; rows: number; category?: string; split?: true }>
+}
+
+/** step9: rows of a name / sub-name that are exceptions from another one ("exception from Walmart"). */
+export interface NameExceptionOf {
+  main: string
+  key: string
+  description: string
+  rows: number
+  /** step12 (2026-11-20): splits named apart from their transaction. */
+  split?: true
 }
 
 const json = (method: string, body: unknown): RequestInit => ({

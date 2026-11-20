@@ -1,21 +1,18 @@
 import { useState, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
-import { UNCLARIFIED_NAME, type LedgerTransaction, type SplitEdit } from '@/api/bookkeeping'
+import { type LedgerTransaction, type SplitEdit } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useNames } from '@/hooks/useNames'
-import { useRuleConflict } from '@/hooks/useRuleConflict'
 import { useDeleteSplit, useEditSplit, useSetProduct } from '@/hooks/useSplits'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
 import { categoryChoice, choiceReady, NEW_CATEGORY, resolveChoice } from '@/lib/categoryChoice'
 import { cn } from '@/lib/utils'
 import { CategoryField } from './CategoryField'
-import { NamePicker } from './NamePicker'
-import { RuleConflictDialog } from './RuleConflictDialog'
 
 /**
- * step2 (2026-11-15): a split is edited right in its ledger row — no dialog. Each cell
+ * step2 (2026-11-15): a split is edited right in its ledger row. Each cell
  * saves on its own (`PATCH transactions/:id/split`); the server refuses splits that add up
  * to more than the transaction, and the error shows under the cell.
  */
@@ -87,74 +84,6 @@ export function SplitAmountCell({ t, autoFocus }: { t: LedgerTransaction; autoFo
       </span>
       <CellError error={edit.error} />
     </span>
-  )
-}
-
-/**
- * The split's name. Another name asks "Only this transaction" (the default) or "Always" —
- * Always moves the transaction's description to that name (asked first when another name
- * has it), the whole transaction included.
- */
-export function SplitNameCell({ t }: { t: LedgerTransaction }) {
-  const edit = useEditSplit()
-  const conflict = useRuleConflict()
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState('')
-  const typed = value.trim()
-  const changed = typed !== '' && typed.toLowerCase() !== (t.name ?? '').toLowerCase()
-  const close = () => {
-    setEditing(false)
-    setValue('')
-  }
-  const save = (nameScope: 'ONCE' | 'ALWAYS') => {
-    const run = (replace: boolean) =>
-      edit.mutate(
-        { id: t.id, values: { name: typed, nameScope, replace } },
-        { onSuccess: close, onError: (e) => conflict.offer(e, typed, () => run(true)) },
-      )
-    run(false)
-  }
-  return (
-    <>
-      {editing ? (
-        <span className="flex flex-col font-normal">
-          <NamePicker value={value} onChange={setValue} placeholder={t.name ?? 'Name'} autoFocus className="h-7" />
-          {changed ? (
-            <ScopeStrip onCancel={close}>
-              <span>Give “{typed}” to:</span>
-              <span className="flex flex-wrap gap-1">
-                <Button type="button" size="xs" disabled={edit.isPending} onClick={() => save('ONCE')}>
-                  Only this transaction
-                </Button>
-                <Button type="button" size="xs" variant="outline" disabled={edit.isPending} onClick={() => save('ALWAYS')}>
-                  Always
-                </Button>
-              </span>
-            </ScopeStrip>
-          ) : (
-            <button type="button" onClick={close} className="mt-1 self-start text-[11px] text-muted-foreground hover:underline">
-              Cancel
-            </button>
-          )}
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          title="Change this split's name"
-          className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
-        >
-          {t.subName?.name ?? t.name ?? <span className="font-normal text-muted-foreground italic">{UNCLARIFIED_NAME}</span>}
-        </button>
-      )}
-      {t.subName && !editing && (
-        <span className="block truncate text-[11px] font-normal text-muted-foreground" title="Counted under this name">
-          under {t.name}
-        </span>
-      )}
-      <CellError error={edit.error && !conflict.pending ? edit.error : null} />
-      <RuleConflictDialog conflict={conflict} />
-    </>
   )
 }
 

@@ -8,6 +8,7 @@ import {
   type LedgerName,
   type LedgerTransaction,
   type NameField,
+  type SplitEdit,
   type UnrecognizedName,
 } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,8 @@ import { useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveNameRule } from '@/hooks/useNameRule'
 import { useNames } from '@/hooks/useNames'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
+import { useEditSplit, useSubNames } from '@/hooks/useSplits'
+import { useSubNameTools } from '@/hooks/useSubNameTools'
 import { useTax } from '@/hooks/useTax'
 import { cn } from '@/lib/utils'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
@@ -41,6 +44,7 @@ import { NameDescriptionsEditor } from './NameDescriptionsEditor'
 import { NameFieldsEditor } from './NameFieldsEditor'
 import { NamePicker } from './NamePicker'
 import { RuleConflictDialog } from './RuleConflictDialog'
+import { SubNameSettings } from './SubNameDialog'
 
 /** What is being edited: a payee, a group of rows the AI could not name, or one ledger row. */
 export type NameRuleTarget =
@@ -54,9 +58,15 @@ export type NameRuleTarget =
  * that name, always. "Always / Only this row" is for the NAME only: every transaction with
  * this description (and every later statement), or just this one. A name, once there, can
  * be changed but not cleared; a row the AI could not name may stay "Unclarified name" and
- * still get its description's category. A hand-made split only ever changes itself.
- * "Contains text" (step2) saves a CONTAINS rule instead: every description holding the
- * text (trimmed from this one) gets the name and/or category, now and from now on.
+ * still get its description's category. "Contains text" (step2) saves a CONTAINS rule
+ * instead: every description holding the text (trimmed from this one) gets the name and/or
+ * category, now and from now on.
+ *
+ * step12 (2026-11-20): a SPLIT opens this window too (it used to be edited in its cell): its
+ * name "Only this transaction" / "Always", and a category other than its name's for "All
+ * <name> rows" or "Only this, as a sub-name" — saved through `PATCH transactions/:id/split`.
+ * A row under a sub-name ("Walmart - Rent") shows the sub-name and ITS settings; a name
+ * with sub-names has no settings of its own (they live on its sub-names).
  */
 export function NameRuleDialog({
   target,
@@ -87,6 +97,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const create = useCreateAccount()
   const saveRule = useSaveNameRule()
   const editRow = useEditTransaction()
+  const editSplit = useEditSplit()
   const conflict = useRuleConflict()
 
   const initialName = target.kind === 'unrecognized' ? '' : (target.view.name ?? '')
@@ -104,7 +115,6 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   }
   const onNameChange = (next: string) => {
     setName(next)
-    if (isSplit) return
     const found = existingName(next)
     if (found && found.name.toLowerCase() !== initialName.toLowerCase()) {
       if (adopted?.name !== found.name) {
@@ -122,6 +132,12 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   }
   const isSplit = target.kind === 'transaction' && target.view.kind === 'split'
   const [scope, setScope] = useState<EditScope | 'CONTAINS'>(isSplit ? 'ONCE' : 'ALWAYS')
+  // step12 (2026-11-20): a split's other category — every row of its name, or only this split.
+  const [splitScope, setSplitScope] = useState<NonNullable<SplitEdit['categoryScope']>>('SUB')
+  // step12 (2026-11-20): the row's sub-name ("Walmart - Rent"), and the names that have sub-names.
+  const rowSub = target.kind === 'transaction' ? target.view.subName : null
+  const subNames = useSubNames()
+  const isWrapper = (n: string) => !!subNames.data?.some((s) => s.parent.toLowerCase() === n.toLowerCase())
   const [containsText, setContainsText] = useState(
     target.kind === 'transaction'
       ? target.view.description
@@ -138,8 +154,8 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   // "Always / Only this row" is about the NAME on a description's rows — a payee on the
   // Names tab is always renamed everywhere, and a category is always the name's own.
   // "Contains text" is offered for any change, so a category alone can become a rule too.
-  const canScope = target.kind !== 'name' && !isSplit
-  const contains = canScope && scope === 'CONTAINS'
+  const canScope = target.kind !== 'name'
+  const contains = canScope && !isSplit && scope === 'CONTAINS'
   // Moving to a name that exists: the category shown is sent as is — even when it is the
   // row's old one (picked on purpose), which the server would otherwise replace with the name's.
   const toExistingName = nameChanged && !!existingName(trimmed)
@@ -168,7 +184,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
     if (!draftTexts.some((x) => x.toLowerCase() === t.toLowerCase())) setDraftTexts([...draftTexts, t])
     setTextInput('')
   }
-  const owner = !isSplit && finalName ? existingName(finalName) : undefined
+  const owner = finalName ? existingName(finalName) : undefined
   const newName = nameChanged && !owner && trimmed.toLowerCase() !== UNCLARIFIED_NAME.toLowerCase()
   const groups = names.data?.groups ?? []
   const applyDraft = async () => {
@@ -211,17 +227,21 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   // step2 (2026-11-09): saving a category other than the name's own moves the name's
   // default — every row of it — so it is said before Save.
   const chosenCategory = choice.category === NEW_CATEGORY ? choice.newName.trim() : (choice.category ?? '')
-  const overriding =
+  const otherThanOwners =
     target.kind !== 'name' &&
     !!owner &&
     categoryChanged &&
     !!chosenCategory &&
     chosenCategory.toLowerCase() !== owner.category.toLowerCase()
+  // A split asks instead (all the name's rows, or only this split as a sub-name).
+  const overriding = otherThanOwners && !isSplit
+  const askSplitScope = otherThanOwners && isSplit
 
   const pending =
     create.isPending ||
     saveRule.isPending ||
     editRow.isPending ||
+    editSplit.isPending ||
     setGroup.isPending ||
     setTax.isPending ||
     setFields.isPending
@@ -229,7 +249,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const canSave = contains
     ? containsTrimmed.length >= CONTAINS_MIN && (nameChanged || choiceReady(choice)) && !nameMissing && !pending
     : (nameChanged || categoryChanged) && !nameMissing && !pending
-  const error = create.error ?? saveRule.error ?? editRow.error ?? setGroup.error ?? setTax.error ?? setFields.error
+  const error = create.error ?? saveRule.error ?? editRow.error ?? editSplit.error ?? setGroup.error ?? setTax.error ?? setFields.error
 
   const submit = async () => {
     if (!canSave) return
@@ -262,7 +282,19 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
     }
     // step2: a description already linked to another name asks first (RuleConflictDialog).
     const onError = (retry: () => void) => (e: Error) => conflict.offer(e, trimmed, retry)
-    if (target.kind === 'transaction') {
+    if (isSplit) {
+      const id = target.view.id
+      const split: SplitEdit = {
+        ...(nameChanged && { name: trimmed, nameScope: scope === 'ALWAYS' ? 'ALWAYS' : 'ONCE' }),
+        ...(chosen && { category: chosen, ...(askSplitScope && { categoryScope: splitScope }) }),
+      }
+      const run = (replace: boolean) =>
+        editSplit.mutate(
+          { id, values: { ...split, ...(replace && { replace }) } },
+          { onSuccess: finish, onError: onError(() => run(true)) },
+        )
+      run(false)
+    } else if (target.kind === 'transaction') {
       const id = target.view.id
       const run = (replace: boolean) =>
         editRow.mutate({ id, ...values, replace }, { onSuccess: finish, onError: onError(() => run(true)) })
@@ -293,11 +325,14 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         <DialogTitle>
           {target.kind === 'unrecognized'
             ? 'Name this transaction'
-            : `Edit ${target.view.name ?? 'this transaction'}`}
+            : `Edit ${rowSub?.name ?? target.view.name ?? (isSplit ? 'this split' : 'this transaction')}`}
         </DialogTitle>
         <DialogDescription>
           {target.kind === 'transaction' ? (
-            <>“{target.view.description}”</>
+            <>
+              {rowSub && <>Under {target.view.name} · </>}
+              {isSplit && <>A split of </>}“{target.view.description}”
+            </>
           ) : target.kind === 'unrecognized' ? (
             <>
               “{target.view.sampleDescription}” — {rows.toLocaleString()} row{rows === 1 ? '' : 's'}
@@ -319,18 +354,27 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
           onChange={onNameChange}
         />
         {nameMissing && <p className="text-xs text-destructive">A name is required.</p>}
+        {rowSub && !nameChanged && (
+          <p className="text-xs text-muted-foreground">
+            Shown as “{rowSub.name}”, a sub-name of {initialName}. Its own name and settings are below.
+          </p>
+        )}
       </div>
 
-      {canScope && (
+      {canScope && (!isSplit || nameChanged) && (
         <div className="flex flex-col gap-1.5">
           <Label>Apply to</Label>
-          <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
-            {(
-              [
-                { id: 'ALWAYS', label: 'This description' },
-                { id: 'CONTAINS', label: 'Contains text' },
-                { id: 'ONCE', label: target.kind === 'transaction' ? 'Only this row' : 'Only these rows' },
-              ] as const
+          <div className={cn('grid gap-1 rounded-lg bg-muted p-1', isSplit ? 'grid-cols-2' : 'grid-cols-3')}>
+            {(isSplit
+              ? ([
+                  { id: 'ONCE', label: 'Only this transaction' },
+                  { id: 'ALWAYS', label: 'Always' },
+                ] as const)
+              : ([
+                  { id: 'ALWAYS', label: 'This description' },
+                  { id: 'CONTAINS', label: 'Contains text' },
+                  { id: 'ONCE', label: target.kind === 'transaction' ? 'Only this row' : 'Only these rows' },
+                ] as const)
             ).map((o) => (
               <button
                 key={o.id}
@@ -361,7 +405,11 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
             </>
           )}
           <p className="text-xs text-muted-foreground">
-            {contains
+            {isSplit
+              ? scope === 'ALWAYS'
+                ? `Every transaction with this description gets “${trimmed}” — the whole transaction too, now and on every statement from now on.`
+                : 'Only this split gets this name. Nothing is saved for the future.'
+              : contains
               ? `Every transaction whose description contains this text gets ${nameChanged ? `the name “${trimmed}” and its category` : 'this category'} — in this ledger and every statement from now on. A rule for one exact description still wins.`
               : scope === 'ALWAYS'
               ? 'Every transaction with this description gets this name — in this ledger and every statement you upload from now on.'
@@ -386,9 +434,37 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         ) : (
           adopted && (
             <p className="text-xs text-brand">
-              “{adopted.name}” is in {adopted.category} — filled in above. Pick another category to change its default.
+              “{adopted.name}” is in {adopted.category} — filled in above.{' '}
+              {isSplit
+                ? 'Pick another to put this split in a sub-name of its own.'
+                : 'Pick another category to change its default.'}
             </p>
           )
+        )}
+        {askSplitScope && owner && (
+          <div className="flex flex-col gap-1 rounded-md bg-amber-50 p-1.5 text-xs text-amber-900 ring-1 ring-amber-600/20">
+            <span className="px-0.5">
+              “{owner.name}” is in <b>{owner.category}</b>. Put it in <b>{chosenCategory}</b> for:
+            </span>
+            {(
+              [
+                { id: 'SUB', label: `Only this split — as “${owner.name} - ${chosenCategory}”` },
+                { id: 'ALL', label: `All ${owner.name} rows — the transaction too` },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => setSplitScope(o.id)}
+                className={cn(
+                  'rounded-md px-2 py-1 text-left font-medium transition-colors',
+                  splitScope === o.id ? 'bg-white text-[#0B1C2C] shadow-sm ring-1 ring-amber-600/30' : 'hover:bg-white/60',
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
         )}
         {otherCategories > 0 && !categoryChanged && (
           <p className="text-xs text-muted-foreground">
@@ -397,7 +473,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         )}
         <p className="text-xs text-muted-foreground">
           {isSplit
-            ? 'A split belongs to its one transaction: this changes only this split.'
+            ? 'A split keeps its name’s category, or one of its own as a sub-name of the name.'
             : finalName
               ? `A name has one category: every transaction named “${finalName}” goes in it.`
               : 'Every unnamed transaction with this description goes in it.'}
@@ -407,8 +483,21 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       {/* step9: the descriptions this name follows, and its group — saved as they change. */}
       {target.kind === 'name' && <NameDescriptionsEditor name={target.view.name} />}
 
+      {/* step12 (2026-11-20): a row under a sub-name shows the sub-name's own settings. */}
+      {rowSub && !nameChanged ? (
+        <SubNameSection subNameId={rowSub.id} name={rowSub.name} />
+      ) : (
+        owner &&
+        isWrapper(owner.name) && (
+          <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            “{owner.name}” has sub-names: its settings (group, split rules, details) are on each sub-name — open
+            one of its rows, or its sub-names on the Names tab.
+          </p>
+        )
+      )}
+
       {/* step2 (2026-11-09): the name's settings right from a ledger row / an Assign. */}
-      {target.kind !== 'name' && !isSplit && (owner || newName) && (
+      {target.kind !== 'name' && !(rowSub && !nameChanged) && !(owner && isWrapper(owner.name)) && (owner || newName) && (
         <div className="flex flex-col rounded-lg ring-1 ring-black/10">
           <button
             type="button"
@@ -522,5 +611,44 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         </Button>
       </DialogFooter>
     </form>
+  )
+}
+
+/** step12 (2026-11-20): "Settings of “Walmart - Rent”" — the sub-name's own, folded like a name's. */
+function SubNameSection({ subNameId, name }: { subNameId: number; name: string }) {
+  const [open, setOpen] = useState(false)
+  const tools = useSubNameTools(subNameId)
+  return (
+    <div className="flex flex-col rounded-lg ring-1 ring-black/10">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[#0B1C2C] hover:bg-muted/40"
+      >
+        <ChevronDown className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')} />
+        <span className="min-w-0 flex-1 truncate">Settings of “{tools.sub?.name ?? name}”</span>
+        <span className="hidden shrink-0 text-xs font-normal text-muted-foreground sm:inline">
+          name · group · split rules · phone &amp; more
+        </span>
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3 px-3 pt-1 pb-3">
+          {tools.sub ? (
+            <SubNameSettings
+              key={tools.sub.id}
+              sub={tools.sub}
+              groups={tools.groups}
+              parentGroup={tools.parentGroup}
+              agencies={tools.agencies}
+              parentAgencyIds={tools.parentAgencyIds}
+              inline
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">{tools.loading ? 'Loading…' : 'This sub-name is gone.'}</p>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
