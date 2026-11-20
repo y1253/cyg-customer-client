@@ -102,7 +102,12 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
 
   const initialName = target.kind === 'unrecognized' ? '' : (target.view.name ?? '')
   const initialCategory = target.kind === 'transaction' ? target.view.offsetAccount : target.view.category
-  const [name, setName] = useState(initialName)
+  // step12 (2026-11-20): the row's sub-name ("Walmart - Rent") is what the Name field shows;
+  // the row's real name (the parent) still drives the save. Either one typed back = unchanged.
+  const rowSub = target.kind === 'transaction' ? target.view.subName : null
+  const shownName = rowSub?.name ?? initialName
+  const same = (n: string) => n === initialName || (!!rowSub && n === rowSub.name)
+  const [name, setName] = useState(shownName)
   const [choice, setChoice] = useState(categoryChoice(initialCategory))
   // step11: picking a name that already exists shows ITS category at once (a name has one),
   // so saving never moves the name into this row's old category by accident. Kept only
@@ -116,7 +121,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const onNameChange = (next: string) => {
     setName(next)
     const found = existingName(next)
-    if (found && found.name.toLowerCase() !== initialName.toLowerCase()) {
+    if (found && !same(found.name) && found.name.toLowerCase() !== initialName.toLowerCase()) {
       if (adopted?.name !== found.name) {
         setAdopted({ name: found.name, category: found.category })
         setChoice(categoryChoice(found.category))
@@ -134,8 +139,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const [scope, setScope] = useState<EditScope | 'CONTAINS'>(isSplit ? 'ONCE' : 'ALWAYS')
   // step12 (2026-11-20): a split's other category — every row of its name, or only this split.
   const [splitScope, setSplitScope] = useState<NonNullable<SplitEdit['categoryScope']>>('SUB')
-  // step12 (2026-11-20): the row's sub-name ("Walmart - Rent"), and the names that have sub-names.
-  const rowSub = target.kind === 'transaction' ? target.view.subName : null
+  // step12 (2026-11-20): the names that have sub-names.
   const subNames = useSubNames()
   const isWrapper = (n: string) => !!subNames.data?.some((s) => s.parent.toLowerCase() === n.toLowerCase())
   const [containsText, setContainsText] = useState(
@@ -147,10 +151,10 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   )
 
   const trimmed = name.trim()
-  const nameChanged = trimmed !== '' && trimmed !== initialName
+  const nameChanged = trimmed !== '' && !same(trimmed)
   // A name is required once there is one: it can be changed, never cleared.
   const nameMissing = initialName !== '' && trimmed === ''
-  const finalName = trimmed || initialName
+  const finalName = nameChanged ? trimmed : initialName
   // "Always / Only this row" is about the NAME on a description's rows — a payee on the
   // Names tab is always renamed everywhere, and a category is always the name's own.
   // "Contains text" is offered for any change, so a category alone can become a rule too.
@@ -350,13 +354,14 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         <NamePicker
           id="name-rule-name"
           value={name}
-          placeholder={initialName || 'Unclarified name'}
+          placeholder={shownName || 'Unclarified name'}
           onChange={onNameChange}
         />
         {nameMissing && <p className="text-xs text-destructive">A name is required.</p>}
         {rowSub && !nameChanged && (
           <p className="text-xs text-muted-foreground">
-            Shown as “{rowSub.name}”, a sub-name of {initialName}. Its own name and settings are below.
+            “{rowSub.name}” is a sub-name of {initialName}. Type another name to move this row; its own name and
+            settings are below.
           </p>
         )}
       </div>
