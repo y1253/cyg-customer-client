@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCreateBook, useRenameBook } from '@/hooks/useBooks'
+import { sortByLabel } from '@/lib/sort'
 import { cn } from '@/lib/utils'
 
 /**
@@ -55,7 +56,7 @@ export function BookSwitcher({
           {/* base-ui throws when a GroupLabel (DropdownMenuLabel) is not inside a Group. */}
           <DropdownMenuGroup>
             <DropdownMenuLabel>Your companies</DropdownMenuLabel>
-            {books.map((b) => (
+            {sortByLabel(books, (b) => b.name).map((b) => (
               <DropdownMenuItem
                 key={b.id}
                 onClick={() => onSelect(b.id)}

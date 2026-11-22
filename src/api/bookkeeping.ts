@@ -990,6 +990,28 @@ export async function duplicateSplit(auth: BookAuth, id: number): Promise<{ id: 
   return res.json()
 }
 
+/** step12 (2026-11-22): what a one-time split by a split group / rule did. */
+export type OneTimeSplitResult = {
+  /** Transactions cut now. */
+  split: number
+  /** Transactions it had already cut, or with nothing left to cut. */
+  skipped: number
+}
+
+/**
+ * step12 (2026-11-22): a ONE-TIME split from the ledger — a split group or one rule cuts this transaction (ONE)
+ * or every existing row of its name (NAME). No pick is saved on the name.
+ */
+export async function applySplitRule(
+  auth: BookAuth,
+  id: number,
+  body: ({ groupId: number } | { agencyId: number }) & { scope: 'ONE' | 'NAME' },
+): Promise<OneTimeSplitResult> {
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/split-rule`, json('POST', body))
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
 export async function editSplit(auth: BookAuth, id: number, values: SplitEdit): Promise<void> {
   const res = await bookFetch(auth, `/api/bookkeeping/transactions/${id}/split`, json('PATCH', values))
   if (!res.ok) throw await errorFrom(res)

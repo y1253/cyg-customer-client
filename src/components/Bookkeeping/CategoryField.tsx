@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useChartAccounts } from '@/hooks/useChartAccounts'
 import { NEW_CATEGORY, TYPE_LABEL, type CategoryChoice } from '@/lib/categoryChoice'
+import { byLabel } from '@/lib/sort'
 import { cn } from '@/lib/utils'
 
 /** The list item that turns what was typed into a new category. Never a real account name. */
@@ -40,7 +41,8 @@ export function CategoryField({
     () => new Map((accounts.data ?? []).filter((a) => a.custom).map((a) => [a.name, a.type])),
     [accounts.data],
   )
-  const names = useMemo(() => (accounts.data ?? []).map((a) => a.name), [accounts.data])
+  // step12 (2026-11-22): A–Z.
+  const names = useMemo(() => (accounts.data ?? []).map((a) => a.name).sort(byLabel), [accounts.data])
   const typed = query.trim()
   // The chosen category in the box shows the whole list again, not just itself.
   const q = typed === value.category ? '' : typed.toLowerCase()

@@ -27,6 +27,7 @@ import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useSaveSplitGroup } from '@/hooks/useSplitGroups'
 import { useTax } from '@/hooks/useTax'
 import { categoryChoice, choiceReady, resolveChoice, type CategoryChoice } from '@/lib/categoryChoice'
+import { sortByLabel } from '@/lib/sort'
 import { cn } from '@/lib/utils'
 import { CategoryField } from './CategoryField'
 
@@ -114,7 +115,8 @@ export function AgencyDialog({
   const create = useCreateAccount()
   const tax = useTax().data
   const groups = tax?.groups ?? []
-  const rules = tax?.agencies ?? []
+  // step12 (2026-11-22): A–Z.
+  const rules = sortByLabel(tax?.agencies ?? [], (a) => a.name)
   const groupNameOf = (id: number | null) => (id === null ? null : (groups.find((g) => g.id === id)?.name ?? null))
   const [step, setStep] = useState<'choose' | 'individual' | 'group'>('choose')
   const [rule, setRule] = useState<RuleForm>(blankRule)

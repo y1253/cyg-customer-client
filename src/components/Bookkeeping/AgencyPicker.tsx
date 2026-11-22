@@ -1,76 +1,12 @@
 import { useState } from 'react'
 import { Split } from 'lucide-react'
-import { rateLabel, type TaxAgency } from '@/api/bookkeeping'
+import type { TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { useTax } from '@/hooks/useTax'
 import { cn } from '@/lib/utils'
-
-/**
- * step9 (2026-11-17): one switch of the picker — an individual rule, or a split group (all its rules). step9
- * (2026-11-19): `alone` = one rule of a group picked ON ITS OWN (`inGroup` = its group's name).
- */
-type Unit = {
-  key: string
-  name: string
-  ids: number[]
-  detail: string
-  active: boolean
-  group: boolean
-  alone: boolean
-  inGroup?: string
-}
-
-/**
- * The rules as switches: each split group once (where its first rule is), then each of its rules on its own; each
- * individual rule on its own.
- */
-function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => string | undefined): Unit[] {
-  const units: Unit[] = []
-  const seen = new Set<number>()
-  for (const a of agencies) {
-    if (a.groupId === null) {
-      units.push({
-        key: `r${a.id}`,
-        name: a.name,
-        ids: [a.id],
-        detail: a.rates.map(rateLabel).join(' · '),
-        active: a.active,
-        group: false,
-        alone: false,
-      })
-      continue
-    }
-    if (seen.has(a.groupId)) continue
-    seen.add(a.groupId)
-    const members = agencies.filter((m) => m.groupId === a.groupId)
-    const group = groupName(a.groupId) ?? 'Group'
-    units.push({
-      key: `g${a.groupId}`,
-      name: group,
-      ids: members.map((m) => m.id),
-      detail: members.map((m) => `${m.name} ${m.rates.map(rateLabel).join(' · ')}`).join(' + '),
-      // step9 (2026-11-18): every member carries its group's switch.
-      active: members.some((m) => m.active),
-      group: true,
-      alone: false,
-    })
-    // step9 (2026-11-19): each rule of the group can be picked on its own too.
-    for (const m of members)
-      units.push({
-        key: `a${m.id}`,
-        name: m.name,
-        ids: [m.id],
-        detail: m.rates.map(rateLabel).join(' · '),
-        active: m.active,
-        group: false,
-        alone: true,
-        inGroup: group,
-      })
-  }
-  return units
-}
+import { pickerUnits, type Unit } from './split-rule-units'
 
 /**
  * step9 part 4 (2026-11-15): the SPLIT RULES of one name (were tax agencies): a chip with what is picked ("No

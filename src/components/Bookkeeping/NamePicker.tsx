@@ -1,6 +1,7 @@
 import { Autocomplete } from '@base-ui/react/autocomplete'
 import { useMemo } from 'react'
 import { useNames } from '@/hooks/useNames'
+import { byLabel } from '@/lib/sort'
 import { cn } from '@/lib/utils'
 
 /**
@@ -26,9 +27,7 @@ export function NamePicker({
   const items = useMemo(
     // "Unclarified name" is not a name you can give a row (the server refuses it).
     () =>
-      [...new Set((names.data?.names ?? []).filter((n) => !n.unclarified).map((n) => n.name))].sort((a, b) =>
-        a.localeCompare(b),
-      ),
+      [...new Set((names.data?.names ?? []).filter((n) => !n.unclarified).map((n) => n.name))].sort(byLabel),
     [names.data],
   )
   const typed = value.trim()

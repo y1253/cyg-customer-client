@@ -133,9 +133,9 @@ const TYPE_LABEL: Record<NameType | 'AGENCY', string> = {
 
 /** step9: the built-in groups, until the server's list arrives. */
 const BUILTIN_GROUPS: NameGroup[] = [
-  { key: 'SUPPLIER', label: 'Suppliers' },
   { key: 'CUSTOMER', label: 'Customers' },
   { key: 'OTHER', label: 'Other' },
+  { key: 'SUPPLIER', label: 'Suppliers' },
 ]
 
 const TYPE_ICON: Record<NameType | 'AGENCY', typeof Landmark> = {

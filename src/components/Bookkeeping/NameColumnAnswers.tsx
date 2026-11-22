@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { useCustomColumns } from '@/hooks/useCustomColumns'
 import { useNames } from '@/hooks/useNames'
 import { useSubNames } from '@/hooks/useSplits'
+import { byLabel } from '@/lib/sort'
 import { CustomCell } from './CustomCell'
 
 const NO_DEFAULT = 'No default'
@@ -46,7 +47,7 @@ export function ColumnNameAnswers({ column }: { column: CustomColumn }) {
           ? subs.map((s) => ({ key: `s${s.id}`, label: s.name, target: { subNameId: s.id } as NameAnswerTarget }))
           : [{ key: `n${n.name}`, label: n.name, target: { name: n.name } as NameAnswerTarget }]
       })
-      .sort((a, b) => a.label.localeCompare(b.label))
+      .sort((a, b) => byLabel(a.label, b.label))
   }, [names.data, subNames.data])
   const query = q.trim().toLowerCase()
   const shown = query ? rows.filter((r) => r.label.toLowerCase().includes(query)) : rows

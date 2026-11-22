@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { NAME_FOLDERS_KEY } from '@/api/attachments'
 import {
+  applySplitRule,
   deleteSplit,
   deleteSubName,
   duplicateSplit,
@@ -37,6 +38,17 @@ export function useDuplicateSplit() {
   const invalidate = useInvalidateBookkeeping()
   return useMutation({
     mutationFn: (id: number) => duplicateSplit(book.auth, id),
+    onSettled: invalidate,
+  })
+}
+
+/** step12 (2026-11-22): a one-time split by a split group / rule — this row, or every row of its name now. */
+export function useApplySplitRule() {
+  const book = useBook()
+  const invalidate = useInvalidateBookkeeping()
+  return useMutation({
+    mutationFn: ({ id, ...body }: Parameters<typeof applySplitRule>[2] & { id: number }) =>
+      applySplitRule(book.auth, id, body),
     onSettled: invalidate,
   })
 }

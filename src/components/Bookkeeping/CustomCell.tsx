@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useSaveCustomAnswer, useSaveNameAnswer } from '@/hooks/useCustomColumns'
 import { answerProblem, rulesText, typedValue } from '@/lib/custom-columns'
+import { sortByLabel } from '@/lib/sort'
 import { cn } from '@/lib/utils'
 
 const NONE = '__none__'
@@ -76,7 +77,7 @@ export function CustomCell({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NONE}>—</SelectItem>
-            {column.options.map((o) => (
+            {sortByLabel(column.options, (o) => o.label).map((o) => (
               <SelectItem key={o.id} value={String(o.id)}>
                 {o.label}
               </SelectItem>

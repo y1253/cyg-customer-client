@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { useClosingValue } from '@/hooks/useClosingValue'
 import { useNameFolders, usePlaceAttachment } from '@/hooks/useNameFiles'
 import { fileTitle, folderPath, nameKey, UNSORTED } from '@/lib/name-files'
+import { sortByLabel } from '@/lib/sort'
 import { cn } from '@/lib/utils'
 import { NamePicker } from '../NamePicker'
 
@@ -71,7 +72,14 @@ function Body({ a, onDone }: { a: Attachment; onDone: () => void }) {
         <div className="flex flex-col gap-1.5">
           <Label>Folder</Label>
           <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
-            {[{ id: null as number | null, label: `${name.trim() || 'Unsorted'} (top)` }, ...choices.map((f) => ({ id: f.id, label: pathOf(f.id) }))].map(
+            {[
+              { id: null as number | null, label: `${name.trim() || 'Unsorted'} (top)` },
+              // step12 (2026-11-22): A–Z by the folder's whole path.
+              ...sortByLabel(
+                choices.map((f) => ({ id: f.id, label: pathOf(f.id) })),
+                (c) => c.label,
+              ),
+            ].map(
               (c) => (
                 <button
                   key={c.id ?? 'top'}

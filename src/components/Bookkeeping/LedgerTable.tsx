@@ -43,6 +43,7 @@ import { CustomCell } from './CustomCell'
 import { CustomColumnsDialog, type ColumnsDialogStart } from './CustomColumnsDialog'
 import { NameRuleDialog } from './NameRuleDialog'
 import { DeleteSplitButton, ProductCell, SplitAmountCell, SplitCategoryCell, TransactionCategoryCell } from './SplitCells'
+import { SplitRuleButton } from './SplitRuleButton'
 import { StickyScrollbar } from './StickyScrollbar'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 import { folderOf, groupByAccount } from './statement-folders'
@@ -699,6 +700,7 @@ export function LedgerTable({
                   )}
                   {!t.kind && <AttachButton count={t.attachments?.length ?? 0} onClick={() => setAttaching(t)} />}
                   {!t.kind && <SplitButton onClick={() => addSplit(t.id, t.id)} disabled={duplicate.isPending} />}
+                  {!t.kind && <SplitRuleButton t={t} />}
                 </span>
               )
               const edit = t.kind ? undefined : () => setEditing(t)
