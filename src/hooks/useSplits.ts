@@ -11,6 +11,7 @@ import {
   saveSplits,
   setProduct,
   setSubNameCategory,
+  setSubNameParent,
   setSubNameSettings,
   type SplitEdit,
   type SubNameSettings,
@@ -109,6 +110,17 @@ export function useSetSubNameSettings() {
   return useMutation({
     mutationFn: ({ id, ...body }: SubNameSettings & { id: number }) => setSubNameSettings(book.auth, id, body),
     // A rename moves the sub-name's folders too.
+    onSettled: () => Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: NAME_FOLDERS_KEY })]),
+  })
+}
+
+/** step9 (2026-11-23): a sub-name moves under another name (it may be renamed, so folders refetch). */
+export function useSetSubNameParent() {
+  const book = useBook()
+  const invalidate = useInvalidateBookkeeping()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => setSubNameParent(book.auth, id, name),
     onSettled: () => Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: NAME_FOLDERS_KEY })]),
   })
 }

@@ -88,7 +88,17 @@ function PortalPage() {
       {!unlockToken ? (
         <UnlockGate />
       ) : (
-        <Tabs value={tab} onValueChange={(v) => setParams({ tab: String(v) }, { replace: true })} className="gap-6">
+        <Tabs value={tab} onValueChange={(v) =>
+            setParams(
+              (prev) => {
+                // step11 (2026-11-23): keep the book's own `?view=` and friends.
+                const next = new URLSearchParams(prev)
+                next.set('tab', String(v))
+                return next
+              },
+              { replace: true },
+            )
+          } className="gap-6">
           <TabsList className="h-auto! flex-wrap justify-start">
             <TabsTrigger value="communications" className="px-4">
               <MessagesSquare /> Communications

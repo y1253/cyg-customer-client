@@ -37,7 +37,8 @@ export type SubNameTools = {
    */
   descriptionsOf?: (sub: SubName) => NameDescription[]
   onDescription?: (sub: SubName, d: { key: string; description: string }) => void
-  onOpenDescription?: (description: string) => void
+  /** step11 (2026-11-23): opens only THIS sub-name's rows of the description. */
+  onOpenDescription?: (description: string, sub: SubName) => void
   /** step9 (2026-11-17, third request): its "description contains" rules. */
   containsOf?: (sub: SubName) => Array<{ key: string; text: string; category: string | null; rows: number }>
   /** step9 (2026-11-17, third request): a name or another sub-name was dropped on it. */
@@ -95,6 +96,7 @@ export function SubNameLine({
   }
   const error = set.error ?? remove.error ?? create.error ?? settings.error
   const own = tools ?? null
+  const openDescription = own?.onOpenDescription && ((d: string) => own.onOpenDescription!(d, sub))
   const descriptions = own?.descriptionsOf?.(sub) ?? []
   const contains = own?.containsOf?.(sub) ?? []
   const exceptionOf = own?.exceptionOf?.(sub) ?? []
@@ -273,14 +275,14 @@ export function SubNameLine({
         className="ml-5"
         items={exceptionOf}
         onGoTo={own?.onGoTo}
-        onOpenDescription={own?.onOpenDescription}
+        onOpenDescription={openDescription}
       />
       {!descOpen && (
         <DescriptionsLine
           className="ml-5"
           descriptions={descriptions}
           contains={contains.map((c) => c.text)}
-          onOpen={own?.onOpenDescription}
+          onOpen={openDescription}
           onMore={() => setDescToggled(true)}
         />
       )}
@@ -310,7 +312,7 @@ export function SubNameLine({
                 )}
               >
                 <span className="min-w-0 flex-1 truncate text-[#0B1C2C]" title={d.description}>
-                  <DescriptionLink description={d.description} onOpen={own?.onOpenDescription}>
+                  <DescriptionLink description={d.description} onOpen={openDescription}>
                     {d.description}
                   </DescriptionLink>
                 </span>

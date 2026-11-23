@@ -8,11 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useExportLedger } from '@/hooks/useExportLedger'
 import { useStuck } from '@/hooks/useStuck'
+import { useBookView, type BookView } from '@/hooks/useBookView'
+import { useSearchParams } from 'react-router-dom'
 import { OPEN_TRANSACTION_EVENT, useFloatingChatBook } from '@/lib/floating-chat'
 import { cn } from '@/lib/utils'
 import { useReports } from '@/hooks/useReports'
 import { useStatements } from '@/hooks/useStatements'
-import { useTransactions } from '@/hooks/useTransactions'
 import type { SortState } from '@/lib/table-sort'
 import { BankConnectionsCard } from './BankConnectionsCard'
 import { BalanceSheet } from './BalanceSheet'
@@ -32,16 +33,7 @@ import { Products } from './Products'
 import { SchedulesPanel } from './Schedules/SchedulesPanel'
 import { UploadDropzone } from './UploadDropzone'
 
-type Tab =
-  | 'statements'
-  | 'ledger'
-  | 'communications'
-  | 'accounts'
-  | 'income'
-  | 'balance'
-  | 'names'
-  | 'products'
-  | 'schedules'
+type Tab = BookView
 
 /**
  * Bookkeeping: upload statements → the AI posts every transaction as a double entry →
@@ -64,7 +56,9 @@ export function BookkeepingPage({
   const statements = useStatements()
   const assistant = useAssistantEnabled()
   const exporter = useExportLedger()
-  const [tab, setTab] = useState<Tab>('statements')
+  // step11 (2026-11-23): the open tab is in the URL (`/dashboard/bookkeeping/<tab>`).
+  const { view: tab, setView } = useBookView(embedded)
+  const [search] = useSearchParams()
   // step8: the floating chat talks to this book. step2 (2026-11-09): it is the only chat —
   // the Assistant tab is gone.
   useFloatingChatBook({})
@@ -105,14 +99,12 @@ export function BookkeepingPage({
   // step2 (2026-11-11): a statement clicked in a bank account's folder on the Names tab.
   const [ledgerStatement, setLedgerStatement] = useState<number | null>(null)
   // step8 (2026-11-11): a statement clicked on Bank feeds — the Ledger TAB opens on its rows.
-  const [ledgerTabStatement, setLedgerTabStatement] = useState<number | null>(null)
+  // step11 (2026-11-23): kept in the URL (`?statement=`), so a refresh stays on it.
+  const ledgerTabStatement = Number(search.get('statement')) || null
   const openInLedgerTab = (id: number) => {
-    setLedgerTabStatement(id)
-    setTab('ledger')
+    setView('ledger', { statement: String(id) })
     scrollToStart()
   }
-  // The Ledger tab's rows are fetched only while it is the open tab.
-  const ledger = useTransactions({ enabled: tab === 'ledger' })
 
   const list = statements.data ?? []
   const done = list.filter((s) => s.status === 'DONE')
@@ -233,9 +225,8 @@ export function BookkeepingPage({
       <Tabs
         value={tab}
         onValueChange={(v) => {
-          setTab(v as Tab)
           // The Ledger tab opened from its own tab shows every statement again.
-          setLedgerTabStatement(null)
+          setView(v as Tab, { statement: null, filter: null })
           scrollToStart()
         }}
         className="gap-6"
@@ -316,12 +307,10 @@ export function BookkeepingPage({
           {/* Keyed: its statement filter is read when it mounts. */}
           <LedgerTable
             key={ledgerTabStatement ?? 'all'}
-            transactions={ledger.data ?? []}
             statements={list}
-            loading={ledger.isLoading}
+            enabled={tab === 'ledger'}
             statementId={ledgerTabStatement}
           />
-          {ledger.error && <p className="mt-2 text-sm text-destructive">{ledger.error.message}</p>}
         </TabsContent>
 
         {/* step2 (2026-11-11): files live in the Names tab now — this tab is the conversations. */}
@@ -343,14 +332,16 @@ export function BookkeepingPage({
               reports={r}
               onOpenAccount={openAccount}
               unread={unread}
-              onOpenStatements={() => setTab('statements')}
+              onOpenStatements={() => setView('statements', { statement: null, filter: null })}
             />
           ))}
         </TabsContent>
         <TabsContent value="names">
           <Names
             onOpenName={(name) => openLedger({ name })}
-            onOpenDescription={(name, description) => openLedger({ name, description })}
+            onOpenDescription={(name, description, sub) =>
+              openLedger({ name, description, subName: sub ? { id: sub.id, name: sub.name } : undefined })
+            }
             onOpenSubName={(name, subName) => openLedger({ name, subName })}
             statements={list}
             onViewTransaction={openTransaction}

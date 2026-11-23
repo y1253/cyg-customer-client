@@ -147,18 +147,18 @@ export function useHoverOpen(enabled: boolean, onHoverOpen: () => void) {
 }
 
 /**
- * step9 (2026-11-19): a wrapper name's row (a name with sub-names) never takes a sub-name — it goes onto one of
- * its sub-names, or onto a name with none. The row shows "no drop" and `over` (for its hint), and stops the event
- * so the group section around it does not take the sub-name instead.
+ * step9 (2026-11-19): a wrapper name's row (a name with sub-names) refuses a sub-name. step9 (2026-11-23): only
+ * its OWN sub-name (`only`, checked during the drag) — any other may be merged into it or moved under it. The row
+ * shows "no drop" and `over` (for its hint), and stops the event.
  */
-export function useRefuseSubName(enabled: boolean) {
+export function useRefuseSubName(enabled: boolean, only: () => boolean = () => true) {
   const [over, setOver] = useState(false)
   if (!enabled) return { over: false, props: {} }
   return {
     over,
     props: {
       onDragOver: (e: DragEvent) => {
-        if (!e.dataTransfer.types.includes(MIME_SUB_NAME)) return
+        if (!e.dataTransfer.types.includes(MIME_SUB_NAME) || !only()) return
         e.preventDefault()
         e.stopPropagation()
         e.dataTransfer.dropEffect = 'none'
@@ -169,7 +169,7 @@ export function useRefuseSubName(enabled: boolean) {
       },
       onDrop: (e: DragEvent) => {
         setOver(false)
-        if (!e.dataTransfer.types.includes(MIME_SUB_NAME)) return
+        if (!e.dataTransfer.types.includes(MIME_SUB_NAME) || !only()) return
         e.preventDefault()
         e.stopPropagation()
       },
@@ -196,8 +196,9 @@ export function joinDragProps(a: DragHandlers, b: DragHandlers): DragHandlers {
 }
 
 /**
- * step9: a Names-tab group section — a name dropped on it (not on a name) joins the group.
- * step9 (2026-11-17, third request): a sub-name too (`onSubName`).
+ * step9: a Names-tab group — a name dropped on it joins the group. step9 (2026-11-17, third
+ * request): a sub-name too (`onSubName`). step9 (2026-11-23): only its filter chip (the group
+ * sections are gone).
  */
 export function useGroupDrop(onDrop?: (name: string) => void, onSubName?: (sub: DraggedSubName) => void) {
   const [over, setOver] = useState(false)

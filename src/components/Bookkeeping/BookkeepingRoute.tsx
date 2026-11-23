@@ -56,6 +56,8 @@ export function BookkeepingRoute() {
   const select = (id: number) => {
     const next = new URLSearchParams(params)
     next.set('book', String(id))
+    // A statement of the other company means nothing here.
+    next.delete('statement')
     setParams(next)
   }
 

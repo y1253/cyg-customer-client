@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useSearchState } from '@/hooks/useBookView'
 import {
   AlertCircle,
   AlertTriangle,
@@ -157,6 +158,7 @@ function subtitle(s: Statement, home?: string): string {
 
 
 type Filter = 'all' | 'done' | 'unread' | 'waiting'
+const isFilter = (v: string): v is Filter => ['all', 'done', 'unread', 'waiting'].includes(v)
 const FILTERS: Array<{ id: Filter; label: string; test: (s: Statement) => boolean }> = [
   { id: 'all', label: 'All', test: () => true },
   { id: 'done', label: 'Done', test: (s) => s.status === 'DONE' },
@@ -191,7 +193,8 @@ export function StatementsList({
   onOpenInLedger?: (statementId: number) => void
 }) {
   const { auth } = useBook()
-  const [filter, setFilter] = useState<Filter>('all')
+  // step11 (2026-11-23): in the URL (`?filter=`), so a refresh keeps it.
+  const [filter, setFilter] = useSearchState<Filter>('filter', 'all', isFilter)
   const remove = useDeleteStatement()
   const retry = useRetryStatement()
   // "Re-read all" under Problems: confirm first, then say how many went back to reading.

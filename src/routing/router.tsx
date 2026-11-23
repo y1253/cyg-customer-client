@@ -47,7 +47,8 @@ export const router = createBrowserRouter([
           // step2 (2026-11-09): the Overview and AI assistant pages are gone — both open
           // Bookkeeping (old links and bookmarks keep working); the AI is the chat bubble.
           { index: true, element: <Navigate to="/dashboard/bookkeeping" replace /> },
-          { path: 'bookkeeping', element: <BookkeepingRoute /> },
+          // step11 (2026-11-23): each tab of a book is its own URL (`useBookView`).
+          { path: 'bookkeeping/:view?', element: <BookkeepingRoute /> },
           { path: 'contacts', element: <ContactsPage /> },
           { path: 'requests', element: <RequestsPage /> },
           { path: 'account', element: <AccountPage /> },

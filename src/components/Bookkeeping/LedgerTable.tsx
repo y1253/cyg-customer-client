@@ -13,7 +13,14 @@ import {
   Search,
   Split,
 } from 'lucide-react'
-import { openOriginal, UNCLARIFIED_NAME, type LedgerTransaction, type Statement } from '@/api/bookkeeping'
+import {
+  openOriginal,
+  UNCLARIFIED_NAME,
+  type LedgerPageRow,
+  type LedgerQuery,
+  type LedgerTransaction,
+  type Statement,
+} from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,12 +38,12 @@ import type { CustomColumn, CustomColumnsData } from '@/api/customColumns'
 import { useBook } from '@/hooks/useBook'
 import { useCustomColumns } from '@/hooks/useCustomColumns'
 import { useLedgerColumns, type LedgerColumns } from '@/hooks/useLedgerColumns'
-import { useIncrementalRows } from '@/hooks/useIncrementalRows'
+import { useDebounced } from '@/hooks/useDebounced'
+import { useLedgerPages, useLedgerSummary } from '@/hooks/useLedgerPages'
 import { useDuplicateSplit } from '@/hooks/useSplits'
 import { money } from '@/lib/money'
-import { applyTable, useTableControls, type ColumnDef, type SortState } from '@/lib/table-sort'
+import { useTableControls, type SortState } from '@/lib/table-sort'
 import { rulesText } from '@/lib/custom-columns'
-import { descriptionKey } from '@/lib/description-key'
 import { cn } from '@/lib/utils'
 import { ColumnHeader } from './ColumnHeader'
 import { CustomCell } from './CustomCell'
@@ -48,10 +55,6 @@ import { StickyScrollbar } from './StickyScrollbar'
 import { TransactionAttachmentsDialog } from './TransactionAttachmentsDialog'
 import { folderOf, groupByAccount } from './statement-folders'
 
-/** A row's payee as the Name column shows it; a starting balance has none. */
-const nameOf = (t: LedgerTransaction): string | null =>
-  t.kind === 'opening' ? null : (t.name ?? UNCLARIFIED_NAME)
-
 /** Date-only ISO → "Sep 2, 2026", parsed as LOCAL midnight so it never slips a day. */
 const fmtDate = (iso: string | null) =>
   iso
@@ -61,8 +64,6 @@ const fmtDate = (iso: string | null) =>
         year: 'numeric',
       })
     : ''
-
-const toCents = (n: number) => Math.round(n * 100)
 
 /**
  * step8 (2026-11-11): from md up every column is shown in the customer's own order and
@@ -94,14 +95,6 @@ function DateStack({ t }: { t: LedgerTransaction }) {
   )
 }
 
-/** A custom column's answer as text (the option's label for a dropdown) — for sorting and filtering. */
-function answerText(col: CustomColumn, data: CustomColumnsData | undefined, transactionId: number): string | null {
-  const a = data?.answers[transactionId]?.[col.id]
-  if (!a) return null
-  if (col.type === 'DROPDOWN') return col.options.find((o) => o.id === a.dropDownId)?.label ?? null
-  return a.value
-}
-
 /**
  * The ledger in the firm's own columns: date (posting, with the pending date under it), name,
  * description, amount, debit, credit, statement — plus the customer's own columns (step8) —
@@ -119,16 +112,15 @@ function answerText(col: CustomColumn, data: CustomColumnsData | undefined, tran
  * The paperclip on a transaction opens its receipts, cheques and voice notes; `focusId`
  * shows one transaction only (from "View transaction" on an attachment); `name` the rows of
  * one payee (from the Names tab or the income statement).
- * One fetch, rendered while scrolling (`useIncrementalRows`, step12): 100 rows, then 100
- * more as the end comes into view — filters, sort and the footer totals still cover every
- * row. Each column header sorts and filters its own column
+ * step11 (2026-11-23): fetched page by page from the server (`useLedgerPages`), which also
+ * searches, filters, sorts and totals it — the next 100 transactions load as the end comes
+ * into view, and the footer totals cover every row. Each column header sorts and filters its own column
  * (`ColumnHeader`); a transaction moves together with its tax lines and splits, judged by
  * the transaction itself.
  */
 export function LedgerTable({
-  transactions,
   statements,
-  loading,
+  enabled = true,
   account,
   onClearAccount,
   focusId,
@@ -145,9 +137,9 @@ export function LedgerTable({
   subName = null,
   onClearSubName,
 }: {
-  transactions: LedgerTransaction[]
   statements: Statement[]
-  loading: boolean
+  /** step11 (2026-11-23): fetch only while shown (the Ledger tab, the open popup). */
+  enabled?: boolean
   account?: string | null
   onClearAccount?: () => void
   focusId?: number | null
@@ -171,18 +163,8 @@ export function LedgerTable({
   onClearSubName?: () => void
 }) {
   const [query, setQuery] = useState('')
-  const ranged = !!(from || to)
-  // A row's date as the reports count it: posted, else pending, else its statement's end.
-  // Undated rows fall outside any range, as they do in the reports.
-  const periodEnd = useMemo(
-    () => new Map(statements.map((s) => [s.id, s.periodEnd?.slice(0, 10) ?? null])),
-    [statements],
-  )
-  const inRange = (t: LedgerTransaction) => {
-    if (!ranged) return true
-    const day = (t.postingDate ?? t.pendingDate)?.slice(0, 10) ?? periodEnd.get(t.statementId) ?? null
-    return !!day && (!from || day >= from) && (!to || day <= to)
-  }
+  // step11 (2026-11-23): the search runs on the server — sent once typing pauses.
+  const searched = useDebounced(query.trim(), 300)
   const [statementId, setStatementId] = useState<number | 'all'>(initialStatementId ?? 'all')
   // The account folder picked above the ledger; its statements' chips show under it.
   const [folderName, setFolderName] = useState<string | 'all'>(() => {
@@ -217,31 +199,49 @@ export function LedgerTable({
   const done = statements.filter((s) => s.status === 'DONE')
   const folders = useMemo(() => groupByAccount(statements.filter((s) => s.status === 'DONE')), [statements])
   const folder = folderName === 'all' ? null : (folders.find((f) => f.account === folderName) ?? null)
-  const folderIds = useMemo(() => (folder ? new Set(folder.statements.map((s) => s.id)) : null), [folder])
   // One account: its statements are the chips, as before. Several: pick an account first.
   const statementChips = folders.length > 1 ? (folder?.statements ?? []) : done
+
+  // step11 (2026-11-23, user's request): filtered, searched, sorted, totalled and paged on
+  // the server (`GET transactions/page` + `/summary`) — the browser holds only the pages
+  // scrolled through. Folding every family sorts / filters Amount on the full bank amount.
+  // A fresh object each render is fine: React Query compares query keys by value.
+  const allFolded = collapsed.size > 0 && !subName
+  const ledgerQuery: LedgerQuery = {
+    q: searched || undefined,
+    statementIds: statementId !== 'all' ? [statementId] : folder ? folder.statements.map((s) => s.id) : null,
+    account,
+    focusId,
+    name,
+    description,
+    subNameId: subName?.id ?? null,
+    from,
+    to,
+    filters: controls.filters,
+    sort: controls.sort,
+    folded: allFolded,
+  }
+  const pages = useLedgerPages(ledgerQuery, { enabled })
+  const summary = useLedgerSummary(ledgerQuery, { enabled })
+  const loading = pages.isPending || summary.isPending
+  const transactions = useMemo(() => pages.data?.pages.flatMap((p) => p.rows) ?? [], [pages.data])
   // A split rule's own ledger is nothing but its splits: never fold them there.
-  const isAgency = useMemo(
-    () => !!account && transactions.some((t) => !!t.splitRule && t.offsetAccount === account),
-    [transactions, account],
-  )
-  // Per transaction: its splits and their sum in cents — added back onto it while they are
-  // folded away.
+  const isAgency = summary.data?.isAgency ?? false
+  // Per transaction: its split rows on the pages loaded (a page never cuts a family).
   const family = useMemo(() => {
-    const m = new Map<number, { rows: LedgerTransaction[]; cents: number }>()
+    const m = new Map<number, { rows: LedgerTransaction[] }>()
     for (const t of transactions) {
       if (t.kind !== 'split') continue
       const top = t.splitOfId ?? t.id
-      const f = m.get(top) ?? { rows: [], cents: 0 }
+      const f = m.get(top) ?? { rows: [] }
       f.rows.push(t)
-      f.cents += toCents(t.amount)
       m.set(top, f)
     }
     return m
   }, [transactions])
   const isOpen = (id: number) => isAgency || !collapsed.has(id)
-  const shownAmount = (t: LedgerTransaction) =>
-    !t.kind && !isOpen(t.id) ? (toCents(t.amount) + (family.get(t.id)?.cents ?? 0)) / 100 : t.amount
+  // Folded, a transaction shows its full bank amount again (`fullAmount`, from the server).
+  const shownAmount = (t: LedgerPageRow) => (!t.kind && !isOpen(t.id) ? (t.fullAmount ?? t.amount) : t.amount)
   const toggle = (id: number) =>
     setCollapsed((s) => {
       const next = new Set(s)
@@ -265,123 +265,38 @@ export function LedgerTable({
     setColumnsKey((k) => k + 1)
     setColumnsOpen(true)
   }
-  /** A row as the column editor lists an answer to fix: "2026-03-04 · Walmart". */
+  /** A row as the column editor lists an answer to fix: "2026-03-04 · Walmart" (rows loaded so far). */
   const rowLabel = (id: number) => {
     const t = transactions.find((x) => x.id === id && !x.kind)
     return t ? [t.postingDate ?? t.pendingDate, t.name ?? t.description].filter(Boolean).join(' · ') : undefined
   }
 
-  const columns = useMemo<ColumnDef<LedgerTransaction>[]>(
-    () => [
-      // step8: the posting date is THE date (sorted by it, like the reports).
-      { key: 'date', kind: 'date', value: (t) => t.postingDate ?? t.pendingDate },
-      { key: 'name', kind: 'text', value: nameOf },
-      { key: 'description', kind: 'text', value: (t) => t.description },
-      { key: 'product', kind: 'text', value: (t) => t.itemName ?? null },
-      { key: 'amount', kind: 'number', value: (t) => shownAmount(t) },
-      { key: 'debit', kind: 'text', value: (t) => t.debitAccount },
-      { key: 'credit', kind: 'text', value: (t) => t.creditAccount },
-      { key: 'statement', kind: 'text', value: (t) => t.statementLabel },
-      ...customColumns.map(
-        (c): ColumnDef<LedgerTransaction> => ({
-          key: `c${c.id}`,
-          kind: c.type === 'NUMBER' ? 'number' : 'text',
-          value: (t) => {
-            // step9 (2026-11-19): a split has its own answer, like a transaction.
-            const v = t.kind && t.kind !== 'split' ? null : answerText(c, custom.data, t.id)
-            return c.type === 'NUMBER' ? (v == null || v === '' ? null : Number(v.replace(',', '.'))) : v
-          },
-        }),
-      ),
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [family, collapsed, isAgency, customColumns, custom.data],
+  // Folded split rows are hidden here (view only); a sub-name's or a split rule's ledger never folds.
+  const shown = transactions.filter(
+    (t) => subName !== null || isAgency || t.kind !== 'split' || !collapsed.has(t.splitOfId ?? t.id),
   )
-
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const wanted = name?.trim().toLowerCase()
-    // The Names tab groups a name's rows by description KEY ("CHEQUE # 00103" and
-    // "CHEQUE # 00104" are one), so a description opened from there means its key.
-    const wantedDescription = description ? descriptionKey(description) : null
-    const kept = transactions.filter(
-      (t) =>
-        (subName !== null ||
-          isAgency ||
-          t.kind !== 'split' ||
-          !collapsed.has(t.splitOfId ?? t.id)) &&
-        (focusId == null || t.id === focusId || t.splitOfId === focusId) &&
-        (!folderIds || folderIds.has(t.statementId)) &&
-        (statementId === 'all' || t.statementId === statementId) &&
-        inRange(t) &&
-        (!account || t.debitAccount === account || t.creditAccount === account) &&
-        (wantedDescription === null || descriptionKey(t.description) === wantedDescription) &&
-        (!q ||
-          t.description.toLowerCase().includes(q) ||
-          t.name?.toLowerCase().includes(q) ||
-          t.itemName?.toLowerCase().includes(q) ||
-          t.debitAccount.toLowerCase().includes(q) ||
-          t.creditAccount.toLowerCase().includes(q)),
+  // The footer covers every row the query keeps, loaded or not (the net change is the same
+  // folded or not). With foreign statements, the home-currency net too.
+  const net = summary.data?.net ?? 0
+  const homeNet = summary.data?.homeNet ?? null
+  const splitCount = summary.data?.splitCount ?? 0
+  const txCount = summary.data?.txCount ?? 0
+  const allTx = summary.data?.allTx ?? 0
+  const hasMore = !!pages.hasNextPage
+  // The next page loads as the last row nears the screen.
+  const [sentinel, setSentinel] = useState<HTMLTableRowElement | null>(null)
+  const { fetchNextPage, isFetchingNextPage } = pages
+  useEffect(() => {
+    if (!sentinel || !hasMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) void fetchNextPage()
+      },
+      { rootMargin: '600px' },
     )
-    // A transaction and the splits under it move as one family.
-    const groups: LedgerTransaction[][] = []
-    const at = new Map<number, LedgerTransaction[]>()
-    for (const t of kept) {
-      const top = t.kind === 'split' ? (t.splitOfId ?? t.id) : null
-      const g = top !== null ? at.get(top) : undefined
-      if (g) {
-        g.push(t)
-        continue
-      }
-      const fresh = [t]
-      groups.push(fresh)
-      if (!t.kind || t.kind === 'split') at.set(top ?? t.id, fresh)
-    }
-    const byName = wanted
-      ? groups.filter((g) => g.some((t) => nameOf(t)?.toLowerCase() === wanted))
-      : groups
-    // step9: a sub-name's own rows — a transaction or a split.
-    const named = subName
-      ? byName.map((g) => g.filter((t) => t.subName?.id === subName.id)).filter((g) => g.length > 0)
-      : byName
-    const heads = named.map((g) => ({ head: g.find((t) => !t.kind) ?? g[0], g }))
-    const byHead = new Map(heads.map((h) => [h.head, h.g]))
-    return applyTable(
-      heads.map((h) => h.head),
-      columns,
-      controls.filters,
-      controls.sort,
-    ).flatMap((head) => byHead.get(head) ?? [head])
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- inRange reads from, to, periodEnd
-  }, [transactions, query, statementId, folderIds, account, collapsed, isAgency, focusId, name, description, subName, from, to, periodEnd, columns, controls.filters, controls.sort])
-  const net = rows.reduce((cents, t) => cents + toCents(shownAmount(t)), 0) / 100
-  // With foreign statements, the net change in the home currency too (rows converted, plus
-  // the revaluations). Home-currency rows count as they are.
-  const foreign = rows.some((t) => t.currency)
-  const homeNet = foreign
-    ? rows.reduce(
-        (cents, t) =>
-          cents +
-          (t.kind === 'fx'
-            ? toCents(t.homeAmount ?? 0)
-            : t.currency && t.fxRate != null
-              ? Math.round(toCents(shownAmount(t)) * t.fxRate)
-              : toCents(shownAmount(t))),
-        0,
-      ) / 100
-    : null
-  // Rendered while scrolling; a new filter or sort starts from the top again.
-  const { shown, hasMore, sentinelRef } = useIncrementalRows(
-    rows,
-    JSON.stringify([query, statementId, folderName, account, focusId, name, description, from, to, controls.filters, controls.sort]),
-    (t) => t.kind === 'split',
-  )
-  const splitCount = rows.filter((t) => t.kind === 'split').length
-  const txCount = rows.length - splitCount
-  const allTx = useMemo(
-    () => transactions.filter((t) => t.kind !== 'split').length,
-    [transactions],
-  )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [sentinel, hasMore, isFetchingNextPage, fetchNextPage])
 
   // The table's own sideways scroller (shadcn's `table-container`), mirrored at the top of
   // the screen by `StickyScrollbar`. Looked up after each render: the table comes and goes
@@ -390,6 +305,8 @@ export function LedgerTable({
   const [scroller, setScroller] = useState<HTMLElement | null>(null)
   const hasTable = !loading && transactions.length > 0
   useEffect(() => {
+    // It reads the DOM React has just committed — what an effect is for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setScroller(hasTable ? (card?.querySelector<HTMLElement>('[data-slot="table-container"]') ?? null) : null)
   }, [card, hasTable])
 
@@ -447,7 +364,7 @@ export function LedgerTable({
             “{description}” ✕
           </button>
         )}
-        {ranged && (
+        {(from || to) && (
           <button
             type="button"
             onClick={onClearRange}
@@ -574,6 +491,9 @@ export function LedgerTable({
       </div>
       {openError && <p className="border-b px-3 py-2 text-sm text-destructive sm:px-5">{openError}</p>}
       {splitError && <p className="border-b px-3 py-2 text-sm text-destructive sm:px-5">{splitError}</p>}
+      {(pages.error ?? summary.error) && (
+        <p className="border-b px-3 py-2 text-sm text-destructive sm:px-5">{(pages.error ?? summary.error)!.message}</p>
+      )}
 
       {loading ? (
         <div className="flex flex-col gap-2 p-5">
@@ -581,7 +501,7 @@ export function LedgerTable({
             <Skeleton key={i} className="h-9" />
           ))}
         </div>
-      ) : !transactions.length ? (
+      ) : !allTx ? (
         <div className="px-6 py-16 text-center">
           <p className="font-medium text-[#0B1C2C]">Your ledger is empty</p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -826,9 +746,9 @@ export function LedgerTable({
               )
             })}
             {hasMore && (
-              <TableRow key={`more-${shown.length}`} ref={sentinelRef} className="hover:bg-transparent">
+              <TableRow key={`more-${transactions.length}`} ref={setSentinel} className="hover:bg-transparent">
                 <TableCell colSpan={layout.order.length + 1} className="py-4 text-center text-xs text-muted-foreground">
-                  Showing {shown.length.toLocaleString()} of {rows.length.toLocaleString()} rows — loading more…
+                  Showing {transactions.length.toLocaleString()} of {(txCount + splitCount).toLocaleString()} rows — loading more…
                 </TableCell>
               </TableRow>
             )}

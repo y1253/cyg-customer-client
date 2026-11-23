@@ -1,7 +1,6 @@
 import type { Period, Statement } from '@/api/bookkeeping'
 import type { SortState } from '@/lib/table-sort'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useTransactions } from '@/hooks/useTransactions'
 import { LedgerTable } from './LedgerTable'
 
 const NO_RANGE: Period = { from: null, to: null }
@@ -55,8 +54,6 @@ export function LedgerDialog({
   /** step2 (2026-11-11): open on one statement's rows. */
   statementId?: number | null
 }) {
-  const transactions = useTransactions({ enabled: open })
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[90vh] flex-col gap-4 p-3 sm:max-w-[min(96vw,90rem)] sm:p-5">
@@ -75,9 +72,8 @@ export function LedgerDialog({
           <LedgerTable
             // A new drill-down starts from its own default order, with no column filters.
             key={`${open}|${account ?? ''}|${name ?? ''}|${description ?? ''}|${subName?.id ?? ''}|${defaultSort?.key ?? ''}|${focusId ?? ''}|${range.from ?? ''}|${range.to ?? ''}|${statementId ?? ''}`}
-            transactions={transactions.data ?? []}
             statements={statements}
-            loading={transactions.isLoading}
+            enabled={open}
             account={account}
             onClearAccount={() => onAccountChange(null)}
             focusId={focusId}
@@ -94,7 +90,6 @@ export function LedgerDialog({
             onClearRange={() => onRangeChange?.(NO_RANGE)}
             statementId={statementId}
           />
-          {transactions.error && <p className="mt-2 text-sm text-destructive">{transactions.error.message}</p>}
         </div>
       </DialogContent>
     </Dialog>

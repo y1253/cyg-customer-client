@@ -1,4 +1,5 @@
 import { ApiError, errorFrom, fetchWithAuth, handleUnauthorized } from './client'
+import type { ColumnFilter, SortState } from '@/lib/table-sort'
 
 /**
  * A bookkeeping call's credentials AND its book. step12c: `bookId` = one of the customer's
@@ -343,6 +344,94 @@ export async function fetchStatements(auth: BookAuth): Promise<Statement[]> {
 
 export async function fetchTransactions(auth: BookAuth): Promise<LedgerTransaction[]> {
   const res = await bookFetch(auth, '/api/bookkeeping/transactions')
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/**
+ * step11 (2026-11-23): what the ledger is narrowed to — filtered, searched, sorted and paged
+ * on the SERVER (`GET transactions/page` / `…/summary`), so a big book never reaches the browser
+ * whole. Undefined / null fields are left out.
+ */
+export interface LedgerQuery {
+  q?: string
+  statementIds?: number[] | null
+  account?: string | null
+  focusId?: number | null
+  name?: string | null
+  description?: string | null
+  subNameId?: number | null
+  from?: string | null
+  to?: string | null
+  filters?: Record<string, ColumnFilter>
+  sort?: SortState | null
+  /** Every family folded: Amount sorts / filters on the full bank amount. */
+  folded?: boolean
+  /** Transactions only, closest to this amount / day first ("Choose the transaction"). */
+  near?: { amount?: number | null; date?: string | null }
+}
+
+/** A transaction row; `fullAmount` = its own amount plus all its splits (what it shows folded). */
+export type LedgerPageRow = LedgerTransaction & { fullAmount?: number }
+
+export interface LedgerPage {
+  rows: LedgerPageRow[]
+  nextOffset: number | null
+  families: number
+}
+
+export interface LedgerSummary {
+  txCount: number
+  splitCount: number
+  allTx: number
+  net: number
+  homeNet: number | null
+  isAgency: boolean
+  families: number
+  byCategory: Array<{ category: string; rows: number; total: number; homeTotal: number }>
+}
+
+function ledgerQueryString(query: LedgerQuery, extra: Record<string, string> = {}): string {
+  const qs = new URLSearchParams(extra)
+  const put = (k: string, v: string | number | null | undefined) => {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, String(v))
+  }
+  put('q', query.q?.trim())
+  if (query.statementIds?.length) put('statementIds', query.statementIds.join(','))
+  put('account', query.account)
+  put('focusId', query.focusId)
+  put('name', query.name)
+  put('description', query.description)
+  put('subNameId', query.subNameId)
+  put('from', query.from)
+  put('to', query.to)
+  if (query.filters && Object.keys(query.filters).length) put('filters', JSON.stringify(query.filters))
+  if (query.sort) put('sort', JSON.stringify(query.sort))
+  if (query.folded) put('folded', '1')
+  if (query.near) {
+    put('near', '1')
+    put('nearAmount', query.near.amount)
+    put('nearDate', query.near.date?.slice(0, 10))
+  }
+  return qs.toString()
+}
+
+export async function fetchTransactionPage(
+  auth: BookAuth,
+  query: LedgerQuery,
+  offset: number,
+  limit = 100,
+): Promise<LedgerPage> {
+  const res = await bookFetch(
+    auth,
+    `/api/bookkeeping/transactions/page?${ledgerQueryString(query, { offset: String(offset), limit: String(limit) })}`,
+  )
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+export async function fetchTransactionSummary(auth: BookAuth, query: LedgerQuery): Promise<LedgerSummary> {
+  const res = await bookFetch(auth, `/api/bookkeeping/transactions/summary?${ledgerQueryString(query)}`)
   if (!res.ok) throw await errorFrom(res)
   return res.json()
 }
@@ -1077,6 +1166,12 @@ export async function fetchSubNames(auth: BookAuth): Promise<SubName[]> {
 
 export async function setSubNameCategory(auth: BookAuth, id: number, category: string): Promise<void> {
   const res = await bookFetch(auth, `/api/bookkeeping/sub-names/${id}`, json('PATCH', { category }))
+  if (!res.ok) throw await errorFrom(res)
+}
+
+/** step9 (2026-11-23): a sub-name moves under another name — only its parent changes. */
+export async function setSubNameParent(auth: BookAuth, id: number, name: string): Promise<void> {
+  const res = await bookFetch(auth, `/api/bookkeeping/sub-names/${id}/parent`, json('PATCH', { name }))
   if (!res.ok) throw await errorFrom(res)
 }
 

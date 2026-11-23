@@ -4,13 +4,13 @@ import type { Attachment } from '@/api/attachments'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useClosingValue } from '@/hooks/useClosingValue'
-import { useTransactions } from '@/hooks/useTransactions'
+import { useDebounced } from '@/hooks/useDebounced'
+import { useLedgerPages } from '@/hooks/useLedgerPages'
 import { fmtDay } from '@/lib/attachment-labels'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
 const SHOWN = 60
-const toCents = (n: number) => Math.round(n * 100)
 
 /**
  * Choose the transaction an attachment belongs to. Transactions only (no splits, tax lines
@@ -46,40 +46,25 @@ function PickerBody({
   onPick: (transactionId: number) => void
   pending?: boolean
 }) {
-  const transactions = useTransactions()
   const [query, setQuery] = useState('')
-  const want = attachment.total != null ? toCents(attachment.total) : null
-  const day = attachment.reading?.date ? Date.parse(attachment.reading.date) : null
-
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const list = (transactions.data ?? []).filter(
-      (t) =>
-        !t.kind &&
-        (!q ||
-          t.description.toLowerCase().includes(q) ||
-          t.name?.toLowerCase().includes(q) ||
-          money(t.amount).includes(q)),
-    )
-    const score = (amount: number, date: string | null) => {
-      const off = want != null ? Math.abs(Math.abs(toCents(amount)) - want) : 0
-      const gap = day != null && date ? Math.abs(Date.parse(date) - day) / 86_400_000 : 0
-      return off * 10 + gap
-    }
-    return list
-      .map((t) => {
-        // Splits hide part of a parent's amount here; compare on the full bank amount.
-        const full = (transactions.data ?? [])
-          .filter((r) => r.kind === 'split' && (r.splitOfId ?? r.id) === t.id)
-          .reduce((n, r) => n + toCents(r.amount), toCents(t.amount))
-        return { t, full: full / 100 }
-      })
-      .sort((a, b) =>
-        want != null || day != null
-          ? score(a.full, a.t.postingDate ?? a.t.pendingDate) - score(b.full, b.t.postingDate ?? b.t.pendingDate)
-          : 0,
-      )
-  }, [transactions.data, query, want, day])
+  // step11 (2026-11-23): searched and ranked on the server — closest amount and day first,
+  // on the full bank amount (splits added back).
+  const searched = useDebounced(query.trim(), 300)
+  const ledgerQuery = useMemo(
+    () => ({
+      q: searched || undefined,
+      near: { amount: attachment.total ?? null, date: attachment.reading?.date ?? null },
+    }),
+    [searched, attachment.total, attachment.reading?.date],
+  )
+  const transactions = useLedgerPages(ledgerQuery)
+  const rows = useMemo(
+    () =>
+      (transactions.data?.pages[0]?.rows ?? [])
+        .filter((t) => !t.kind)
+        .map((t) => ({ t, full: t.fullAmount ?? t.amount })),
+    [transactions.data],
+  )
 
   return (
     <>
@@ -102,7 +87,7 @@ function PickerBody({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto rounded-xl ring-1 ring-black/5">
-        {transactions.isLoading ? (
+        {transactions.isPending ? (
           <p className="p-4 text-sm text-muted-foreground">Loading transactions…</p>
         ) : !rows.length ? (
           <p className="p-4 text-sm text-muted-foreground">No transactions found.</p>

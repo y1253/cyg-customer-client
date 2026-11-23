@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { useSearchState } from '@/hooks/useBookView'
 import {
   Check,
   ChevronDown,
@@ -61,7 +62,7 @@ import { SubNameLine, type SubNameTools } from './SubNameLine'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
 import { useNames } from '@/hooks/useNames'
-import { useSetSubNameSettings, useSubNames } from '@/hooks/useSplits'
+import { useSetSubNameParent, useSetSubNameSettings, useSubNames } from '@/hooks/useSplits'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useAddName } from '@/hooks/useNameFiles'
 import {
@@ -213,7 +214,7 @@ export function Names({
 }: {
   onOpenName?: (name: string) => void
   /** step2 (2026-11-15): a description under a name clicked — that name's rows of it. */
-  onOpenDescription?: (name: string, description: string) => void
+  onOpenDescription?: (name: string, description: string, subName?: SubName) => void
   /** step9: a sub-name clicked in a name's popup — only its rows. */
   onOpenSubName?: (name: string, subName: { id: number; name: string }) => void
   /** step2 (2026-11-11): the book's statements — each bank account is an entry holding them. */
@@ -260,7 +261,8 @@ export function Names({
   const [splitGroupConfirm, setSplitGroupConfirm] = useState<SplitGroup | null>(null)
   const saveSplitGroup = useSaveSplitGroup()
   const deleteSplitGroup = useDeleteSplitGroup()
-  const [filter, setFilter] = useState<Filter>('ALL')
+  // step11 (2026-11-23): in the URL (`?filter=`), so a refresh keeps it.
+  const [filter, setFilter] = useSearchState<Filter>('filter', 'ALL')
   const [query, setQuery] = useState('')
   const [containsOpen, setContainsOpen] = useState(false)
   const [containsEditing, setContainsEditing] = useState<ContainsRule | null>(null)
@@ -270,6 +272,8 @@ export function Names({
   // step9 (2026-11-17, third request): either end may be a sub-name.
   const [merging, setMerging] = useState<{ from: MergeEnd; into: MergeEnd } | null>(null)
   const setSubSettings = useSetSubNameSettings()
+  // step9 (2026-11-23): a sub-name dropped on a name may move under it instead of merging.
+  const setSubParent = useSetSubNameParent()
   // step9: a group being created (id undefined) or renamed; the name an exception link went to.
   // step2 (2026-11-09): `assign` = the name whose group chip asked for the new group — it joins it.
   // step9 (2026-11-17): `assignSub` = the sub-name whose group chip asked for it.
@@ -366,7 +370,9 @@ export function Names({
       ? splitGroups.filter((g) => !q || g.name.toLowerCase().includes(q) || agencies.some((a) => a.groupId === g.id))
       : []
   const splitGroupName = (id: number | null) => splitGroups.find((g) => g.id === id)?.name
-  const shownGroups = filter === 'ALL' ? groups : groups.filter((g) => g.key === filter)
+  // step9 (2026-11-23): no group sections — the chips above filter one list.
+  const shownNames = clarified.filter((n) => filter === 'ALL' || groupOf(n) === filter)
+  const ownGroup = groups.find((g) => g.id && g.key === filter)
   const shownUnrecognized = filter === 'UNRECOGNIZED' ? unrecognized : []
   const shownContains = filter === 'ALL' || filter === 'UNRECOGNIZED' ? containsRules : []
   const openContains = (rule: ContainsRule | null) => {
@@ -478,7 +484,8 @@ export function Names({
     setGroup.error ??
     saveGroup.error ??
     deleteGroup.error ??
-    setSubSettings.error
+    setSubSettings.error ??
+    setSubParent.error
 
   /** step2 (2026-11-09): a name dropped on a group (its section or its filter chip) joins it. */
   const dropOnGroup = (key: string) => (name: string) => {
@@ -538,7 +545,7 @@ export function Names({
         exceptionOf: (sub) => names.data?.subExceptionOf?.[sub.id] ?? [],
         onGoTo: goTo,
         onDescription: (sub, d) => moveDescription(n.name, d, false, sub),
-        onOpenDescription: onOpenDescription && ((d: string) => onOpenDescription(n.name, d)),
+        onOpenDescription: onOpenDescription && ((d: string, sub: SubName) => onOpenDescription(n.name, d, sub)),
         onMergeInto: (sub, from) =>
           setMerging({ from, into: { name: sub.name, subId: sub.id, category: sub.category } }),
       }}
@@ -580,6 +587,24 @@ export function Names({
       onGoTo={goTo}
     />
   )
+  /**
+   * step9 (2026-11-23): a sub-name dropped on a name — besides Merge, it can move under that name (only its
+   * parent changes). Its new name as the server makes it: "<name> - <category>", or with its old parent after
+   * when the name already has a sub-name in that category (it stays separate); a renamed one keeps its name.
+   */
+  const moving = (() => {
+    if (!merging?.from.subId || merging.into.subId) return null
+    const sub = (subNames.data ?? []).find((s) => s.id === merging.from.subId)
+    if (!sub || sub.parent.toLowerCase() === merging.into.name.toLowerCase()) return null
+    const into = merging.into.name
+    const clash = (subNamesOf.get(into.toLowerCase()) ?? []).some((s) => s.category === sub.category)
+    const name = sub.renamed
+      ? sub.name
+      : clash
+        ? `${into} - ${sub.category} - ${sub.parent}`
+        : `${into} - ${sub.category}`
+    return { name, clash, category: sub.category }
+  })()
   const hasUnsorted = unsorted.error + unsorted.document + unsorted.related + unsorted.reading > 0
   const nothing =
     !(filter === 'ALL' && !q && hasUnsorted) &&
@@ -587,8 +612,7 @@ export function Names({
     !shownAgencies.length &&
     !payees.length &&
     !shownUnrecognized.length &&
-    !shownContains.length &&
-    !(filter === 'ALL' && groups.some((g) => g.id))
+    !shownContains.length
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
@@ -598,8 +622,8 @@ export function Names({
           <p className="text-sm text-muted-foreground">
             Every name on your ledger, in its group — click one for its transactions. Edit a name to change its
             category or the bank descriptions it follows; it is saved for this ledger and every statement from now
-            on. Drag a name onto another to merge them, onto a group (or its chip below) to move it there — or click
-            its group tag — and drag a description onto another name. A split rule picked for a name splits its
+            on. Drag a name onto another to merge them, onto a group chip above to move it there — or click its
+            group tag — and drag a description onto another name; a sub-name dropped on a name can also move under it. A split rule picked for a name splits its
             transactions once; you can change those splits like any other.
           </p>
         </div>
@@ -656,6 +680,29 @@ export function Names({
               onDropSub={groups.some((g) => g.key === f.id) ? dropSubOnGroup(f.id) : undefined}
             />
           ))}
+          {/* step9 (2026-11-23): an own group is renamed / removed here (its section header is gone). */}
+          {ownGroup && (
+            <span className="flex shrink-0 items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                title={`Rename ${ownGroup.label}`}
+                onClick={() => setGroupEdit({ id: ownGroup.id, name: ownGroup.label })}
+              >
+                <Pencil />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                title={`Remove ${ownGroup.label} (its names go back to following their category)`}
+                className="text-muted-foreground hover:text-destructive"
+                disabled={deleteGroup.isPending}
+                onClick={() => deleteGroup.mutate(ownGroup.id!, { onSuccess: () => setFilter('ALL') })}
+              >
+                <Trash2 />
+              </Button>
+            </span>
+          )}
         </div>
       </div>
 
@@ -772,24 +819,17 @@ export function Names({
           {filter === 'ALL' && unclarified && <ul className="divide-y border-t">{nameRow(unclarified)}</ul>}
           {filter !== 'AGENCY' &&
             filter !== 'UNRECOGNIZED' &&
-            shownGroups.map((g) => {
-              const members = clarified.filter((n) => groupOf(n) === g.key)
-              // While searching, a group with nothing found stays out of the way.
-              if (q && !members.length) return null
-              return (
-                <GroupSection
-                  key={g.key}
-                  group={g}
-                  count={members.length}
-                  onDrop={dropOnGroup(g.key)}
-                  onDropSub={dropSubOnGroup(g.key)}
-                  onRename={g.id ? () => setGroupEdit({ id: g.id, name: g.label }) : undefined}
-                  onDelete={g.id ? () => deleteGroup.mutate(g.id!) : undefined}
-                >
-                  {members.map(nameRow)}
-                </GroupSection>
+            (shownNames.length ? (
+              <ul className="divide-y border-t">{shownNames.map(nameRow)}</ul>
+            ) : (
+              filter !== 'ALL' && (
+                <p className="border-t px-5 py-4 text-sm text-muted-foreground">
+                  {q
+                    ? `Nothing in ${groupLabel(filter)} matches.`
+                    : `No names in ${groupLabel(filter)} yet — drag a name onto its chip above.`}
+                </p>
               )
-            })}
+            ))}
           {shownUnrecognized.length > 0 && (
             <div className="border-t px-3 py-2">
               <UnclarifiedTable
@@ -968,7 +1008,9 @@ export function Names({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Merge {merging?.from.name} into {merging?.into.name}?
+              {moving
+                ? `${merging?.from.name} onto ${merging?.into.name}: merge, or make it a sub-name?`
+                : `Merge ${merging?.from.name} into ${merging?.into.name}?`}
             </DialogTitle>
             <DialogDescription>
               {merging?.into.wrapper
@@ -984,10 +1026,38 @@ export function Names({
               Dragging back cannot split them again.
             </DialogDescription>
           </DialogHeader>
+          {moving && merging && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <p className="font-medium text-[#0B1C2C]">Or make it a sub-name of {merging.into.name}</p>
+              <p className="mt-1 text-muted-foreground">
+                It moves under {merging.into.name} as “{moving.name}” with its transactions, category, rules, split
+                rules and files — only its parent changes.
+                {moving.clash &&
+                  ` ${merging.into.name} already has a sub-name in ${moving.category}, so this one stays separate.`}
+                {!merging.into.wrapper &&
+                  ` ${merging.into.name} has no sub-names yet — its own transactions go under sub-names of their categories.`}
+              </p>
+            </div>
+          )}
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            {moving && (
+              <Button
+                variant="outline"
+                disabled={setSubParent.isPending || merge.isPending}
+                onClick={() => {
+                  if (!merging?.from.subId) return
+                  setSubParent.mutate(
+                    { id: merging.from.subId, name: merging.into.name },
+                    { onSettled: () => setMerging(null) },
+                  )
+                }}
+              >
+                {setSubParent.isPending ? 'Moving…' : `Make it a sub-name of ${merging?.into.name}`}
+              </Button>
+            )}
             <Button
-              disabled={merge.isPending}
+              disabled={merge.isPending || setSubParent.isPending}
               onClick={() => {
                 if (!merging) return
                 // step9 (2026-11-18, part 2): a sub-name is already gone from the list — close now.
@@ -1132,69 +1202,6 @@ function TypeDot({ group }: { group: string }) {
 }
 
 /**
- * step9: one group on the Names tab — its header, its names, and the place a name dragged
- * from another group is dropped (a drop ON a name merges instead). A group of the customer's
- * own can be renamed or removed (its names go back to following their category).
- */
-function GroupSection({
-  group,
-  count,
-  onDrop,
-  onDropSub,
-  onRename,
-  onDelete,
-  children,
-}: {
-  group: NameGroup
-  count: number
-  onDrop: (name: string) => void
-  /** step9 (2026-11-17, third request): a sub-name dropped here joins the group. */
-  onDropSub?: (sub: DraggedSubName) => void
-  onRename?: () => void
-  onDelete?: () => void
-  children: ReactNode
-}) {
-  const drop = useGroupDrop(onDrop, onDropSub)
-  return (
-    <section
-      {...drop.props}
-      className={cn('border-t transition-colors', drop.over && 'bg-brand/5 outline-2 -outline-offset-2 outline-brand/30')}
-    >
-      <div className="flex items-center gap-2 bg-muted/30 px-5 py-2">
-        <TypeIcon type={group.key} />
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group.label}</h3>
-        <span className="text-xs text-muted-foreground/80 tabular-nums">{count}</span>
-        {(onRename || onDelete) && (
-          <span className="ml-auto flex gap-1">
-            {onRename && (
-              <Button variant="ghost" size="icon-xs" title="Rename this group" onClick={onRename}>
-                <Pencil />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                title="Remove this group (its names go back to following their category)"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={onDelete}
-              >
-                <Trash2 />
-              </Button>
-            )}
-          </span>
-        )}
-      </div>
-      {count ? (
-        <ul className="divide-y">{children}</ul>
-      ) : (
-        <p className="px-5 py-3 text-xs text-muted-foreground">Drag a name here to put it in {group.label}.</p>
-      )}
-    </section>
-  )
-}
-
-/**
  * A payee, with its split rules (step9 part 4: any name may have them — In / Out follow the money). The
  * Unclarified name entry (the rows with no name) lists its descriptions, each with Assign,
  * and cannot be renamed itself. step9: its descriptions say which rule ties them here and
@@ -1309,16 +1316,16 @@ function NameRow({
   // band") — no settings, nothing dragged into it or out of it; its sub-names are the names.
   const wrapper = subs.length > 0 && !n.unclarified
   // step9 (2026-11-18): a wrapper takes a name — it lands on its sub-name of the same category. Not a
-  // description (that goes onto one of its sub-names). step9 (2026-11-19): nor a sub-name — a wrapper is only a
-  // rubber band; a sub-name goes onto one of its sub-names, or onto a name with none.
+  // description (that goes onto one of its sub-names). step9 (2026-11-23): a sub-name again — merged into it or
+  // moved under it (the dialog asks) — except one of its OWN sub-names, which is refused with a hint.
+  const own = (id: number) => subs.some((s) => s.id === id)
   const drop = useNameDrop(
     n.name,
     onMergeInto,
     wrapper ? undefined : onDescription,
-    wrapper ? undefined : onSubNameInto,
+    onSubNameInto && ((sub) => !own(sub.id) && onSubNameInto(sub)),
   )
-  const refuse = useRefuseSubName(wrapper)
-  const ownDrag = refuse.over && subs.some((s) => s.id === draggedSubId())
+  const refuse = useRefuseSubName(wrapper, () => own(draggedSubId() ?? 0))
   // step9 (2026-11-17): anything held over a folded wrapper unfolds it.
   const hover = useHoverOpen(wrapper && !subsOpen, () => setSubsToggled(true))
   const draggable = mergeable && !wrapper
@@ -1337,11 +1344,11 @@ function NameRow({
       id={rowId(n.name)}
       {...(draggable ? nameDragProps(n.name) : {})}
       {...joinDragProps(joinDragProps(drop.props, refuse.props), hover.props)}
-      title={draggable ? 'Drag onto another name to merge them, or onto a group to move it' : undefined}
+      title={draggable ? 'Drag onto another name to merge them, or onto a group chip to move it' : undefined}
       className={cn(
         'px-5 py-3 transition-colors',
         draggable && 'cursor-grab active:cursor-grabbing',
-        drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
+        drop.over && !refuse.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
         refuse.over && 'cursor-not-allowed bg-muted/50',
         highlighted && 'bg-amber-50',
       )}
@@ -1485,9 +1492,7 @@ function NameRow({
         )}
         {refuse.over && (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {ownDrag
-              ? `It is already under ${n.name} — drop it on another sub-name.`
-              : `${n.name} has sub-names — drop it on one of its sub-names.`}
+            {`It is already under ${n.name} — drop it on another sub-name or name.`}
           </p>
         )}
         {subsOpen && (
