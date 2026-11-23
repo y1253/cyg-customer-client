@@ -176,7 +176,8 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
 /**
  * step12 (2026-11-19): a transaction's category, changed in place like a split's — the chip
  * opens the category dropdown right in the cell. A category other than its name's asks: every
- * row of the name (`ALWAYS`), or only this transaction (`ONCE`, a one-time exception).
+ * row of the name (`ALWAYS`), or only this transaction (`ONCE`, a one-time exception — step12
+ * 2026-11-23: under the sub-name "<name> - <category>").
  */
 export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
   const edit = useEditTransaction()
@@ -244,7 +245,7 @@ export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
                   disabled={edit.isPending}
                   onClick={() => void save('ONCE')}
                 >
-                  Only this transaction
+                  Only this transaction — as “{owner} - {shown}”
                 </Button>
               </span>
             </>
