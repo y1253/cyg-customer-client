@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import { useSearchState } from '@/hooks/useBookView'
 import {
   Check,
@@ -78,6 +78,7 @@ import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
 import { useDeleteNameGroup, useNameSearch, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useDeleteSplitGroup, useSaveSplitGroup } from '@/hooks/useSplitGroups'
+import { useRevealMore } from '@/hooks/useRevealMore'
 import { useTax } from '@/hooks/useTax'
 import { useMergeNames } from '@/hooks/useMerge'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
@@ -295,7 +296,8 @@ export function Names({
   /** A name that is a tax agency (or the nameless rows) is not a payee: it never merges. */
   const mergeable = (n: LedgerName) =>
     !n.unclarified && !allAgencies.some((a) => a.name.toLowerCase() === n.name.toLowerCase())
-  const q = query.trim().toLowerCase()
+  // step11 (2026-11-23): the list filters a beat behind the typing, so the box stays smooth.
+  const q = useDeferredValue(query).trim().toLowerCase()
   // step9: the descriptions the search found, per name (lower-cased) — those names show too.
   const hits = useMemo(() => {
     const out = new Map<string, Set<string>>()
@@ -372,6 +374,9 @@ export function Names({
   const splitGroupName = (id: number | null) => splitGroups.find((g) => g.id === id)?.name
   // step9 (2026-11-23): no group sections — the chips above filter one list.
   const shownNames = clarified.filter((n) => filter === 'ALL' || groupOf(n) === filter)
+  // step11 (2026-11-23): drawing all ~800 rows at once froze the tab for seconds (measured on
+  // production) — the first 60 are drawn, more as the end of the list nears the screen.
+  const { shown: revealed, more: moreNames, setSentinel, revealTo } = useRevealMore(shownNames.length, `${filter}|${q}`)
   const ownGroup = groups.find((g) => g.id && g.key === filter)
   const shownUnrecognized = filter === 'UNRECOGNIZED' ? unrecognized : []
   const shownContains = filter === 'ALL' || filter === 'UNRECOGNIZED' ? containsRules : []
@@ -390,7 +395,16 @@ export function Names({
     setFilter('ALL')
     setQuery('')
     setHighlight(name.toLowerCase())
-    setTimeout(() => document.getElementById(rowId(name))?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+    // The list is drawn in pieces: draw down to the name (or the wrapper of the sub-name) first.
+    const k = name.toLowerCase()
+    const index = (names.data?.names ?? [])
+      .filter((n) => !n.unclarified)
+      .findIndex(
+        (n) =>
+          n.name.toLowerCase() === k || (subNamesOf.get(n.name.toLowerCase()) ?? []).some((s) => s.name.toLowerCase() === k),
+      )
+    if (index >= 0) setTimeout(() => revealTo(index), 50)
+    setTimeout(() => document.getElementById(rowId(name))?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150)
     setTimeout(() => setHighlight((h) => (h === name.toLowerCase() ? null : h)), 2500)
   }
   /**
@@ -820,7 +834,15 @@ export function Names({
           {filter !== 'AGENCY' &&
             filter !== 'UNRECOGNIZED' &&
             (shownNames.length ? (
-              <ul className="divide-y border-t">{shownNames.map(nameRow)}</ul>
+              <ul className="divide-y border-t">
+                {shownNames.slice(0, revealed).map(nameRow)}
+                {moreNames && (
+                  // Keyed by the count, so each new piece observes a fresh sentinel.
+                  <li key={`more-${revealed}`} ref={setSentinel} className="px-5 py-3 text-sm text-muted-foreground">
+                    Showing {revealed.toLocaleString()} of {shownNames.length.toLocaleString()} names — loading more…
+                  </li>
+                )}
+              </ul>
             ) : (
               filter !== 'ALL' && (
                 <p className="border-t px-5 py-4 text-sm text-muted-foreground">
