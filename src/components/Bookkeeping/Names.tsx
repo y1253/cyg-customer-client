@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSearchState } from '@/hooks/useBookView'
 import {
   Check,
@@ -34,6 +34,7 @@ import {
   type Statement,
   type SubName,
   type MergeEnd,
+  type NamesPage,
 } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -61,8 +62,9 @@ import { Switch } from '@/components/ui/switch'
 import { SubNameLine, type SubNameTools } from './SubNameLine'
 import { useDeleteAgency } from '@/hooks/useDeleteAgency'
 import { useNameAgencies } from '@/hooks/useNameAgencies'
-import { useNames } from '@/hooks/useNames'
-import { useSetSubNameParent, useSetSubNameSettings, useSubNames } from '@/hooks/useSplits'
+import { useNamesPages, useUnrecognized } from '@/hooks/useNamesPages'
+import { useDebounced } from '@/hooks/useDebounced'
+import { useSetSubNameParent, useSetSubNameSettings } from '@/hooks/useSplits'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useAddName } from '@/hooks/useNameFiles'
 import {
@@ -75,10 +77,9 @@ import {
   type BucketFilter,
 } from '@/lib/name-files'
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
-import { useDeleteNameGroup, useNameSearch, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
+import { useDeleteNameGroup, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useDeleteSplitGroup, useSaveSplitGroup } from '@/hooks/useSplitGroups'
-import { useRevealMore } from '@/hooks/useRevealMore'
 import { useTax } from '@/hooks/useTax'
 import { useMergeNames } from '@/hooks/useMerge'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
@@ -226,17 +227,6 @@ export function Names({
   onOpenStatement?: (statementId: number) => void
 }) {
   const tax = useTax()
-  const names = useNames()
-  // step2 (2026-11-15): each name's sub-names ("Walmart - Maintenance"), listed under it.
-  const subNames = useSubNames()
-  const subNamesOf = useMemo(() => {
-    const m = new Map<string, SubName[]>()
-    for (const s of subNames.data ?? []) {
-      const k = s.parent.toLowerCase()
-      m.set(k, [...(m.get(k) ?? []), s])
-    }
-    return m
-  }, [subNames.data])
   // step2 (2026-11-11): every file lives in a name's folder — the counts per name.
   const attachments = useAttachments()
   const fileCounts = useMemo(() => countsByName(attachments.data ?? []), [attachments.data])
@@ -287,27 +277,43 @@ export function Names({
   // step9 (2026-11-17): a sub-name dropped on a group section — confirmed first.
   const [subGroupMove, setSubGroupMove] = useState<{ sub: SubName; key: string } | null>(null)
   const [highlight, setHighlight] = useState<string | null>(null)
-  const search = useNameSearch(query)
+  // step11 (2026-11-23, user's request): the names come page by page from the server, filtered by
+  // the chip and searched there (`GET names/page`); the search is sent once typing pauses.
+  const q = useDebounced(query.trim().toLowerCase(), 300)
+  const nameFilter = filter === 'AGENCY' || filter === 'UNRECOGNIZED' ? 'ALL' : filter
+  const pages = useNamesPages({ filter: nameFilter, q })
+  const head = pages.data?.pages[0]?.head
+  const loaded = useMemo(() => {
+    const all = pages.data?.pages ?? []
+    const subs = all.flatMap((p) => p.subNames)
+    // step2 (2026-11-15): each name's sub-names ("Walmart - Maintenance"), listed under it.
+    const subNamesOf = new Map<string, SubName[]>()
+    for (const sub of subs) {
+      const k = sub.parent.toLowerCase()
+      subNamesOf.set(k, [...(subNamesOf.get(k) ?? []), sub])
+    }
+    return {
+      names: all.flatMap((p) => p.names),
+      subs,
+      subNamesOf,
+      subDescriptions: Object.assign({}, ...all.map((p) => p.subDescriptions)) as NamesPage['subDescriptions'],
+      subContains: Object.assign({}, ...all.map((p) => p.subContains)) as NamesPage['subContains'],
+      subExceptionOf: Object.assign({}, ...all.map((p) => p.subExceptionOf)) as NamesPage['subExceptionOf'],
+      // step9: the descriptions the bank search found, per name (lower-cased).
+      matches: new Map(all.flatMap((p) => Object.entries(p.matches)).map(([k, v]) => [k, new Set(v)])),
+    }
+  }, [pages.data])
+  const subNamesOf = loaded.subNamesOf
+  // The nameless descriptions: only while the Unrecognized chip shows them.
+  const unrecognizedList = useUnrecognized(q, { enabled: filter === 'UNRECOGNIZED' })
 
   const allAgencies = tax.data?.agencies ?? []
-  const groups = names.data?.groups ?? BUILTIN_GROUPS
+  const groups = head?.groups ?? BUILTIN_GROUPS
   const groupLabel = (key: string) => groups.find((g) => g.key === key)?.label ?? TYPE_LABEL[key as NameType] ?? key
   const groupOf = nameGroupOf
   /** A name that is a tax agency (or the nameless rows) is not a payee: it never merges. */
   const mergeable = (n: LedgerName) =>
     !n.unclarified && !allAgencies.some((a) => a.name.toLowerCase() === n.name.toLowerCase())
-  // step11 (2026-11-23): the list filters a beat behind the typing, so the box stays smooth.
-  const q = useDeferredValue(query).trim().toLowerCase()
-  // step9: the descriptions the search found, per name (lower-cased) — those names show too.
-  const hits = useMemo(() => {
-    const out = new Map<string, Set<string>>()
-    if (q.length < 2) return out
-    for (const h of search.data ?? []) {
-      const k = h.name.toLowerCase()
-      out.set(k, (out.get(k) ?? new Set()).add(h.key))
-    }
-    return out
-  }, [search.data, q])
   const splitGroups = useMemo(() => tax.data?.groups ?? [], [tax.data])
   const agencies = useMemo(
     () =>
@@ -319,51 +325,16 @@ export function Names({
       ),
     [tax.data, splitGroups, q],
   )
-  const payees = useMemo(
-    () =>
-      (names.data?.names ?? []).filter(
-        (n) =>
-          !q ||
-          n.name.toLowerCase().includes(q) ||
-          n.category.toLowerCase().includes(q) ||
-          hits.has(n.name.toLowerCase()) ||
-          n.descriptions.some((d) => d.description.toLowerCase().includes(q)) ||
-          // step9 (2026-11-17, third request): a wrapper shows when one of its sub-names matches.
-          (subNamesOf.get(n.name.toLowerCase()) ?? []).some(
-            (sub) =>
-              sub.name.toLowerCase().includes(q) ||
-              (names.data?.subDescriptions?.[sub.id] ?? []).some((d) => d.description.toLowerCase().includes(q)),
-          ),
-      ),
-    [names.data, q, hits, subNamesOf],
-  )
-  const unrecognized = useMemo(
-    () =>
-      (names.data?.unrecognized ?? []).filter(
-        (u) =>
-          !q ||
-          u.sampleDescription.toLowerCase().includes(q) ||
-          u.category.toLowerCase().includes(q),
-      ),
-    [names.data, q],
-  )
-  const containsRules = useMemo(
-    () =>
-      (names.data?.containsRules ?? []).filter(
-        (r) => !q || r.text.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q),
-      ),
-    [names.data, q],
-  )
-  const clarified = payees.filter((n) => !n.unclarified)
-  const unclarified = payees.find((n) => n.unclarified)
+  const containsRules = head?.containsRules ?? []
+  // Already filtered by the chip and the search on the server.
+  const shownNames = loaded.names
+  const unclarified = head?.unclarified ?? undefined
   const count = (f: Filter) =>
     f === 'ALL'
-      ? agencies.length + payees.length
+      ? agencies.length + (head?.counts.ALL ?? 0)
       : f === 'AGENCY'
         ? agencies.length
-        : f === 'UNRECOGNIZED'
-          ? unrecognized.length
-          : clarified.filter((n) => groupOf(n) === f).length
+        : (head?.counts[f] ?? 0)
   const shownAgencies = filter === 'ALL' || filter === 'AGENCY' ? agencies : []
   // step9 (2026-11-18, part 4): every rule is its own row; a group is its own row after them, listing its rules
   // by name (shown when it or one of its rules matches the search).
@@ -372,13 +343,22 @@ export function Names({
       ? splitGroups.filter((g) => !q || g.name.toLowerCase().includes(q) || agencies.some((a) => a.groupId === g.id))
       : []
   const splitGroupName = (id: number | null) => splitGroups.find((g) => g.id === id)?.name
-  // step9 (2026-11-23): no group sections — the chips above filter one list.
-  const shownNames = clarified.filter((n) => filter === 'ALL' || groupOf(n) === filter)
-  // step11 (2026-11-23): drawing all ~800 rows at once froze the tab for seconds (measured on
-  // production) — the first 60 are drawn, more as the end of the list nears the screen.
-  const { shown: revealed, more: moreNames, setSentinel, revealTo } = useRevealMore(shownNames.length, `${filter}|${q}`)
+  // The next page loads as the last row nears the screen (the ledger's pattern).
+  const [sentinel, setSentinel] = useState<HTMLLIElement | null>(null)
+  const { fetchNextPage, isFetchingNextPage, hasNextPage } = pages
+  useEffect(() => {
+    if (!sentinel || !hasNextPage) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) void fetchNextPage()
+      },
+      { rootMargin: '800px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [sentinel, hasNextPage, isFetchingNextPage, fetchNextPage])
   const ownGroup = groups.find((g) => g.id && g.key === filter)
-  const shownUnrecognized = filter === 'UNRECOGNIZED' ? unrecognized : []
+  const shownUnrecognized = filter === 'UNRECOGNIZED' ? (unrecognizedList.data ?? []) : []
   const shownContains = filter === 'ALL' || filter === 'UNRECOGNIZED' ? containsRules : []
   const openContains = (rule: ContainsRule | null) => {
     setContainsEditing(rule)
@@ -393,19 +373,17 @@ export function Names({
   /** step9: jump to a name (an exception link) — show it, scroll to it, flash it. */
   const goTo = (name: string) => {
     setFilter('ALL')
-    setQuery('')
+    // step11 (2026-11-23): the list is paged on the server — search for it, so it is on the first page.
+    setQuery(name)
     setHighlight(name.toLowerCase())
-    // The list is drawn in pieces: draw down to the name (or the wrapper of the sub-name) first.
-    const k = name.toLowerCase()
-    const index = (names.data?.names ?? [])
-      .filter((n) => !n.unclarified)
-      .findIndex(
-        (n) =>
-          n.name.toLowerCase() === k || (subNamesOf.get(n.name.toLowerCase()) ?? []).some((s) => s.name.toLowerCase() === k),
-      )
-    if (index >= 0) setTimeout(() => revealTo(index), 50)
-    setTimeout(() => document.getElementById(rowId(name))?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150)
-    setTimeout(() => setHighlight((h) => (h === name.toLowerCase() ? null : h)), 2500)
+    // Scroll once its row is there (the search's page arrives first).
+    const find = (tries: number) => {
+      const row = document.getElementById(rowId(name))
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      else if (tries > 0) setTimeout(() => find(tries - 1), 150)
+    }
+    setTimeout(() => find(30), 350)
+    setTimeout(() => setHighlight((h) => (h === name.toLowerCase() ? null : h)), 5000)
   }
   /**
    * step9: a description dropped on a name — every row of it gets that name, now and later.
@@ -486,10 +464,11 @@ export function Names({
     </li>
     )
   }
-  const loading = tax.isLoading || names.isLoading
+  const loading = tax.isLoading || pages.isLoading
   const error =
     tax.error ??
-    names.error ??
+    pages.error ??
+    unrecognizedList.error ??
     save.error ??
     setNameTax.error ??
     resetRule.error ??
@@ -503,7 +482,7 @@ export function Names({
 
   /** step2 (2026-11-09): a name dropped on a group (its section or its filter chip) joins it. */
   const dropOnGroup = (key: string) => (name: string) => {
-    const n = clarified.find((x) => x.name.toLowerCase() === name.toLowerCase())
+    const n = loaded.names.find((x) => x.name.toLowerCase() === name.toLowerCase())
     if (n && groupOf(n) !== key) setGroup.mutate({ name: n.name, group: key })
   }
   /**
@@ -511,9 +490,9 @@ export function Names({
    * real move, and asked first — a drop that missed a name must never change its group silently.
    */
   const dropSubOnGroup = (key: string) => (dragged: DraggedSubName) => {
-    const sub = (subNames.data ?? []).find((x) => x.id === dragged.id)
+    const sub = loaded.subs.find((x) => x.id === dragged.id)
     if (!sub) return
-    const parent = clarified.find((x) => x.name.toLowerCase() === sub.parent.toLowerCase())
+    const parent = loaded.names.find((x) => x.name.toLowerCase() === sub.parent.toLowerCase())
     const current = sub.group ?? (parent ? groupOf(parent) : null)
     if (current !== key) setSubGroupMove({ sub, key })
   }
@@ -554,9 +533,9 @@ export function Names({
         ),
         files: (name) => fileCounts.get(nameKey(name)) ?? EMPTY_COUNTS,
         onFiles: (name, filter) => setFiles({ kind: 'name', name, filter }),
-        descriptionsOf: (sub) => names.data?.subDescriptions?.[sub.id] ?? [],
-        containsOf: (sub) => names.data?.subContains?.[sub.id] ?? [],
-        exceptionOf: (sub) => names.data?.subExceptionOf?.[sub.id] ?? [],
+        descriptionsOf: (sub) => loaded.subDescriptions[sub.id] ?? [],
+        containsOf: (sub) => loaded.subContains[sub.id] ?? [],
+        exceptionOf: (sub) => loaded.subExceptionOf[sub.id] ?? [],
         onGoTo: goTo,
         onDescription: (sub, d) => moveDescription(n.name, d, false, sub),
         onOpenDescription: onOpenDescription && ((d: string, sub: SubName) => onOpenDescription(n.name, d, sub)),
@@ -572,7 +551,7 @@ export function Names({
       onEdit={() => setRuleTarget({ kind: 'name', view: n })}
       onReset={() => n.rule && resetRule.mutate(n.rule)}
       resetting={resetting(n.rule)}
-      unrecognized={n.unclarified ? (names.data?.unrecognized ?? []) : undefined}
+      unrecognized={!!n.unclarified}
       onAssign={(u) => setRuleTarget({ kind: 'unrecognized', view: u })}
       mergeable={mergeable(n)}
       onMergeInto={
@@ -594,7 +573,7 @@ export function Names({
           : undefined
       }
       onDescription={n.unclarified ? undefined : (d) => moveDescription(n.name, d)}
-      matches={hits.get(n.name.toLowerCase())}
+      matches={loaded.matches.get(n.name.toLowerCase())}
       query={q}
       highlighted={highlight === n.name.toLowerCase()}
       highlight={highlight}
@@ -608,7 +587,7 @@ export function Names({
    */
   const moving = (() => {
     if (!merging?.from.subId || merging.into.subId) return null
-    const sub = (subNames.data ?? []).find((s) => s.id === merging.from.subId)
+    const sub = loaded.subs.find((s) => s.id === merging.from.subId)
     if (!sub || sub.parent.toLowerCase() === merging.into.name.toLowerCase()) return null
     const into = merging.into.name
     const clash = (subNamesOf.get(into.toLowerCase()) ?? []).some((s) => s.category === sub.category)
@@ -624,7 +603,7 @@ export function Names({
     !(filter === 'ALL' && !q && hasUnsorted) &&
     !(filter === 'ALL' && accounts.length) &&
     !shownAgencies.length &&
-    !payees.length &&
+    !(head?.counts.ALL ?? 0) &&
     !shownUnrecognized.length &&
     !shownContains.length
 
@@ -835,11 +814,12 @@ export function Names({
             filter !== 'UNRECOGNIZED' &&
             (shownNames.length ? (
               <ul className="divide-y border-t">
-                {shownNames.slice(0, revealed).map(nameRow)}
-                {moreNames && (
-                  // Keyed by the count, so each new piece observes a fresh sentinel.
-                  <li key={`more-${revealed}`} ref={setSentinel} className="px-5 py-3 text-sm text-muted-foreground">
-                    Showing {revealed.toLocaleString()} of {shownNames.length.toLocaleString()} names — loading more…
+                {shownNames.map(nameRow)}
+                {hasNextPage && (
+                  // Keyed by the count, so each new page observes a fresh sentinel.
+                  <li key={`more-${shownNames.length}`} ref={setSentinel} className="px-5 py-3 text-sm text-muted-foreground">
+                    Showing {shownNames.length.toLocaleString()} of{' '}
+                    {(pages.data?.pages[0]?.total ?? shownNames.length).toLocaleString()} names — loading more…
                   </li>
                 )}
               </ul>
@@ -1294,7 +1274,8 @@ function NameRow({
   onEdit: () => void
   onReset: () => void
   resetting: boolean
-  unrecognized?: UnrecognizedName[]
+  /** The Unclarified row: open, it lists the nameless descriptions (loaded then). */
+  unrecognized?: boolean
   onAssign: (u: UnrecognizedName) => void
   /** step8: it can be dragged onto another name to merge into it. */
   mergeable?: boolean
@@ -1568,19 +1549,7 @@ function NameRow({
       </div>
       )}
       </div>
-      {open && unrecognized && (
-        <div className="mt-2 ml-13 rounded-lg bg-muted/40 p-2">
-          <UnclarifiedTable
-            rows={unrecognized}
-            highlighted={(u) => matched({ key: u.key, description: u.sampleDescription })}
-            actions={(u) => (
-              <Button variant="outline" size="xs" onClick={() => onAssign(u)}>
-                Assign
-              </Button>
-            )}
-          />
-        </div>
-      )}
+      {open && unrecognized && <UnrecognizedRows query={query} matched={matched} onAssign={onAssign} />}
       {open && !unrecognized && !wrapper && (
         <ul className="mt-2 ml-13 flex flex-col gap-1 rounded-lg bg-muted/40 p-2">
           {(n.followsContains ?? []).map((c) => (
@@ -1865,3 +1834,33 @@ function AddNameDialog({
 }
 
 
+
+/** step11 (2026-11-23): the Unclarified row opened — its nameless descriptions, loaded from the server now. */
+function UnrecognizedRows({
+  query,
+  matched,
+  onAssign,
+}: {
+  query: string
+  matched: (d: { key?: string; description: string }) => boolean
+  onAssign: (u: UnrecognizedName) => void
+}) {
+  const list = useUnrecognized(query)
+  return (
+    <div className="mt-2 ml-13 rounded-lg bg-muted/40 p-2">
+      {list.isPending ? (
+        <Skeleton className="h-10" />
+      ) : (
+        <UnclarifiedTable
+          rows={list.data ?? []}
+          highlighted={(u) => matched({ key: u.key, description: u.sampleDescription })}
+          actions={(u) => (
+            <Button variant="outline" size="xs" onClick={() => onAssign(u)}>
+              Assign
+            </Button>
+          )}
+        />
+      )}
+    </div>
+  )
+}

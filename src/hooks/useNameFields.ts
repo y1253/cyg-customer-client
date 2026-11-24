@@ -9,5 +9,7 @@ export function useNameFields() {
   return useMutation({
     mutationFn: (values: { name: string; fields: NameField[] }) => setNameFields(book.auth, values),
     onSuccess: (data) => queryClient.setQueryData(book.key(NAMES_KEY), data),
+    // step11 (2026-11-23): the Names tab's server pages too.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...NAMES_KEY, 'page'] }),
   })
 }

@@ -917,6 +917,52 @@ export async function saveNameRule(
 }
 
 /** step9: names whose rows' bank descriptions contain `q`. */
+/**
+ * step11 (2026-11-23, user's request): one page of the Names tab, filtered and searched on the
+ * server. The first page (offset 0) also carries `head`: the groups, chip counts, Unclarified
+ * and the category-only rules.
+ */
+export type NamesHead = {
+  groups: NameGroup[]
+  /** ALL (Unclarified included), each group key, UNRECOGNIZED. */
+  counts: Record<string, number>
+  unclarified: LedgerName | null
+  unrecognizedCount: number
+  containsRules: ContainsRule[]
+}
+export type NamesPage = {
+  names: LedgerName[]
+  nextOffset: number | null
+  total: number
+  subNames: SubName[]
+  subDescriptions: NonNullable<NamesData['subDescriptions']>
+  subContains: NonNullable<NamesData['subContains']>
+  subExceptionOf: NonNullable<NamesData['subExceptionOf']>
+  /** Per name (lower-cased): the description keys the bank-description search found. */
+  matches: Record<string, string[]>
+  head?: NamesHead
+}
+
+export async function fetchNamesPage(
+  auth: BookAuth,
+  query: { filter: string; q: string },
+  offset: number,
+  limit = 40,
+): Promise<NamesPage> {
+  const params = new URLSearchParams({ filter: query.filter, offset: String(offset), limit: String(limit) })
+  if (query.q) params.set('q', query.q)
+  const res = await bookFetch(auth, `/api/bookkeeping/names/page?${params}`)
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
+/** step11 (2026-11-23): the nameless descriptions — loaded only when the tab shows them. */
+export async function fetchUnrecognized(auth: BookAuth, q: string): Promise<UnrecognizedName[]> {
+  const res = await bookFetch(auth, `/api/bookkeeping/names/unrecognized${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+  if (!res.ok) throw await errorFrom(res)
+  return res.json()
+}
+
 export async function searchNames(auth: BookAuth, q: string): Promise<NameSearchHit[]> {
   const res = await bookFetch(auth, `/api/bookkeeping/names/search?q=${encodeURIComponent(q)}`)
   if (!res.ok) throw await errorFrom(res)

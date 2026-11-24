@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import {
   ACCOUNTS_KEY,
   mergeAccounts,
@@ -7,6 +7,7 @@ import {
   renameAccount,
   type MergeEnd,
   type NamesData,
+  type NamesPage,
   type SubName,
 } from '@/api/bookkeeping'
 import { useBook } from './useBook'
@@ -33,6 +34,16 @@ export function useMergeNames() {
         queryClient.cancelQueries({ queryKey: subsKey, exact: true }),
         queryClient.cancelQueries({ queryKey: namesKey, exact: true }),
       ])
+      // step11 (2026-11-23): the Names tab's server pages — the dragged sub-name leaves them too.
+      const pagesKey = [...NAMES_KEY, 'page']
+      await queryClient.cancelQueries({ queryKey: pagesKey })
+      const pages = queryClient.getQueriesData<InfiniteData<NamesPage>>({ queryKey: pagesKey })
+      queryClient.setQueriesData<InfiniteData<NamesPage>>({ queryKey: pagesKey }, (old) =>
+        old && {
+          ...old,
+          pages: old.pages.map((p) => ({ ...p, subNames: p.subNames.filter((s) => s.id !== fromId) })),
+        },
+      )
       const subs = queryClient.getQueryData<SubName[]>(subsKey)
       const names = queryClient.getQueryData<NamesData>(namesKey)
       if (subs) queryClient.setQueryData<SubName[]>(subsKey, subs.filter((s) => s.id !== fromId))
@@ -49,11 +60,12 @@ export function useMergeNames() {
           subContains: move(names.subContains),
         })
       }
-      return { subs, names }
+      return { subs, names, pages }
     },
     onError: (_error, _ends, before) => {
       if (before?.subs) queryClient.setQueryData(subsKey, before.subs)
       if (before?.names) queryClient.setQueryData(namesKey, before.names)
+      for (const [key, data] of before?.pages ?? []) queryClient.setQueryData(key, data)
     },
     onSuccess: (data) => queryClient.setQueryData(namesKey, data),
     onSettled: invalidate,
