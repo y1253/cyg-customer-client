@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { FormData } from '../types';
@@ -8,31 +9,32 @@ interface Props {
 }
 
 export function Step12Terms({ data, onChange }: Props) {
+  const { t } = useTranslation(['register', 'common']);
   return (
     <div className="flex flex-col gap-6">
       {/* Card on File */}
       <div className="rounded-lg border bg-muted/30 p-4 flex flex-col gap-4">
         <div>
           <p className="text-sm font-semibold">
-            Card on File <span className="text-destructive">*</span>
+            {t('terms.cardOnFile')} <span className="text-destructive">*</span>
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            The card will be charged every Monday for the week before.
+            {t('terms.chargedMonday')}
           </p>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cardHolderName">Cardholder Name</Label>
+          <Label htmlFor="cardHolderName">{t('terms.cardHolder')}</Label>
           <Input
             id="cardHolderName"
             value={data.cardHolderName}
             onChange={e => onChange({ cardHolderName: e.target.value })}
-            placeholder="John Smith"
+            placeholder={t('contact.namePlaceholder')}
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cardNumber">Card Number</Label>
+          <Label htmlFor="cardNumber">{t('terms.cardNumber')}</Label>
           <Input
             id="cardNumber"
             value={data.cardNumber}
@@ -44,17 +46,17 @@ export function Step12Terms({ data, onChange }: Props) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cardExpiry">Expiry</Label>
+            <Label htmlFor="cardExpiry">{t('terms.expiry')}</Label>
             <Input
               id="cardExpiry"
               value={data.cardExpiry}
               onChange={e => onChange({ cardExpiry: e.target.value })}
-              placeholder="MM/YY"
+              placeholder={t('terms.expiryPlaceholder')}
               maxLength={5}
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cardCvv">CVV</Label>
+            <Label htmlFor="cardCvv">{t('terms.cvv')}</Label>
             <Input
               id="cardCvv"
               value={data.cardCvv}
@@ -68,38 +70,40 @@ export function Step12Terms({ data, onChange }: Props) {
 
       {/* Terms and Conditions */}
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-semibold">Please agree to the terms and conditions</p>
+        <p className="text-sm font-semibold">{t('terms.pleaseAgree')}</p>
 
         <div className="rounded-lg border bg-muted/20 p-4 text-xs text-muted-foreground flex flex-col gap-2 leading-relaxed">
           <p>
-            <span className="font-medium text-foreground">1.</span> The hourly rate is $55/hour.
+            <span className="font-medium text-foreground">1.</span> {t('terms.rate')}
           </p>
           <p>
-            <span className="font-medium text-foreground">2.</span> Things we do to advertise our
-            company are:
+            <span className="font-medium text-foreground">2.</span> {t('terms.advertise')}
           </p>
           <ul className="ml-4 flex flex-col gap-1">
-            <li>• We will paste link to our website in billing email signature.</li>
+            <li>• {t('terms.adSignature')}</li>
             <li>
-              • Calls to your representative&apos;s direct extension will include a recorded
-              advertisement for our business.
+              • {t('terms.adCalls')}
             </li>
-            <li>• We might display your logo on our website.</li>
+            <li>• {t('terms.adLogo')}</li>
           </ul>
           <p>
-            A higher hourly rate applies for white-label services where third-party involvement
-            remains undisclosed.
+            {t('terms.whiteLabel')}
           </p>
           <p>
-            Detailed Terms and Conditions are available at the following link:{' '}
-            <a
-              href="https://docs.google.com/document/d/e/2PACX-1vSM7gM4V1fjBiZVC9ugTyFdYGxIOyDfUdyCZ1Dzrtjg_k8l8KX1pk86Z3BGrnXPaCuh6NORex9m5-z2/pub"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:opacity-80"
-            >
-              View full terms
-            </a>
+            <Trans
+              t={t}
+              i18nKey="terms.detailed"
+              components={{
+                link: (
+                  <a
+                    href="https://docs.google.com/document/d/e/2PACX-1vSM7gM4V1fjBiZVC9ugTyFdYGxIOyDfUdyCZ1Dzrtjg_k8l8KX1pk86Z3BGrnXPaCuh6NORex9m5-z2/pub"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:opacity-80"
+                  />
+                ),
+              }}
+            />
           </p>
         </div>
 
@@ -110,7 +114,7 @@ export function Step12Terms({ data, onChange }: Props) {
             onChange={e => onChange({ termsAccepted: e.target.checked ? true : null })}
             className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
           />
-          <span className="text-sm">I agree to the terms and conditions</span>
+          <span className="text-sm">{t('terms.iAgree')}</span>
         </label>
       </div>
     </div>

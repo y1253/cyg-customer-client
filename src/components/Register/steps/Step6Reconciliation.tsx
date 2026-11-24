@@ -1,4 +1,5 @@
 import { Trash2, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +13,8 @@ import {
 import type { FormData, ReconciliationAccount } from '../types';
 import { selectItems } from '@/lib/select-items';
 
-const ACCOUNT_TYPES = ['Checking', 'Savings', 'Credit Card', 'Line of Credit', 'Other'];
+// The values are saved as they are; only their labels are translated.
+const ACCOUNT_TYPES = ['Checking', 'Savings', 'Credit Card', 'Line of Credit', 'Other'] as const;
 
 interface Props {
   data: FormData;
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export function Step6Reconciliation({ data, onChange }: Props) {
+  const { t } = useTranslation(['register', 'common']);
   const accounts = data.reconciliationAccounts;
 
   function updateAccount(index: number, patch: Partial<ReconciliationAccount>) {
@@ -38,9 +41,9 @@ export function Step6Reconciliation({ data, onChange }: Props) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-700">
-        <span className="font-medium">30-day cycle</span>
+        <span className="font-medium">{t('reconciliation.cycle')}</span>
         <span className="text-teal-500">·</span>
-        <span>Each account will be reconciled on a 30-day recurring schedule.</span>
+        <span>{t('reconciliation.cycleHint')}</span>
       </div>
 
       <div className="flex flex-col gap-4">
@@ -48,14 +51,14 @@ export function Step6Reconciliation({ data, onChange }: Props) {
           <div key={index} className="rounded-lg border bg-muted/30 p-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">
-                Account {index + 1}
+                {t('reconciliation.account', { n: index + 1 })}
               </span>
               {index > 0 && (
                 <button
                   type="button"
                   onClick={() => removeAccount(index)}
                   className="text-muted-foreground hover:text-destructive transition-colors"
-                  aria-label="Remove account"
+                  aria-label={t('reconciliation.removeAccount')}
                 >
                   <Trash2 size={15} />
                 </button>
@@ -65,25 +68,25 @@ export function Step6Reconciliation({ data, onChange }: Props) {
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`acct-name-${index}`}>
-                  Account Name <span className="text-destructive">*</span>
+                  {t('reconciliation.accountName')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id={`acct-name-${index}`}
                   value={account.name}
                   onChange={e => updateAccount(index, { name: e.target.value })}
-                  placeholder="e.g. Main Business Checking"
+                  placeholder={t('reconciliation.accountNamePlaceholder')}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`acct-note-${index}`}>
-                  Note <span className="text-muted-foreground font-normal">(optional)</span>
+                  {t('schedule.note')} <span className="text-muted-foreground font-normal">{t('schedule.optionalParen')}</span>
                 </Label>
                 <textarea
                   id={`acct-note-${index}`}
                   value={account.note}
                   onChange={e => updateAccount(index, { note: e.target.value })}
-                  placeholder="Any additional instructions..."
+                  placeholder={t('schedule.notePlaceholder')}
                   className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground resize-none"
                 />
               </div>
@@ -91,20 +94,20 @@ export function Step6Reconciliation({ data, onChange }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label>
-                    Account Type <span className="text-destructive">*</span>
+                    {t('reconciliation.accountType')} <span className="text-destructive">*</span>
                   </Label>
                   <Select
-                    items={selectItems(ACCOUNT_TYPES, t => t, t => t)}
+                    items={selectItems(ACCOUNT_TYPES, v => v, v => t(`reconciliation.types.${v}`))}
                     value={account.type || null}
                     onValueChange={val => updateAccount(index, { type: val ?? '' })}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder={t('reconciliation.selectType')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {ACCOUNT_TYPES.map(t => (
-                        <SelectItem key={t} value={t}>
-                          {t}
+                      {ACCOUNT_TYPES.map(v => (
+                        <SelectItem key={v} value={v}>
+                          {t(`reconciliation.types.${v}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -113,7 +116,7 @@ export function Step6Reconciliation({ data, onChange }: Props) {
 
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`acct-date-${index}`}>
-                    Starting Date <span className="text-destructive">*</span>
+                    {t('schedule.startDate')} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id={`acct-date-${index}`}
@@ -130,7 +133,7 @@ export function Step6Reconciliation({ data, onChange }: Props) {
 
       <Button type="button" variant="outline" onClick={addAccount} className="w-full gap-1.5">
         <Plus size={15} />
-        Add Another Account
+        {t('reconciliation.addAccount')}
       </Button>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { CheckCircle2, FileUp, Loader2 } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { MAX_STATEMENT_BYTES } from '@/api/bookkeeping'
 import { Progress } from '@/components/ui/progress'
 import { useUploadStatements } from '@/hooks/useUploadStatements'
@@ -12,6 +13,7 @@ const isPdf = (f: File) => /\.pdf$/i.test(f.name)
  * and size so a wrong file is named before anything uploads; the server checks again.
  */
 export function UploadDropzone() {
+  const { t } = useTranslation(['books', 'common'])
   const input = useRef<HTMLInputElement>(null)
   const upload = useUploadStatements()
   const [dragging, setDragging] = useState(false)
@@ -24,11 +26,18 @@ export function UploadDropzone() {
     const notPdf = files.filter((f) => !isPdf(f))
     const tooBig = files.filter((f) => isPdf(f) && f.size > MAX_STATEMENT_BYTES)
     const ok = files.filter((f) => isPdf(f) && f.size <= MAX_STATEMENT_BYTES)
+    const names = `${notPdf.map((f) => f.name).slice(0, 2).join(', ')}${notPdf.length > 2 ? '…' : ''}`
     const skipped = [
-      notPdf.length && `${notPdf.length} not a PDF (${notPdf.map((f) => f.name).slice(0, 2).join(', ')}${notPdf.length > 2 ? '…' : ''})`,
-      tooBig.length && `${tooBig.length} over 50 MB`,
-    ].filter(Boolean)
-    setNotice(skipped.length ? `Skipped ${skipped.join(' and ')}.` : null)
+      notPdf.length && t('upload.notPdf', { count: notPdf.length, names }),
+      tooBig.length && t('upload.tooBig', { count: tooBig.length }),
+    ].filter((x): x is string => !!x)
+    setNotice(
+      skipped.length === 2
+        ? t('upload.skippedBoth', { a: skipped[0], b: skipped[1] })
+        : skipped.length
+          ? t('upload.skipped', { what: skipped[0] })
+          : null,
+    )
     if (!ok.length) return
     setLastCount(ok.length)
     upload.mutate(ok)
@@ -64,11 +73,14 @@ export function UploadDropzone() {
         </span>
         <div>
           <p className="text-base font-semibold text-[#0B1C2C]">
-            {upload.isPending ? `Uploading ${lastCount} statement${lastCount === 1 ? '' : 's'}…` : 'Drop bank statements here'}
+            {upload.isPending ? t('upload.uploading', { count: lastCount }) : t('upload.drop')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            or <span className="font-medium text-brand underline-offset-4 group-hover:underline">browse your files</span>{' '}
-            — PDF, as many as you like
+            <Trans
+              t={t}
+              i18nKey="upload.browse"
+              components={{ link: <span className="font-medium text-brand underline-offset-4 group-hover:underline" /> }}
+            />
           </p>
         </div>
       </button>
@@ -86,7 +98,7 @@ export function UploadDropzone() {
       {upload.isPending && <Progress value={Math.round(upload.progress * 100)} className="h-1.5" />}
       {upload.isSuccess && !upload.isPending && (
         <p className="flex items-center gap-2 text-sm text-emerald-700">
-          <CheckCircle2 className="size-4" /> Uploaded — click Generate when you have added them all.
+          <CheckCircle2 className="size-4" /> {t('upload.done')}
         </p>
       )}
       {upload.error && (

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, MessageSquareText } from 'lucide-react'
 import { useIntake } from '@/hooks/useIntake'
 import { fmtPhone } from '@/lib/attachment-labels'
@@ -14,6 +15,7 @@ import { IntakeNumberChips } from './IntakeNumberChips'
  * connected no number.
  */
 export function TextReceiptsCard({ className }: { className?: string }) {
+  const { t } = useTranslation('ledger')
   const intake = useIntake()
   const data = intake.data
   if (!data?.numbers.length) return null
@@ -26,44 +28,61 @@ export function TextReceiptsCard({ className }: { className?: string }) {
           <MessageSquareText className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-[#0B1C2C]">{wa ? 'Text or WhatsApp us your receipts' : 'Text us your receipts'}</p>
+          <p className="font-semibold text-[#0B1C2C]">{wa ? t('receipts.titleWa') : t('receipts.title')}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Send a photo, a PDF, a voice note or just a few words (“bought tissues at Walmart, $23”)
-            {wa ? ' by text or WhatsApp' : ''} — we file it like an upload.
+            {wa ? t('receipts.sendWa') : t('receipts.send')}
           </p>
           <div className="mt-3">
             <IntakeNumberChips intake={data} />
           </div>
           {data.voice && (
             <p className="mt-3 text-sm text-muted-foreground">
-              Or <span className="font-medium text-[#0B1C2C]">call</span> the same number to talk to our AI assistant
-              about your books — it can also call or text people for you.
+              <Trans t={t} i18nKey="receipts.call" components={{ b: <span className="font-medium text-[#0B1C2C]" /> }} />
             </p>
           )}
           {data.email && (
             <p className="mt-3 text-sm text-muted-foreground">
-              Or email them to{' '}
-              <a href={`mailto:${data.email}`} className="font-medium text-brand underline-offset-2 hover:underline">
-                {data.email}
-              </a>{' '}
-              from <span className="font-medium text-[#0B1C2C]">the email on your account</span> — you can ask questions there too.
+              <Trans
+                t={t}
+                i18nKey="receipts.email"
+                values={{ email: data.email }}
+                components={{
+                  link: (
+                    <a href={`mailto:${data.email}`} className="font-medium text-brand underline-offset-2 hover:underline" />
+                  ),
+                  b: <span className="font-medium text-[#0B1C2C]" />,
+                }}
+              />
             </p>
           )}
           {data.phone ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              We recognise {wa ? 'texts and WhatsApp messages' : 'texts'} from{' '}
-              <span className="font-medium text-[#0B1C2C]">{fmtPhone(data.phone)}</span>, the phone on your account.
+              <Trans
+                t={t}
+                i18nKey={wa ? 'receipts.recogniseWa' : 'receipts.recognise'}
+                values={{ phone: fmtPhone(data.phone) }}
+                components={{ b: <span className="font-medium text-[#0B1C2C]" /> }}
+              />
             </p>
           ) : (
             <p className="mt-3 flex items-start gap-1.5 text-xs text-amber-700">
               <AlertTriangle className="mt-px size-3.5 shrink-0" />
               <span>
-                {data.phoneSaved ? 'The phone on your account isn’t a valid number' : 'Add your mobile number'} so we know
-                your {wa ? 'messages' : 'texts'} are from you —{' '}
-                <Link to="/dashboard/account" className="font-medium underline underline-offset-2">
-                  My account
-                </Link>
-                .
+                <Trans
+                  t={t}
+                  i18nKey={
+                    data.phoneSaved
+                      ? wa
+                        ? 'receipts.badPhoneWa'
+                        : 'receipts.badPhone'
+                      : wa
+                        ? 'receipts.noPhoneWa'
+                        : 'receipts.noPhone'
+                  }
+                  components={{
+                    link: <Link to="/dashboard/account" className="font-medium underline underline-offset-2" />,
+                  }}
+                />
               </span>
             </p>
           )}

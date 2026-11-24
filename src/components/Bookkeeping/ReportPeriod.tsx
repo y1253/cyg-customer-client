@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 import type { Period } from '@/api/bookkeeping'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,23 +14,24 @@ function presets(): Array<{ label: string; period: Period }> {
   const y = now.getFullYear()
   const m = now.getMonth()
   return [
-    { label: 'All time', period: { from: null, to: null } },
-    { label: 'This month', period: { from: iso(new Date(y, m, 1)), to: iso(new Date(y, m + 1, 0)) } },
-    { label: 'Last month', period: { from: iso(new Date(y, m - 1, 1)), to: iso(new Date(y, m, 0)) } },
-    { label: 'This year', period: { from: `${y}-01-01`, to: `${y}-12-31` } },
-    { label: 'Last year', period: { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` } },
+    { label: i18n.t('common:period.allTime'), period: { from: null, to: null } },
+    { label: i18n.t('books:period.thisMonth'), period: { from: iso(new Date(y, m, 1)), to: iso(new Date(y, m + 1, 0)) } },
+    { label: i18n.t('books:period.lastMonth'), period: { from: iso(new Date(y, m - 1, 1)), to: iso(new Date(y, m, 0)) } },
+    { label: i18n.t('books:period.thisYear'), period: { from: `${y}-01-01`, to: `${y}-12-31` } },
+    { label: i18n.t('books:period.lastYear'), period: { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` } },
   ]
 }
 
 /** From / to dates for the reports, with the usual presets. Both empty = all time. */
 export function ReportPeriod({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+  const { t } = useTranslation(['books', 'common'])
   const invalid = !!value.from && !!value.to && value.from > value.to
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/5 lg:flex-row lg:items-end">
       <div className="flex gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="report-from" className="text-xs text-muted-foreground">
-            From
+            {t('period.from')}
           </Label>
           <Input
             id="report-from"
@@ -41,7 +44,7 @@ export function ReportPeriod({ value, onChange }: { value: Period; onChange: (p:
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="report-to" className="text-xs text-muted-foreground">
-            To
+            {t('period.to')}
           </Label>
           <Input
             id="report-to"
@@ -73,7 +76,7 @@ export function ReportPeriod({ value, onChange }: { value: Period; onChange: (p:
           )
         })}
       </div>
-      {invalid && <p className="text-sm text-destructive lg:ml-auto">“From” must be before “To”.</p>}
+      {invalid && <p className="text-sm text-destructive lg:ml-auto">{t('period.invalid')}</p>}
     </div>
   )
 }

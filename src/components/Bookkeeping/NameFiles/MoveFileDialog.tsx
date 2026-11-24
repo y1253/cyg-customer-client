@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Attachment } from '@/api/attachments'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -33,6 +34,7 @@ export function MoveFileDialog({
 }
 
 function Body({ a, onDone }: { a: Attachment; onDone: () => void }) {
+  const { t } = useTranslation('ledger')
   const [name, setName] = useState(a.name ?? '')
   const [folderId, setFolderId] = useState<number | null>(a.folderId)
   const folders = useNameFolders()
@@ -61,19 +63,19 @@ function Body({ a, onDone }: { a: Attachment; onDone: () => void }) {
       }}
     >
       <DialogHeader>
-        <DialogTitle>Move “{fileTitle(a)}”</DialogTitle>
-        <DialogDescription>Pick the name it belongs to, and a folder inside it if you made some.</DialogDescription>
+        <DialogTitle>{t('move.title', { name: fileTitle(a) })}</DialogTitle>
+        <DialogDescription>{t('move.description')}</DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="move-name">Name</Label>
-        <NamePicker id="move-name" value={name} onChange={setName} placeholder="Type or pick a name" autoFocus />
+        <Label htmlFor="move-name">{t('columns.name')}</Label>
+        <NamePicker id="move-name" value={name} onChange={setName} placeholder={t('move.namePlaceholder')} autoFocus />
       </div>
       {choices.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <Label>Folder</Label>
+          <Label>{t('move.folder')}</Label>
           <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
             {[
-              { id: null as number | null, label: `${name.trim() || 'Unsorted'} (top)` },
+              { id: null as number | null, label: t('move.top', { name: name.trim() || t('files.unsorted') }) },
               // step12 (2026-11-22): A–Z by the folder's whole path.
               ...sortByLabel(
                 choices.map((f) => ({ id: f.id, label: pathOf(f.id) })),
@@ -100,7 +102,7 @@ function Body({ a, onDone }: { a: Attachment; onDone: () => void }) {
       {place.error && <p className="text-sm text-destructive">{place.error.message}</p>}
       <DialogFooter>
         <Button type="submit" disabled={place.isPending} className="bg-brand text-white hover:bg-brand/85">
-          Move
+          {t('move.move')}
         </Button>
       </DialogFooter>
     </form>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Lightbulb, MessageCircle, MessageSquareText, Phone, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AssistantConversation } from '@/api/assistant'
 import { uploadAttachments } from '@/api/attachments'
 import { Button } from '@/components/ui/button'
@@ -14,10 +15,11 @@ import {
 import { useBook } from '@/hooks/useBook'
 import { useInvalidateBookkeeping } from '@/hooks/useInvalidateBookkeeping'
 import { channelLabel, conversationLabel } from '@/lib/assistant'
+import i18n, { currentLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { ChatPanel } from './ChatPanel'
 
-const ago = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const ago = (iso: string) => new Date(iso).toLocaleDateString(currentLocale(), { month: 'short', day: 'numeric' })
 
 function ChannelIcon({ c }: { c: AssistantConversation }) {
   if (c.channel === 'SMS') return <MessageSquareText className="size-4 shrink-0 text-sky-600" />
@@ -29,12 +31,9 @@ function ChannelIcon({ c }: { c: AssistantConversation }) {
 /** Why a thread can only be read here (it is answered somewhere else). */
 function readOnlyReason(c: AssistantConversation | undefined): string | undefined {
   if (!c) return undefined
-  if (c.channel === 'SMS') return 'This conversation happened by text — reply from your phone to continue it.'
-  if (c.channel === 'WHATSAPP') return 'This conversation happened on WhatsApp — reply there to continue it.'
-  if (c.channel === 'VOICE') return 'These were phone calls — call our receipt number to talk to the AI again.'
-  if (c.channel === 'EMAIL') return 'This conversation happened by email — reply to that email to continue it.'
-  if (c.attachmentId) return 'This chat is about one file — continue it from its folder on the Names tab → Ask AI.'
-  if (c.statementId) return 'This chat is about one statement — continue it from Bank feeds → Ask AI to fix it.'
+  if (c.channel !== 'BOT') return i18n.t(`assistant:panel.readOnly.${c.channel}`)
+  if (c.attachmentId) return i18n.t('assistant:panel.readOnly.attachment')
+  if (c.statementId) return i18n.t('assistant:panel.readOnly.statement')
   return undefined
 }
 
@@ -45,6 +44,7 @@ function readOnlyReason(c: AssistantConversation | undefined): string | undefine
  * customer had by text or WhatsApp too, plus what the AI learned about this book.
  */
 export function AssistantPanel() {
+  const { t } = useTranslation(['assistant', 'common'])
   const conversations = useConversations()
   const [selected, setSelected] = useState<number | null>(null)
   const messages = useConversationMessages(selected)
@@ -57,9 +57,9 @@ export function AssistantPanel() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <nav aria-label="Conversations" className="flex flex-col gap-2">
+        <nav aria-label={t('panel.conversations')} className="flex flex-col gap-2">
           <Button variant="outline" className="justify-start gap-1.5" onClick={() => setSelected(null)}>
-            <Plus className="size-4" /> New chat
+            <Plus className="size-4" /> {t('panel.newChat')}
           </Button>
           {conversations.isLoading ? (
             [0, 1, 2].map((i) => <Skeleton key={i} className="h-14 rounded-xl" />)
@@ -119,9 +119,7 @@ export function AssistantPanel() {
             empty={
               <>
                 <Sparkles className="mx-auto mb-2 size-6 text-brand" />
-                Ask anything about your books — “show my transactions from March”, “what did I spend at Costco?”,
-                “move Uber to Travel”. Add a receipt, a cheque or a letter with the paperclip and the AI will
-                read it. You can also text or WhatsApp our receipt number.
+                {t('panel.empty')}
               </>
             }
           />
@@ -135,21 +133,22 @@ export function AssistantPanel() {
 
 /** The short rules the AI saved for this book; deleting one makes the AI forget it. */
 function LearnedRules() {
+  const { t } = useTranslation(['assistant', 'common'])
   const rules = useAssistantRules()
   const remove = useDeleteAssistantRule()
   const list = rules.data ?? []
   return (
     <section className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
       <h3 className="flex items-center gap-2 font-semibold text-[#0B1C2C]">
-        <Lightbulb className="size-4 text-amber-500" /> What the AI learned
+        <Lightbulb className="size-4 text-amber-500" /> {t('panel.learnedTitle')}
       </h3>
       <p className="mt-0.5 text-sm text-muted-foreground">
-        Rules the AI saved from your chats. It follows them every time it reads your statements and receipts.
+        {t('panel.learnedHelp')}
       </p>
       {rules.isLoading ? (
         <Skeleton className="mt-3 h-10 rounded-lg" />
       ) : !list.length ? (
-        <p className="mt-3 text-sm text-muted-foreground">Nothing yet.</p>
+        <p className="mt-3 text-sm text-muted-foreground">{t('panel.nothingYet')}</p>
       ) : (
         <ul className="mt-3 divide-y rounded-xl ring-1 ring-black/5">
           {list.map((r) => (
@@ -159,7 +158,8 @@ function LearnedRules() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                title="Forget this rule"
+                title={t('panel.forgetRule')}
+                aria-label={t('panel.forgetRule')}
                 disabled={remove.isPending}
                 onClick={() => remove.mutate(r.id)}
                 className="text-muted-foreground hover:text-destructive"

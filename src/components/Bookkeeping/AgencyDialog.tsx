@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ChevronLeft, Layers, Plus, Split } from 'lucide-react'
 import {
   rateLabel,
@@ -23,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
+import i18n from '@/i18n'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useSaveSplitGroup } from '@/hooks/useSplitGroups'
 import { useTax } from '@/hooks/useTax'
@@ -52,19 +54,21 @@ const ruleOf = (agency: TaxAgency): RuleForm => {
   return { name: agency.name, rates: { SALES: rate('SALES'), PURCHASE: rate('PURCHASE') } }
 }
 
-/** The rule's rates for the API, or the message to show. `label` names it in the message. */
-function ratesOf(rule: RuleForm, label: string): TaxAgencyInput['rates'] | string {
-  if (!rule.name.trim()) return `Give ${label} a name.`
+/** The rule's rates for the API, or the message to show (in the site's language). */
+function ratesOf(rule: RuleForm): TaxAgencyInput['rates'] | string {
+  const name = rule.name.trim()
+  if (!name) return i18n.t('names:agencyDialog.needName')
   const chosen = KINDS.filter((k) => rule.rates[k].value.trim() !== '')
-  if (!chosen.length) return `Give ${rule.name.trim()} an In rate, an Out rate, or both.`
+  if (!chosen.length) return i18n.t('names:agencyDialog.needRate', { name })
   const out: TaxAgencyInput['rates'] = []
   for (const kind of chosen) {
     const { mode, value: typed } = rule.rates[kind]
-    const value = Number(typed)
-    const side = `${rule.name.trim()}'s ${TAX_KIND_LABEL[kind]}`
-    if (!Number.isFinite(value)) return `${side} rate is not a number.`
-    if (mode === 'PERCENT' && (value < 0 || value > 100)) return `${side} rate is a percent between 0 and 100.`
-    if (mode === 'FIXED' && value <= 0) return `${side} amount must be more than 0.`
+    // A French decimal comma ("2,50") is a decimal point.
+    const value = Number(typed.trim().replace(',', '.'))
+    const side = TAX_KIND_LABEL[kind]
+    if (!Number.isFinite(value)) return i18n.t('names:agencyDialog.notNumber', { name, side })
+    if (mode === 'PERCENT' && (value < 0 || value > 100)) return i18n.t('names:agencyDialog.percentRange', { name, side })
+    if (mode === 'FIXED' && value <= 0) return i18n.t('names:agencyDialog.amountPositive', { name, side })
     out.push(
       mode === 'FIXED'
         ? { kind, mode: 'FIXED', amount: Math.round(value * 100) / 100 }
@@ -110,6 +114,7 @@ export function AgencyDialog({
   /** Only the individual form (no Individual / Group choice). */
   individual?: boolean
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const save = useSaveAgency()
   const saveGroup = useSaveSplitGroup()
   const create = useCreateAccount()
@@ -164,12 +169,12 @@ export function AgencyDialog({
   }
 
   const submitIndividual = async () => {
-    const rates = ratesOf(rule, 'the split rule')
+    const rates = ratesOf(rule)
     if (typeof rates === 'string') return setError(rates)
-    if (ownCategory && !choiceReady(choice)) return setError('Pick the category, or switch "Its own category" off.')
+    if (ownCategory && !choiceReady(choice)) return setError(t('agencyDialog.pickCategory'))
     setError(null)
     const category = ownCategory ? await resolveChoice(choice, create) : null
-    if (ownCategory && !category) return setError('The new category could not be made.')
+    if (ownCategory && !category) return setError(t('agencyDialog.categoryFailed'))
     // step9 (2026-11-18): a rule in a group is switched on / off on its group. Its group is never sent: it
     // changes only in the group window.
     const values: Partial<TaxAgencyInput> = {
@@ -183,9 +188,9 @@ export function AgencyDialog({
 
   const submitGroup = async () => {
     const name = groupName.trim()
-    if (!name) return setError('Give the group a name.')
+    if (!name) return setError(t('agencyDialog.needGroupName'))
     const ids = picked.filter((id) => rules.some((a) => a.id === id))
-    if (!ids.length && !splitGroup) return setError('Pick at least one split rule for the group.')
+    if (!ids.length && !splitGroup) return setError(t('agencyDialog.needGroupRule'))
     setError(null)
     let id = splitGroup?.id ?? madeGroup
     if (id === null) {
@@ -242,20 +247,20 @@ export function AgencyDialog({
             <DialogTitle>
               {title ??
                 (splitGroup
-                  ? 'Edit split group'
+                  ? t('agencyDialog.editGroup')
                   : agency
-                    ? 'Edit split rule'
+                    ? t('agencyDialog.editRule')
                     : step === 'group'
-                      ? 'Add a split group'
-                      : 'Add a split rule')}
+                      ? t('agencyDialog.addGroup')
+                      : t('agencyDialog.addRule'))}
             </DialogTitle>
             <DialogDescription>
               {description ??
                 (step === 'choose'
-                  ? 'What do you want to add?'
+                  ? t('agencyDialog.chooseText')
                   : step === 'group'
-                    ? 'The rules of a group split the same amount together, and are picked on a name as one.'
-                    : 'Leave In or Out blank if the rule does not take that side.')}
+                    ? t('agencyDialog.groupText')
+                    : t('agencyDialog.ruleText'))}
             </DialogDescription>
           </DialogHeader>
 
@@ -263,14 +268,14 @@ export function AgencyDialog({
             <div className="grid gap-3 sm:grid-cols-2">
               <ChoiceButton
                 icon={<Split className="size-5" />}
-                title="Individual"
-                text="One rule, e.g. GST"
+                title={t('agencyDialog.individual')}
+                text={t('agencyDialog.individualText')}
                 onClick={() => setStep('individual')}
               />
               <ChoiceButton
                 icon={<Layers className="size-5" />}
-                title="Group"
-                text="Several rules that split the same amount together, e.g. GST + QST"
+                title={t('agencyDialog.group')}
+                text={t('agencyDialog.groupChoiceText')}
                 onClick={() => setStep('group')}
               />
             </div>
@@ -286,7 +291,7 @@ export function AgencyDialog({
                   className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted-foreground hover:text-brand"
                 >
                   <ChevronLeft className="size-3.5" />
-                  Back
+                  {t('common:actions.back')}
                 </button>
               )}
               {step === 'individual' ? (
@@ -294,21 +299,21 @@ export function AgencyDialog({
               ) : (
                 <>
                   <div className="grid gap-1.5">
-                    <Label htmlFor="group-name">Group name</Label>
+                    <Label htmlFor="group-name">{t('agencyDialog.groupName')}</Label>
                     <Input
                       id="group-name"
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
-                      placeholder="e.g. Quebec taxes"
+                      placeholder={t('agencyDialog.groupPlaceholder')}
                       maxLength={191}
                       autoFocus
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Split rules in the group</Label>
+                    <Label>{t('agencyDialog.rulesInGroup')}</Label>
                     {rules.length === 0 ? (
                       <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
-                        You have no split rules yet — create one below.
+                        {t('agencyDialog.noRules')}
                       </p>
                     ) : (
                       <ul className="grid max-h-64 gap-1 overflow-y-auto rounded-lg bg-muted/50 p-1.5">
@@ -341,7 +346,7 @@ export function AgencyDialog({
                                 <span className="min-w-0 truncate font-medium text-[#0B1C2C]">{a.name}</span>
                                 {elsewhere && (
                                   <span className="shrink-0 rounded bg-amber-100 px-1.5 text-[11px] text-amber-800">
-                                    {on ? `moves from ${elsewhere}` : `in ${elsewhere}`}
+                                    {on ? t('agencyDialog.movesFrom', { group: elsewhere }) : t('agency.inGroup', { group: elsewhere })}
                                   </span>
                                 )}
                                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">
@@ -361,7 +366,7 @@ export function AgencyDialog({
                       className="w-fit gap-1.5"
                     >
                       <Plus className="size-4" />
-                      Create a new split rule
+                      {t('agencyDialog.createRule')}
                     </Button>
                   </div>
                 </>
@@ -369,7 +374,7 @@ export function AgencyDialog({
 
               {step === 'individual' && (
                 <p className="text-xs text-muted-foreground">
-                  A percentage is taken out of the amount: $100 at 10% splits off $9.09.
+                  {t('agencyDialog.percentHelp')}
                 </p>
               )}
 
@@ -381,7 +386,7 @@ export function AgencyDialog({
                   className="inline-flex w-fit items-center gap-1 text-sm font-medium text-brand hover:underline"
                 >
                   <ChevronDown className={cn('size-4 transition-transform', more && 'rotate-180')} />
-                  More options
+                  {t('agencyDialog.moreOptions')}
                 </button>
                 {more && (
                   <div className="grid gap-2">
@@ -390,11 +395,13 @@ export function AgencyDialog({
                         <div className="grid gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
                           <label className="flex items-center justify-between gap-3">
                             <span>
-                              <span className="block text-sm font-medium">Its own category</span>
+                              <span className="block text-sm font-medium">{t('agencyDialog.ownCategory')}</span>
                               <span className="block text-xs text-muted-foreground">
                                 {ownCategory
-                                  ? 'The splits go to this category.'
-                                  : `Off: the splits go to its own account, “${rule.name.trim() || 'the rule’s name'}”.`}
+                                  ? t('agencyDialog.ownCategoryOn')
+                                  : t('agencyDialog.ownCategoryOff', {
+                                      name: rule.name.trim() || t('agencyDialog.theRuleName'),
+                                    })}
                               </span>
                             </span>
                             <Switch checked={ownCategory} onCheckedChange={setOwnCategory} className="data-checked:bg-brand" />
@@ -405,16 +412,14 @@ export function AgencyDialog({
                     )}
                     {step === 'individual' && ownGroup ? (
                       <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
-                        Switched on and off with its group, {ownGroup}.
+                        {t('agencyDialog.withGroup', { group: ownGroup })}
                       </p>
                     ) : (
                       <label className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
                         <span>
-                          <span className="block text-sm font-medium">Active</span>
+                          <span className="block text-sm font-medium">{t('active')}</span>
                           <span className="block text-xs text-muted-foreground">
-                            {step === 'group'
-                              ? 'Switches all the rules of the group on or off. Only active rules split new transactions.'
-                              : 'Only active rules split new transactions.'}
+                            {step === 'group' ? t('agencyDialog.activeGroupHelp') : t('agencyDialog.activeHelp')}
                           </span>
                         </span>
                         <Switch checked={active} onCheckedChange={setActive} className="data-checked:bg-brand" />
@@ -433,10 +438,16 @@ export function AgencyDialog({
           )}
 
           <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             {step !== 'choose' && (
               <Button type="submit" disabled={busy} className="bg-brand text-white hover:bg-brand/85">
-                {busy ? 'Saving…' : agency || splitGroup ? 'Save' : step === 'group' ? 'Add group' : 'Add split rule'}
+                {busy
+                  ? t('common:actions.saving')
+                  : agency || splitGroup
+                    ? t('common:actions.save')
+                    : step === 'group'
+                      ? t('agencyDialog.submitGroup')
+                      : t('agencyDialog.submitRule')}
               </Button>
             )}
           </DialogFooter>
@@ -448,8 +459,8 @@ export function AgencyDialog({
             onOpenChange={setCreating}
             agency={null}
             individual
-            title="New split rule"
-            description="It joins the list, picked for this group."
+            title={t('agencyDialog.newRuleTitle')}
+            description={t('agencyDialog.newRuleText')}
             onSaved={(a) => setPicked((all) => (all.includes(a.id) ? all : [...all, a.id]))}
           />
         )}
@@ -487,13 +498,14 @@ function RuleFields({
   rule,
   onChange,
   autoFocus,
-  placeholder = 'e.g. GST',
+  placeholder,
 }: {
   rule: RuleForm
   onChange: (rule: RuleForm) => void
   autoFocus?: boolean
   placeholder?: string
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const setRate = (kind: TaxKind, patch: Partial<RateForm>) =>
     onChange({ ...rule, rates: { ...rule.rates, [kind]: { ...rule.rates[kind], ...patch } } })
   return (
@@ -501,10 +513,10 @@ function RuleFields({
       <Input
         value={rule.name}
         onChange={(e) => onChange({ ...rule, name: e.target.value })}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('agencyDialog.rulePlaceholder')}
         maxLength={191}
         autoFocus={autoFocus}
-        aria-label="Rule name"
+        aria-label={t('agencyDialog.ruleNameAria')}
         className="bg-white"
       />
       <div className="grid gap-2 sm:grid-cols-2">
@@ -526,10 +538,14 @@ function RateField({
   rate: RateForm
   onChange: (patch: Partial<RateForm>) => void
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const label = TAX_KIND_LABEL[kind]
   return (
     <div className="flex items-center gap-2">
-      <span className="w-8 shrink-0 text-sm font-medium" title={kind === 'SALES' ? 'Money you receive' : 'Money you spend'}>
+      <span
+        className="min-w-8 shrink-0 text-sm font-medium"
+        title={kind === 'SALES' ? t('agencyDialog.moneyIn') : t('agencyDialog.moneyOut')}
+      >
         {label}
       </span>
       <div className="relative min-w-0 flex-1">
@@ -544,7 +560,7 @@ function RateField({
           onChange={(e) => onChange({ value: e.target.value })}
           placeholder={rate.mode === 'FIXED' ? '2.00' : '5'}
           className={cn('bg-white', rate.mode === 'FIXED' ? 'pl-6' : 'pr-7')}
-          aria-label={`${label} ${rate.mode === 'FIXED' ? 'amount' : 'rate'}`}
+          aria-label={t(rate.mode === 'FIXED' ? 'agencyDialog.amountAria' : 'agencyDialog.rateAria', { side: label })}
         />
         {rate.mode === 'PERCENT' && (
           <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground">
@@ -554,7 +570,7 @@ function RateField({
       </div>
       <div
         role="group"
-        aria-label={`${label}: percentage or fixed amount`}
+        aria-label={t('agencyDialog.modeAria', { side: label })}
         className="flex shrink-0 rounded-md bg-white p-0.5 ring-1 ring-black/10"
       >
         {(['PERCENT', 'FIXED'] as const).map((mode) => (

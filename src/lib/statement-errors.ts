@@ -1,4 +1,24 @@
+import i18n from '@/i18n'
 import type { Statement, StatementProblemKind } from '@/api/bookkeeping'
+
+type HelpKey =
+  | 'ENDING'
+  | 'RUNNING'
+  | 'NO_OPENING'
+  | 'OTHER'
+  | 'MISMATCH'
+  | 'MISSING'
+  | 'NO_BALANCES'
+  | 'NEEDS_REVIEW'
+  | 'PASSWORD'
+  | 'NOT_STATEMENT'
+  | 'DAMAGED'
+  | 'GENERIC'
+
+const help = (k: HelpKey): { what: string; todo: string[] } => ({
+  what: i18n.t(`books:help.${k}.what`),
+  todo: [...i18n.t(`books:help.${k}.todo`, { returnObjects: true })],
+})
 
 /**
  * step8: what a statement we could not read MEANS and what the customer can do — shown
@@ -9,105 +29,21 @@ export function statementHelp(
   problem?: StatementProblemKind,
 ): { what: string; todo: string[] } | null {
   // step2 (2026-11-12): read and in the books, but its own rows don't reach its ending balance.
-  if (problem === 'ENDING')
-    return {
-      what:
-        "Its opening balance plus the money in and out we read doesn't come to the ending balance printed on it, so a transaction was read wrong or skipped. Its transactions are in your books as read until it is fixed.",
-      todo: [
-        'Try again — it is read once more from scratch.',
-        'Ask AI and tell it the balances printed on the statement, or which transaction is wrong; it fixes how it is read and checks again.',
-      ],
-    }
+  if (problem === 'ENDING') return help('ENDING')
   // step9 (2026-11-15): the running balance on its last row isn't its ending balance.
-  if (problem === 'RUNNING')
-    return {
-      what:
-        "The bank prints a running balance next to each transaction. The one on its last transaction should be the statement's ending balance, and it isn't — so a transaction was read wrong or skipped. Its transactions are in your books as read until it is fixed.",
-      todo: [
-        'Try again — it is read once more from scratch.',
-        'Ask AI and tell it which transaction or amount is wrong; it fixes how it is read and checks again.',
-      ],
-    }
-  if (problem === 'NO_OPENING')
-    return {
-      what:
-        "We couldn't read a starting balance on this statement, and there was no ending balance to work one out from, so your books start this account at $0.00 here and its balances may be off.",
-      todo: [
-        'Try again — it is read once more with our strongest reader.',
-        'Ask AI and tell it the opening (starting) balance printed on the statement; it sets it and checks the transactions against it.',
-      ],
-    }
-  if (problem === 'OTHER')
-    return {
-      what: 'Our AI noted this problem with the statement from what you told it. It stays here until it is fixed.',
-      todo: ['Ask AI to fix it, or try again — it is read once more from scratch.'],
-    }
+  if (problem === 'RUNNING') return help('RUNNING')
+  if (problem === 'NO_OPENING') return help('NO_OPENING')
+  if (problem === 'OTHER') return help('OTHER')
   // step2 (2026-11-11): a read statement whose balances don't carry over / have a gap.
-  if (problem === 'MISMATCH')
-    return {
-      what:
-        "Each statement should start at the balance the one before it ended with. This one doesn't, so one of the two was read wrong or the bank changed something. We re-read both with our strongest reader. Until it is fixed, your books start again at this statement's opening balance.",
-      todo: [
-        'Open both PDFs and compare the ending balance of the earlier one with the opening balance of this one.',
-        'Ask AI and tell it the right balance, or what was read wrong; it corrects it and checks again.',
-        'If a statement was put in the wrong account, move it to the right folder.',
-      ],
-    }
-  if (problem === 'MISSING')
-    return {
-      what:
-        "There is a gap between the statement before this one and this one, so the transactions in that gap are missing from your books. Your books start again at this statement's opening balance.",
-      todo: [
-        'Upload the missing statement(s) — the gap closes by itself once they are read.',
-        'If there was really no statement for that time, Ask AI and tell it.',
-      ],
-    }
-  if (problem === 'NO_BALANCES')
-    return {
-      what:
-        "We read the transactions, but nothing on the statement we read (opening or closing balance, totals, running balance) could check them, so some may be missing or misread. They are in your books as read.",
-      todo: [
-        'Try again — it is read once more with our strongest reader.',
-        'Ask AI and tell it the opening and closing balance printed on the statement; it checks the transactions against them.',
-        'If the PDF is a scan or a photo, upload a clearer copy, or the one downloaded from your bank.',
-      ],
-    }
-  if (s.status === 'NEEDS_REVIEW')
-    return {
-      what:
-        "We read every transaction, then added them up and compared them with the totals the bank prints on the statement. They don't match, so something was read wrong or skipped (often a page, a sign, or one amount). To keep your books right, nothing from this statement is in your ledger yet.",
-      todo: [
-        'Try again — each read starts fresh and often fixes it.',
-        'Ask AI and tell it what is wrong (e.g. which page or which amount); it fixes how the statement is read and tries again.',
-        'If the PDF is a scan or a photo, upload a clearer copy, or the one downloaded from your bank.',
-      ],
-    }
+  if (problem === 'MISMATCH') return help('MISMATCH')
+  if (problem === 'MISSING') return help('MISSING')
+  if (problem === 'NO_BALANCES') return help('NO_BALANCES')
+  if (s.status === 'NEEDS_REVIEW') return help('NEEDS_REVIEW')
   if (s.status !== 'FAILED') return null
+  // The server's reason is English; these tests only pick which help to show.
   const reason = s.error ?? ''
-  if (/password/i.test(reason))
-    return {
-      what: 'The PDF is locked with a password, so it cannot be opened.',
-      todo: ['Download the statement again from your bank without a password, or print it to a new PDF, and upload that.'],
-    }
-  if (/not look like a bank|credit-card statement/i.test(reason))
-    return {
-      what: "This file doesn't look like a bank or credit-card statement (it may be a receipt, an invoice or a summary).",
-      todo: [
-        'If it is a receipt or invoice, upload it under Attachments instead.',
-        'If it really is a statement, Ask AI and tell it which bank and account it is.',
-      ],
-    }
-  if (/could not be opened|no pages/i.test(reason))
-    return {
-      what: 'The file is damaged or is not a real PDF, so it cannot be opened.',
-      todo: ['Download the statement again from your bank and upload the new copy.'],
-    }
-  return {
-    what: 'Something went wrong while reading this statement — usually a busy moment on our side or a hard-to-read file.',
-    todo: [
-      'Try again.',
-      'Ask AI and tell it what the statement is; it tries again with that.',
-      'If it keeps failing, upload a clearer copy, or the one downloaded from your bank.',
-    ],
-  }
+  if (/password/i.test(reason)) return help('PASSWORD')
+  if (/not look like a bank|credit-card statement/i.test(reason)) return help('NOT_STATEMENT')
+  if (/could not be opened|no pages/i.test(reason)) return help('DAMAGED')
+  return help('GENERIC')
 }

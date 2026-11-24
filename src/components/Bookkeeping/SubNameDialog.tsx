@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { localGroup } from '@/hooks/useNameGroups'
 import { useSetSubNameSettings } from '@/hooks/useSplits'
 import { AgencyPicker } from './AgencyPicker'
 import { GroupPicker } from './GroupPicker'
@@ -81,6 +83,7 @@ export function SubNameSettings({
   onDone?: () => void
   inline?: boolean
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const save = useSetSubNameSettings()
   const fields = useSetSubNameSettings()
   const [name, setName] = useState(sub.name)
@@ -89,7 +92,7 @@ export function SubNameSettings({
   const [picked, setPicked] = useState(sub.ownAgencies ? sub.agencyIds : parentAgencyIds)
   const [alone, setAlone] = useState(sub.ownAgencies && sub.agencyAlone)
   const [saved, setSaved] = useState(false)
-  const labelOf = (key: string) => groups.find((g) => g.key === key)?.label ?? key
+  const labelOf = (key: string) => localGroup(groups.find((g) => g.key === key) ?? { key, label: key }).label
   const nameId = inline ? 'sub-inline-name' : 'sub-name'
   const changed = () => setSaved(false)
 
@@ -113,7 +116,7 @@ export function SubNameSettings({
   const body = (
     <>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={nameId}>{inline ? 'Its own name' : 'Name'}</Label>
+        <Label htmlFor={nameId}>{inline ? t('subDialog.ownName') : t('subDialog.name')}</Label>
         <Input
           id={nameId}
           value={name}
@@ -132,13 +135,13 @@ export function SubNameSettings({
             }}
             className="self-start text-xs font-medium text-brand hover:underline"
           >
-            Use “{sub.parent} - {sub.category}” again
+            {t('subDialog.useAutoName', { name: `${sub.parent} - ${sub.category}` })}
           </button>
         )}
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Group</Label>
+        <Label>{t('subDialog.group')}</Label>
         <GroupPicker
           groups={groups}
           value={group ?? parentGroup}
@@ -148,7 +151,7 @@ export function SubNameSettings({
           }}
         />
         <p className="text-xs text-muted-foreground">
-          {group === null ? `Same as ${sub.parent} (${labelOf(parentGroup)}).` : (
+          {group === null ? t('subDialog.sameAs', { parent: sub.parent, group: labelOf(parentGroup) }) : (
             <button
               type="button"
               onClick={() => {
@@ -157,7 +160,7 @@ export function SubNameSettings({
               }}
               className="font-medium text-brand hover:underline"
             >
-              Same group as {sub.parent} again
+              {t('subDialog.sameGroupAgain', { parent: sub.parent })}
             </button>
           )}
         </p>
@@ -178,7 +181,7 @@ export function SubNameSettings({
               }}
               className="data-checked:bg-brand"
             />
-            Its own split rules
+            {t('subDialog.ownSplitRules')}
           </Label>
           {own ? (
             <>
@@ -196,26 +199,27 @@ export function SubNameSettings({
                 draft
               />
               <p className="text-xs text-muted-foreground">
-                A rule added splits its {sub.rows} row{sub.rows === 1 ? '' : 's'} once when you save.
+                {t('subDialog.splitsRows', { count: sub.rows })}
               </p>
             </>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Split like {sub.parent}
               {parentAgencyIds.length
-                ? ` (${agencies
-                    .filter((a) => parentAgencyIds.includes(a.id))
-                    .map((a) => a.name)
-                    .join(', ')})`
-                : ' (no split rules)'}
-              . Turn on to pick its own.
+                ? t('subDialog.splitLike', {
+                    parent: sub.parent,
+                    rules: agencies
+                      .filter((a) => parentAgencyIds.includes(a.id))
+                      .map((a) => a.name)
+                      .join(', '),
+                  })
+                : t('subDialog.splitLikeNone', { parent: sub.parent })}
             </p>
           )}
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
-        <Label>Details</Label>
+        <Label>{t('subDialog.details')}</Label>
         <NameFieldsEditor
           fields={sub.fields}
           pending={fields.isPending}
@@ -236,9 +240,9 @@ export function SubNameSettings({
         {body}
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={submit}>
-            {save.isPending ? 'Saving…' : 'Save these settings'}
+            {save.isPending ? t('common:actions.saving') : t('subDialog.saveSettings')}
           </Button>
-          {saved && !save.isPending && <span className="text-xs text-emerald-700">Saved</span>}
+          {saved && !save.isPending && <span className="text-xs text-emerald-700">{t('subDialog.saved')}</span>}
         </div>
       </div>
     )
@@ -252,17 +256,14 @@ export function SubNameSettings({
       className="flex flex-col gap-4"
     >
       <DialogHeader>
-        <DialogTitle>Edit {sub.name}</DialogTitle>
-        <DialogDescription>
-          A sub-name of {sub.parent} in {sub.category}. Its rows still count under {sub.parent}; here it gets its own
-          name, group, split rules and details, like any name.
-        </DialogDescription>
+        <DialogTitle>{t('subDialog.title', { name: sub.name })}</DialogTitle>
+        <DialogDescription>{t('subDialog.text', { parent: sub.parent, category: sub.category })}</DialogDescription>
       </DialogHeader>
       {body}
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
         <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save'}
+          {save.isPending ? t('common:actions.saving') : t('common:actions.save')}
         </Button>
       </DialogFooter>
     </form>

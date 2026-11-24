@@ -1,11 +1,13 @@
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ScheduleRun } from '@/api/schedules'
 import { fmtWhen, runChannel } from './schedule-format'
 
 /** The last few sends of a schedule, newest first. */
 export function RunHistory({ runs }: { runs: ScheduleRun[] }) {
+  const { t } = useTranslation(['books', 'common'])
   if (!runs.length) {
-    return <p className="text-xs text-muted-foreground">Nothing sent yet.</p>
+    return <p className="text-xs text-muted-foreground">{t('schedules.nothingSent')}</p>
   }
   return (
     <ul className="flex flex-col gap-1.5">
@@ -18,7 +20,7 @@ export function RunHistory({ runs }: { runs: ScheduleRun[] }) {
           )}
           <span className="min-w-0">
             <span className="font-medium text-foreground/80">{fmtWhen(r.at)}</span> · {runChannel(r.channel)}
-            {r.manual && ' (send now)'}
+            {r.manual && ` (${t('schedules.sendNowLower')})`}
             {r.channel === 'NONE' && r.text ? ` — ${r.text}` : ''}
             {r.error ? ` — ${r.error}` : ''}
           </span>

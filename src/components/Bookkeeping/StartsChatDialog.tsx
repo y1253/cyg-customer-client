@@ -1,7 +1,8 @@
 import { StatementChat } from '@/components/Assistant/StatementChat'
+import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStatements } from '@/hooks/useStatements'
-import { STARTS_WARNING } from '@/lib/starting-dates'
+import { startsWarning } from '@/lib/starting-dates'
 import { folderOf } from './statement-folders'
 
 /**
@@ -14,31 +15,32 @@ export function StartsChatDialog({
   target,
   onClose,
 }: {
+  /** `note`: the account's starts and why they break ("a · b. reason"). */
   target: { account: string; note: string } | null
   onClose: () => void
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const statements = useStatements().data ?? []
   const first = target
     ? statements
         .filter((s) => s.status === 'DONE' && folderOf(s) === target.account)
         .sort((a, b) => (a.periodStart ?? '').localeCompare(b.periodStart ?? ''))[0]
     : undefined
-  const dates = target?.note.replace(/^Starting dates: /, '')
   return (
     <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{target?.account}: more than one starting date</DialogTitle>
-          <DialogDescription>{STARTS_WARNING}</DialogDescription>
+          <DialogTitle>{t('startsChat.title', { account: target?.account })}</DialogTitle>
+          <DialogDescription>{startsWarning()}</DialogDescription>
         </DialogHeader>
         {first ? (
           <StatementChat
             key={first.id}
             statementId={first.id}
-            initialDraft={`${target?.account} has more than one starting date (${dates}). Why don't its balances carry over, and how do we fix it?`}
+            initialDraft={t('statements.askStarts', { account: target?.account, dates: target?.note, why: '' })}
           />
         ) : (
-          <p className="text-sm text-muted-foreground">No read statement of this account yet.</p>
+          <p className="text-sm text-muted-foreground">{t('startsChat.none')}</p>
         )}
       </DialogContent>
     </Dialog>

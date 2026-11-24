@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useMutation } from '@tanstack/react-query'
 import { requestPhoneCode, verifyPhoneCode } from '@/api/customerAuth'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import { CodeInput, ResendButton } from './CodeInput'
  * account opened by text, and an option for everyone else.
  */
 export function PhoneLoginForm({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation('auth')
   const { setSession } = useAuth()
   const human = useTurnstile()
   const [phone, setPhone] = useState('')
@@ -41,7 +43,7 @@ export function PhoneLoginForm({ onDone }: { onDone: () => void }) {
 
   function ask(e?: FormEvent) {
     e?.preventDefault()
-    if (phone.replace(/\D/g, '').length < 10) return setFormError('Enter your phone number')
+    if (phone.replace(/\D/g, '').length < 10) return setFormError(t('errors.enterPhone'))
     if (human.required && !human.token) return setFormError(human.pendingMessage)
     setFormError(null)
     request.mutate(phone.trim())
@@ -58,17 +60,16 @@ export function PhoneLoginForm({ onDone }: { onDone: () => void }) {
         className="flex flex-col gap-4"
       >
         <p className="text-sm text-muted-foreground">
-          If <span className="font-semibold text-foreground">{sentTo}</span> is on a CYG Finance account, we just
-          texted it a 6-digit code.
+          <Trans t={t} i18nKey="phone.sentTo" values={{ phone: sentTo }} components={{ b: <b className="font-semibold text-foreground" /> }} />
         </p>
-        <CodeInput id="phone-code" label="Code" value={code} onChange={setCode} />
+        <CodeInput id="phone-code" label={t('fields.code')} value={code} onChange={setCode} />
         {verify.error && (
           <p role="alert" className="text-sm text-destructive">
             {verify.error.message}
           </p>
         )}
         <Button type="submit" disabled={code.length !== 6 || verify.isPending} className={SUBMIT_CLASS}>
-          {verify.isPending ? 'Logging in…' : 'Log in'}
+          {verify.isPending ? t('login.submitting') : t('login.submit')}
         </Button>
         <div className="flex items-center justify-between text-sm">
           <button
@@ -80,7 +81,7 @@ export function PhoneLoginForm({ onDone }: { onDone: () => void }) {
               verify.reset()
             }}
           >
-            Use another number
+            {t('phone.otherNumber')}
           </button>
           <ResendButton wait={countdown.left} pending={request.isPending} onClick={() => ask()} />
         </div>
@@ -93,13 +94,13 @@ export function PhoneLoginForm({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={ask} noValidate className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="phone">Phone number</Label>
+        <Label htmlFor="phone">{t('fields.phone')}</Label>
         <Input
           id="phone"
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          placeholder="(514) 555-1234"
+          placeholder={t('fields.phonePlaceholder')}
           className="h-11"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
@@ -111,10 +112,10 @@ export function PhoneLoginForm({ onDone }: { onDone: () => void }) {
         </p>
       )}
       <Button type="submit" disabled={request.isPending} className={SUBMIT_CLASS}>
-        {request.isPending ? 'Sending…' : 'Text me a code'}
+        {request.isPending ? t('phone.sending') : t('phone.submit')}
       </Button>
       <p className="text-center text-xs text-muted-foreground">
-        No account yet? Text our number and reply YES — we open one on your phone.
+        {t('phone.noAccount')}
       </p>
       {human.widget}
     </form>

@@ -1,47 +1,55 @@
 // Shared constants and helpers for recurring-schedule cycle pickers.
 // Keep this the single source of truth so day-of-month behavior stays consistent
 // across the Register wizard, AddTaskDialog, TaskDialog, and the schedule editor.
+//
+// Every label is built at CALL time in the shown language (French / English), so these
+// are functions, not constants: a constant would be frozen in the language at load.
+import i18n, { currentLang, currentLocale } from "@/i18n";
 
-export const WEEKDAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+/** Capitalise the first letter (French Intl names are lower case; a picker lists them capitalised). */
+const cap = (s: string) => s.charAt(0).toLocaleUpperCase(currentLocale()) + s.slice(1);
 
-export const ORDINALS = ["1st", "2nd", "3rd", "4th"];
+/** Weekday name for 0=Sunday … 6=Saturday, as written inside a sentence ("lundi" / "Monday"). */
+export function weekdayName(day: number): string | undefined {
+  if (!Number.isInteger(day) || day < 0 || day > 6) return undefined;
+  // 2026-01-04 was a Sunday.
+  return new Intl.DateTimeFormat(currentLocale(), { weekday: "long" }).format(new Date(2026, 0, 4 + day));
+}
 
-export const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+/** Month name for 0=January … 11=December, as written inside a sentence ("mars" / "March"). */
+export function monthName(month: number): string | undefined {
+  if (!Number.isInteger(month) || month < 0 || month > 11) return undefined;
+  return new Intl.DateTimeFormat(currentLocale(), { month: "long" }).format(new Date(2026, month, 1));
+}
+
+/** Weekday names Sunday…Saturday for a picker (capitalised). */
+export function weekdayNames(): string[] {
+  return Array.from({ length: 7 }, (_, i) => cap(weekdayName(i)!));
+}
+
+/** "1st" … "4th" / "1er" … "4e" — for the Nth-weekday pickers. */
+export function ordinalNames(): string[] {
+  return [1, 2, 3, 4].map((n) => dayOrdinal(n));
+}
+
+/** Month names January…December for a picker (capitalised). */
+export function monthNames(): string[] {
+  return Array.from({ length: 12 }, (_, i) => cap(monthName(i)!));
+}
+
+export type CycleTypeKey = "DAYS" | "MONTHLY_DATE" | "WEEKLY_DAY" | "MONTHLY_WEEKDAY" | "QUARTERLY" | "YEARLY";
+
+/** The `CycleType` values, in the order the pickers list them. */
+export const CYCLE_TYPES: CycleTypeKey[] = ["DAYS", "MONTHLY_DATE", "WEEKLY_DAY", "MONTHLY_WEEKDAY", "QUARTERLY", "YEARLY"];
 
 /**
- * Labels for the `CycleType` enum, in the order the pickers list them. Render the
- * options from this map (and pass it as the Select's `items`) so the trigger shows
- * "Day of month" rather than the raw `MONTHLY_DATE`.
+ * Label for a `CycleType` value. Render the options from `CYCLE_TYPES` with this (and
+ * pass the map as the Select's `items`) so the trigger shows "Day of month" rather than
+ * the raw `MONTHLY_DATE`.
  */
-export const CYCLE_TYPE_LABELS: Record<string, string> = {
-  DAYS: "Every N days",
-  MONTHLY_DATE: "Day of month",
-  WEEKLY_DAY: "Day of week",
-  MONTHLY_WEEKDAY: "Nth weekday of month",
-  QUARTERLY: "Quarterly — specific date",
-  YEARLY: "Yearly — specific date",
-};
+export function cycleTypeLabel(type: CycleTypeKey): string {
+  return i18n.t(`portal:cycle.types.${type}`);
+}
 
 /**
  * Sentinel stored in `cycleDay` meaning "the last day of the month", regardless
@@ -54,7 +62,7 @@ export const LAST_DAY_OF_MONTH = 0;
 /** Highest selectable concrete day (every month has at least 28 days). */
 export const MAX_MONTH_DAY = 28;
 
-/** Returns "st" | "nd" | "rd" | "th" for a day number. */
+/** Returns "st" | "nd" | "rd" | "th" for a day number (English only — see `dayOrdinal`). */
 export function ordinalSuffix(n: number): string {
   const mod100 = n % 100;
   if (mod100 >= 11 && mod100 <= 13) return "th";
@@ -70,14 +78,25 @@ export function ordinalSuffix(n: number): string {
   }
 }
 
+/** An ordinal number in the shown language: "15th" / "1er", "2e", "15e". */
+export function dayOrdinal(n: number): string {
+  if (currentLang() === "fr") return n === 1 ? "1er" : `${n}e`;
+  return `${n}${ordinalSuffix(n)}`;
+}
+
+/** A day of the month as written after a month name: "15" / "1er" (French), "15" (English). */
+function dayOfMonth(n: number): string {
+  return currentLang() === "fr" && n === 1 ? "1er" : String(n);
+}
+
 /**
  * Human label for a day-of-month value: "the last day" for the sentinel,
- * otherwise "the 15th". `cycleDay` may arrive as a number or string.
+ * otherwise "the 15th" ("le dernier jour" / "le 15"). `cycleDay` may arrive as a number or string.
  */
 export function monthDayLabel(value: number | string): string {
   const n = Number(value);
-  if (n === LAST_DAY_OF_MONTH) return "the last day";
-  return `the ${n}${ordinalSuffix(n)}`;
+  if (n === LAST_DAY_OF_MONTH) return i18n.t("portal:cycle.lastDay");
+  return i18n.t("portal:cycle.theDay", { day: dayOfMonth(n), nth: dayOrdinal(n) });
 }
 
 export type CycleFields = {
@@ -96,20 +115,25 @@ export function cycleLabel({ cycleType, cycle, cycleDay, cycleNth }: CycleFields
   const day = cycleDay ?? 1;
   switch (cycleType) {
     case "MONTHLY_DATE":
-      return `Monthly on ${monthDayLabel(day)}`;
+      return i18n.t("portal:cycle.monthlyOn", { day: monthDayLabel(day) });
     case "QUARTERLY":
-      return `Quarterly on ${monthDayLabel(day)}`;
-    case "WEEKLY_DAY":
-      return `Every ${WEEKDAYS[day] ?? "week"}`;
+      return i18n.t("portal:cycle.quarterlyOn", { day: monthDayLabel(day) });
+    case "WEEKLY_DAY": {
+      const weekday = weekdayName(day);
+      return weekday ? i18n.t("portal:cycle.everyWeekday", { weekday }) : i18n.t("portal:cycle.everyWeek");
+    }
     case "MONTHLY_WEEKDAY":
-      return `The ${ORDINALS[(cycleNth ?? 1) - 1] ?? "1st"} ${WEEKDAYS[day] ?? "day"} of each month`;
+      return i18n.t("portal:cycle.nthWeekday", {
+        nth: ordinalNames()[(cycleNth ?? 1) - 1] ?? dayOrdinal(1),
+        weekday: weekdayName(day) ?? i18n.t("portal:cycle.day"),
+      });
     case "YEARLY": {
-      const month = MONTHS[(cycleNth ?? 1) - 1] ?? "January";
+      const month = monthName((cycleNth ?? 1) - 1) ?? monthName(0)!;
       return day === LAST_DAY_OF_MONTH
-        ? `Yearly on the last day of ${month}`
-        : `Yearly on ${month} ${day}`;
+        ? i18n.t("portal:cycle.yearlyLastDay", { month })
+        : i18n.t("portal:cycle.yearlyOn", { month, day: dayOfMonth(day) });
     }
     default:
-      return cycle === 1 ? "Every day" : `Every ${cycle} days`;
+      return i18n.t("portal:cycle.everyNDays", { count: cycle });
   }
 }

@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Unplug,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n, { currentLocale } from '@/i18n'
 import type { BankConnection } from '@/api/bankFeeds'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,28 +41,28 @@ import { BankStartDatesDialog } from './BankStartDatesDialog'
 /** "5 min ago", "yesterday", "Oct 3". */
 function ago(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins} min ago`
+  if (mins < 1) return i18n.t('books:bank.justNow')
+  if (mins < 60) return i18n.t('books:bank.minAgo', { n: mins })
   const hours = Math.round(mins / 60)
-  if (hours < 24) return `${hours} h ago`
-  if (hours < 48) return 'yesterday'
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (hours < 24) return i18n.t('books:bank.hoursAgo', { n: hours })
+  if (hours < 48) return i18n.t('books:bank.yesterday')
+  return new Date(iso).toLocaleDateString(currentLocale(), { month: 'short', day: 'numeric' })
 }
 
 /** "Mar 1, 2025" from YYYY-MM-DD. */
 function dayLabel(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(currentLocale(), { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function statusLine(c: BankConnection): { text: string; tone: 'muted' | 'busy' | 'warn' } {
   // step8: `error` is what happened and what to do, in plain words (the raw text is "Details").
-  if (c.status === 'LOGIN_REQUIRED') return { text: c.error ?? 'Needs you to sign in again', tone: 'warn' }
-  if (c.status === 'ERROR') return { text: c.error ?? 'The connection stopped working', tone: 'warn' }
-  if (!c.setupAt) return { text: 'Pick where each account starts — nothing is filed until you do', tone: 'warn' }
+  if (c.status === 'LOGIN_REQUIRED') return { text: c.error ?? i18n.t('books:bank.signInNeeded'), tone: 'warn' }
+  if (c.status === 'ERROR') return { text: c.error ?? i18n.t('books:bank.stopped'), tone: 'warn' }
+  if (!c.setupAt) return { text: i18n.t('books:bank.pickStarts'), tone: 'warn' }
   // An ACTIVE item's error = why the bank has sent nothing yet (e.g. it is down at Plaid).
   if (!c.historyDone && c.error) return { text: c.error, tone: 'warn' }
-  if (!c.lastSyncAt || !c.historyDone) return { text: 'Bringing in your history…', tone: 'busy' }
-  return { text: `Up to date · ${ago(c.lastSyncAt)}`, tone: 'muted' }
+  if (!c.lastSyncAt || !c.historyDone) return { text: i18n.t('books:bank.bringingIn'), tone: 'busy' }
+  return { text: i18n.t('books:bank.upToDate', { ago: ago(c.lastSyncAt) }), tone: 'muted' }
 }
 
 /**
@@ -69,6 +71,7 @@ function statusLine(c: BankConnection): { text: string; tone: 'muted' | 'busy' |
  * new transactions. Renders nothing while bank feeds are not set up on the server.
  */
 export function BankConnectionsCard({ className }: { className?: string }) {
+  const { t } = useTranslation(['books', 'common'])
   const enabled = useBankFeedsEnabled()
   const connections = useBankConnections(enabled)
   const connect = useConnectBank()
@@ -110,11 +113,8 @@ export function BankConnectionsCard({ className }: { className?: string }) {
           <Landmark className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-[#0B1C2C]">Connect your bank</p>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            No more uploading: you pick the accounts at your bank and how far back (up to 2 years), and we file
-            each month as a statement automatically. Read-only — your bank password goes to Plaid, never to us.
-          </p>
+          <p className="font-semibold text-[#0B1C2C]">{t('bank.connect')}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t('bank.intro')}</p>
         </div>
       </div>
 
@@ -127,7 +127,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
               <li key={c.id} className="rounded-xl bg-[#F6F8FA] p-3">
                 <div className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[#0B1C2C]">
-                    {c.institutionName ?? 'Your bank'}
+                    {c.institutionName ?? t('bank.yourBank')}
                   </p>
                   {c.status === 'LOGIN_REQUIRED' ? (
                     <Button
@@ -136,13 +136,13 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                       disabled={connect.isPending}
                       onClick={() => connect.mutate({ itemId: c.id })}
                     >
-                      <LogIn /> Sign in again
+                      <LogIn /> {t('bank.signInAgain')}
                     </Button>
                   ) : (
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      title="Refresh now"
+                      title={t('bank.refreshNow')}
                       disabled={busy}
                       onClick={() => refresh.mutate(c.id)}
                     >
@@ -152,7 +152,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Disconnect"
+                    title={t('bank.disconnect')}
                     className="text-muted-foreground hover:text-destructive"
                     onClick={() => setConfirm(c)}
                   >
@@ -176,7 +176,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                       className="font-medium text-brand hover:underline"
                       onClick={() => setDetailFor(detailFor === c.id ? null : c.id)}
                     >
-                      {detailFor === c.id ? 'Hide details' : 'Details'}
+                      {detailFor === c.id ? t('statements.hideDetails') : t('statements.details')}
                     </button>
                     {detailFor === c.id && (
                       <p className="mt-0.5 font-mono break-words text-muted-foreground">{c.errorDetail}</p>
@@ -185,7 +185,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                 )}
                 {c.status === 'ACTIVE' && !c.historyDone && c.error && (
                   <p className="mt-0.5 pl-5 text-xs text-muted-foreground">
-                    Don't disconnect — reconnecting restarts the wait.
+                    {t('bank.dontDisconnect')}
                   </p>
                 )}
                 {refresh.data?.id === c.id && refresh.data.refreshNote && (
@@ -193,14 +193,14 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                 )}
                 {c.newAccounts && c.status === 'ACTIVE' && (
                   <p className="mt-1 text-xs text-amber-700">
-                    Your bank has an account you have not shared yet.{' '}
+                    {t('bank.newAccount')}{' '}
                     <button
                       type="button"
                       className="font-medium underline"
                       disabled={connect.isPending}
                       onClick={() => chooseAccounts(c)}
                     >
-                      Add it
+                      {t('bank.addIt')}
                     </button>
                   </p>
                 )}
@@ -213,12 +213,12 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                         ) : (
                           <Landmark className="size-3.5 shrink-0 text-muted-foreground" />
                         )}
-                        <span className="min-w-0 flex-1 truncate" title={`Filed under “${a.accountName}”`}>
+                        <span className="min-w-0 flex-1 truncate" title={t('bank.filedUnder', { name: a.accountName })}>
                           {a.accountName}
                           {c.setupAt && (
                             <span className="text-muted-foreground">
                               {' '}
-                              · {a.startDate ? `from ${dayLabel(a.startDate)}` : 'all history'}
+                              · {a.startDate ? t('bank.from', { date: dayLabel(a.startDate) }) : t('bank.allHistory')}
                             </span>
                           )}
                           {(() => {
@@ -227,17 +227,27 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                             return (
                               <span className="text-muted-foreground">
                                 {' '}
-                                · starting balance {a.kind === 'CREDIT_CARD' ? 'owed ' : ''}
-                                {money(first.amount)}
-                                {first.date ? ` on ${fmtDay(first.date)}` : ''}
+                                ·{' '}
+                                {t(
+                                  first.date
+                                    ? a.kind === 'CREDIT_CARD'
+                                      ? 'bank.startOwedOn'
+                                      : 'bank.startOn'
+                                    : a.kind === 'CREDIT_CARD'
+                                      ? 'bank.startOwed'
+                                      : 'bank.start',
+                                  { amount: money(first.amount), date: first.date ? fmtDay(first.date) : '' },
+                                )}
                               </span>
                             )
                           })()}
                         </span>
                         {a.currentBalance !== null && (
                           <span className="shrink-0 tabular-nums text-muted-foreground">
-                            {a.kind === 'CREDIT_CARD' ? 'owed ' : ''}
-                            {money(a.currentBalance)} {a.currency ?? ''}
+                            {a.kind === 'CREDIT_CARD'
+                              ? t('bank.owed', { amount: money(a.currentBalance) })
+                              : money(a.currentBalance)}{' '}
+                            {a.currency ?? ''}
                           </span>
                         )}
                       </li>
@@ -247,7 +257,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                 {c.status === 'ACTIVE' && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     <Button size="xs" variant="ghost" disabled={connect.isPending} onClick={() => chooseAccounts(c)}>
-                      <ListChecks /> Change accounts
+                      <ListChecks /> {t('bank.changeAccounts')}
                     </Button>
                     <Button
                       size="xs"
@@ -255,7 +265,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
                       disabled={c.accounts.length === 0}
                       onClick={() => setDatesFor(c)}
                     >
-                      <CalendarDays /> Start dates
+                      <CalendarDays /> {t('bank.startDates')}
                     </Button>
                   </div>
                 )}
@@ -267,7 +277,7 @@ export function BankConnectionsCard({ className }: { className?: string }) {
 
       <Button className="mt-4 w-full" disabled={connect.isPending} onClick={() => connect.mutate({})}>
         {connect.isPending ? <Loader2 className="animate-spin" /> : <Plus />}
-        {list.length ? 'Connect another bank' : 'Connect your bank'}
+        {list.length ? t('bank.connectAnother') : t('bank.connect')}
       </Button>
       {error && <p className="mt-2 text-sm text-destructive">{error.message}</p>}
 
@@ -276,20 +286,21 @@ export function BankConnectionsCard({ className }: { className?: string }) {
       <Dialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Disconnect {confirm?.institutionName ?? 'this bank'}?</DialogTitle>
-            <DialogDescription>
-              We stop bringing in new transactions and delete our access to it. The statements already
-              imported stay in your books.
-            </DialogDescription>
+            <DialogTitle>
+              {confirm?.institutionName
+                ? t('bank.disconnectTitle', { name: confirm.institutionName })
+                : t('bank.disconnectThis')}
+            </DialogTitle>
+            <DialogDescription>{t('bank.disconnectText')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             <Button
               variant="destructive"
               disabled={disconnect.isPending}
               onClick={() => confirm && disconnect.mutate(confirm.id, { onSuccess: () => setConfirm(null) })}
             >
-              {disconnect.isPending ? 'Disconnecting…' : 'Disconnect'}
+              {disconnect.isPending ? t('bank.disconnecting') : t('bank.disconnect')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ArrowRightLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AccountType } from '@/api/bookkeeping'
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { ALL, SECTION_LABEL, SHEET, useDropTarget } from './account-move'
+import { ALL, SHEET, sectionLabel, useDropTarget } from './account-move'
 
 /**
  * A section (Assets, Liabilities…) that takes an account dropped on it: drag a row from
@@ -55,12 +56,13 @@ export function MoveMenu({
   moved?: boolean
   onMove: (account: string, type: AccountType | null) => void
 }) {
-  const targets = (bank ? SHEET : ALL).filter((t) => t !== current)
+  const { t } = useTranslation(['books', 'common'])
+  const targets = (bank ? SHEET : ALL).filter((s) => s !== current)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         onClick={(e) => e.stopPropagation()}
-        title="Move to another section"
+        title={t('reports.moveSection')}
         className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/5 hover:text-foreground focus-visible:opacity-100 data-[popup-open]:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <ArrowRightLeft className="size-3.5" />
@@ -68,17 +70,17 @@ export function MoveMenu({
       <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
         {/* base-ui throws when a GroupLabel (DropdownMenuLabel) is not inside a Group. */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Move “{account}” to</DropdownMenuLabel>
-          {targets.map((t) => (
-            <DropdownMenuItem key={t} onClick={() => onMove(account, t)}>
-              {SECTION_LABEL[t]}
+          <DropdownMenuLabel>{t('reports.moveTo', { account })}</DropdownMenuLabel>
+          {targets.map((s) => (
+            <DropdownMenuItem key={s} onClick={() => onMove(account, s)}>
+              {sectionLabel(s)}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
         {moved && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onMove(account, null)}>Put back where it was</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onMove(account, null)}>{t('reports.putBack')}</DropdownMenuItem>
           </>
         )}
       </DropdownMenuContent>

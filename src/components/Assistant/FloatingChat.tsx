@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2, MessageCircle, MessageSquareText, Mic, Phone, PhoneCall, Plus, Send, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { uploadAttachments } from '@/api/attachments'
 import { requestCallMe, requestWelcomeText } from '@/api/assistant'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,7 @@ type Draft = { text: string; n: number; dictate: boolean }
 
 /** The chat inside the sheet: the book's newest website conversation, or a new one. */
 function FloatingChatBody({ draft }: { draft: Draft }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const conversations = useConversations()
   // undefined = not chosen yet (the newest website chat is picked once the list loads).
   const [chosen, setChosen] = useState<number | null | undefined>(undefined)
@@ -55,10 +57,10 @@ function FloatingChatBody({ draft }: { draft: Draft }) {
     <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          {selected === null ? 'New conversation' : 'Your latest conversation'}
+          {selected === null ? t('floating.newConversation') : t('floating.latestConversation')}
         </p>
         <Button variant="outline" size="sm" className="gap-1" onClick={() => setChosen(null)}>
-          <Plus className="size-3.5" /> New chat
+          <Plus className="size-3.5" /> {t('panel.newChat')}
         </Button>
       </div>
       <ChatPanel
@@ -82,7 +84,7 @@ function FloatingChatBody({ draft }: { draft: Draft }) {
         empty={
           <>
             <Sparkles className="mx-auto mb-2 size-6 text-brand" />
-            Ask anything about your books, or ask for a change — type it, or press the mic and say it.
+            {t('floating.empty')}
           </>
         }
       />
@@ -137,6 +139,7 @@ function Way({
  * welcome text need the customer's phone: without one the card asks for it first.
  */
 function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const { customer } = useAuth()
   const book = useBook()
   const intake = useIntake()
@@ -157,7 +160,10 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
     const m = what === 'call' ? callMe : welcome
     m.mutate(undefined, {
       onSuccess: (r) =>
-        setNote({ ok: r.ok, text: r.ok ? (what === 'call' ? `${r.message} — pick up!` : r.message) : r.message }),
+        setNote({
+          ok: r.ok,
+          text: r.ok && what === 'call' ? t('floating.pickUp', { message: r.message }) : r.message,
+        }),
       onError: (e) => setNote({ ok: false, text: e.message }),
     })
   }
@@ -167,33 +173,39 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
     <div className="flex flex-col">
       <div className="rounded-t-xl bg-gradient-to-br from-[#0B1C2C] to-[#12384a] px-4 py-3 text-white">
         <p className="flex items-center gap-1.5 text-sm font-semibold">
-          <Sparkles className="size-4 text-[#47c4bc]" /> Your AI bookkeeper
+          <Sparkles className="size-4 text-[#47c4bc]" /> {t('floating.title')}
         </p>
-        <p className="text-xs text-white/70">Ask anything, any way you like — it answers right away.</p>
+        <p className="text-xs text-white/70">{t('floating.subtitle')}</p>
       </div>
 
       <div className="flex flex-col gap-0.5 p-1.5">
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1">
-            <Way icon={<MessageCircle className="size-4" />} title="Chat on the web" hint="Type your question" onClick={() => onChat(false)} />
+            <Way icon={<MessageCircle className="size-4" />} title={t('floating.chatWeb')}
+              hint={t('floating.chatWebHint')} onClick={() => onChat(false)} />
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="mr-1 shrink-0 gap-1.5 rounded-full"
-            title="Open the chat and start speaking"
+            title={t('floating.dictateTitle')}
             onClick={() => onChat(true)}
           >
-            <Mic className="size-3.5" /> Dictate
+            <Mic className="size-3.5" /> {t('floating.dictate')}
           </Button>
         </div>
 
         {number && (
           <div className="mx-1 my-1 rounded-xl bg-muted/50 p-2.5">
             <p className="text-xs text-muted-foreground">
-              {voice ? 'Call, text' : 'Text'}
-              {whatsapp ? ' or WhatsApp' : ''} the AI at
+              {voice
+                ? whatsapp
+                  ? t('floating.reach.callTextWhatsapp')
+                  : t('floating.reach.callText')
+                : whatsapp
+                  ? t('floating.reach.textWhatsapp')
+                  : t('floating.reach.text')}
             </p>
             <p className="text-base font-semibold text-[#0B1C2C] tabular-nums">{fmtPhone(number)}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -202,14 +214,14 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
                   href={`tel:${number}`}
                   className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B1C2C] ring-1 ring-black/10 hover:bg-muted"
                 >
-                  <Phone className="size-3.5" /> Call
+                  <Phone className="size-3.5" /> {t('floating.call')}
                 </a>
               )}
               <a
                 href={`sms:${number}`}
                 className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-brand ring-1 ring-brand/20 hover:bg-brand/5"
               >
-                <MessageSquareText className="size-3.5" /> Text
+                <MessageSquareText className="size-3.5" /> {t('floating.text')}
               </a>
               {whatsapp && (
                 <a
@@ -228,8 +240,8 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
         {voice && (
           <Way
             icon={<PhoneCall className="size-4" />}
-            title="Call me"
-            hint={hasPhone ? `The AI calls you now at ${fmtPhone(customer!.phone!)}` : 'The AI calls you now'}
+            title={t('floating.callMe')}
+            hint={hasPhone ? t('floating.callMeHintPhone', { phone: fmtPhone(customer!.phone!) }) : t('floating.callMeHint')}
             tone="navy"
             busy={callMe.isPending}
             onClick={() => ask('call')}
@@ -238,8 +250,8 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
         {number && (
           <Way
             icon={<Send className="size-4" />}
-            title="Text me a welcome"
-            hint="Get our number by SMS — save it for later"
+            title={t('floating.welcomeTitle')}
+            hint={t('floating.welcomeHint')}
             tone="green"
             busy={welcome.isPending}
             onClick={() => ask('welcome')}
@@ -264,7 +276,7 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
               )
             }}
           >
-            <p className="text-xs text-muted-foreground">Your phone number — saved on your account:</p>
+            <p className="text-xs text-muted-foreground">{t('floating.phonePrompt')}</p>
             <div className="flex gap-1.5">
               <Input
                 autoFocus
@@ -272,12 +284,12 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
                 inputMode="tel"
                 autoComplete="tel"
                 value={phone}
-                placeholder="514 555 1234"
+                placeholder={t('callMe.phonePlaceholder')}
                 onChange={(e) => setPhone(e.target.value)}
                 className="h-8 bg-white"
               />
               <Button type="submit" size="sm" disabled={updateMe.isPending || !phone.trim()} className="bg-brand text-white hover:bg-brand/85">
-                {updateMe.isPending ? <Loader2 className="size-3.5 animate-spin" /> : asking === 'call' ? 'Call me' : 'Send'}
+                {updateMe.isPending ? <Loader2 className="size-3.5 animate-spin" /> : asking === 'call' ? t('floating.callMe') : t('common:actions.send')}
               </Button>
             </div>
             {updateMe.error && <p className="text-xs text-destructive">{updateMe.error.message}</p>}
@@ -309,6 +321,7 @@ function ReachCard({ onChat }: { onChat: (dictate: boolean) => void }) {
  * shows the same card too; the chat opens from the card.
  */
 export function FloatingChat() {
+  const { t } = useTranslation(['assistant', 'common'])
   const enabled = useAssistantEnabled()
   const { scope, hidden } = useFloatingChatState()
   const [open, setOpen] = useState(false)
@@ -350,7 +363,7 @@ export function FloatingChat() {
             openOnHover
             delay={120}
             closeDelay={250}
-            aria-label="Talk to the AI assistant"
+            aria-label={t('floating.openLabel')}
             className="group fixed right-4 bottom-4 z-40 size-16 rounded-full [perspective:600px] focus-visible:outline-none sm:right-6 sm:bottom-6"
           >
             {/* The ripple behind the bubble, in step with the flip. */}
@@ -382,7 +395,7 @@ export function FloatingChat() {
         <SheetContent side="right" className="w-full gap-3 p-0 sm:max-w-md data-[side=right]:w-full data-[side=right]:sm:max-w-md">
           <div className="px-4 pt-4">
             <SheetTitle className="flex items-center gap-1.5 text-base text-[#0B1C2C]">
-              <Sparkles className="size-4 text-brand" /> AI assistant
+              <Sparkles className="size-4 text-brand" /> {t('floating.sheetTitle')}
             </SheetTitle>
           </div>
           {open && book(<FloatingChatBody draft={draft} />)}

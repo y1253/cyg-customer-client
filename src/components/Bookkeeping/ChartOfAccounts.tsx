@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { AccountBalance, AccountType, Reports } from '@/api/bookkeeping'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useRenameAccount } from '@/hooks/useMerge'
@@ -9,7 +10,7 @@ import { periodLabel } from '@/lib/period'
 import { startingNote } from '@/lib/starting-dates'
 import { AccountCurrency, ForeignAmount } from './AccountCurrency'
 import { MoveMenu } from './AccountMove'
-import { dragProps, SECTION_LABEL, useAccountDrop, useDropTarget } from './account-move'
+import { dragProps, sectionLabel, useAccountDrop, useDropTarget } from './account-move'
 import { useAccountMerge } from './AccountMerge'
 import { InlineRename } from './InlineRename'
 import { AccountNote, ReportCard, UncategorizedNote } from './ReportParts'
@@ -23,6 +24,7 @@ const GROUPS: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENS
  * reports follow at once.
  */
 export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; onOpenAccount: (name: string) => void }) {
+  const { t } = useTranslation(['books', 'common'])
   const move = useMoveAccount()
   const moved = new Set(reports.moved ?? [])
   const onMove = (account: string, type: AccountType | null) => move.mutate({ account, type })
@@ -30,15 +32,15 @@ export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; 
   const rename = useRenameAccount()
   const onRename = (from: string, to: string) => rename.mutateAsync({ from, to })
   return (
-    <ReportCard title="Chart of accounts" subtitle={periodLabel(reports.from, reports.to)}>
+    <ReportCard title={t('tabs.accounts')} subtitle={periodLabel(reports.from, reports.to)}>
       <UncategorizedNote reports={reports} />
       <div className="-mx-5 -mb-4">
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="pl-5">Account</TableHead>
-              <TableHead className="w-32 text-right">Transactions</TableHead>
-              <TableHead className="w-40 pr-5 text-right">Balance</TableHead>
+              <TableHead className="pl-5">{t('chart.account')}</TableHead>
+              <TableHead className="w-32 text-right">{t('chart.transactions')}</TableHead>
+              <TableHead className="w-40 pr-5 text-right">{t('chart.balance')}</TableHead>
             </TableRow>
           </TableHeader>
           {GROUPS.map((type) => (
@@ -59,12 +61,7 @@ export function ChartOfAccounts({ reports, onOpenAccount }: { reports: Reports; 
       {merge.error && <p className="mt-4 text-sm text-destructive">{merge.error.message}</p>}
       {merge.dialog}
       <p className="mt-6 text-xs text-muted-foreground">
-        Bank accounts show the net money in and out for the period; a credit card what was charged on it. Under a bank
-        or card account: the balance its books start at (a card: the amount owed) — red when they start more than once
-        (a missing statement, or balances that don't carry over) — and every problem found on its statements. Click an
-        account to see its transactions, drag it to another section to move it, or drop it on another account to merge
-        the two (a bank or card account only with another one that has a Bank feeds folder). Click a bank account's currency
-        to change it; a foreign account shows its balance before conversion underneath.
+        {t('chart.help')}
       </p>
     </ReportCard>
   )
@@ -88,13 +85,14 @@ function Group({
   onMerge: (from: string, into: string, bank: boolean) => void
   onRename: (from: string, to: string) => Promise<unknown>
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const drop = useDropTarget(type, onMove)
   const total = accounts.reduce((c, a) => c + Math.round(a.balance * 100), 0) / 100
   return (
     <TableBody {...drop.props} className={cn(drop.over && 'bg-brand/5 outline-2 outline-brand/30')}>
       <TableRow className="bg-muted/20 hover:bg-muted/20">
         <TableCell className="pl-5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          {SECTION_LABEL[type]}
+          {sectionLabel(type)}
         </TableCell>
         <TableCell />
         <TableCell className="pr-5 text-right text-xs font-semibold text-muted-foreground tabular-nums">
@@ -104,7 +102,7 @@ function Group({
       {!accounts.length && (
         <TableRow className="hover:bg-transparent">
           <TableCell colSpan={3} className="pl-8 text-xs text-muted-foreground">
-            Drop an account here to move it to {SECTION_LABEL[type].toLowerCase()}
+            {t(`chart.dropHere.${type}`)}
           </TableCell>
         </TableRow>
       )}
@@ -140,6 +138,7 @@ function AccountRow({
   /** step2: rename it in place (the pencil beside its name). */
   onRename?: (to: string) => Promise<unknown>
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const active = a.count > 0
   const drop = useAccountDrop(a.name, a.bank, onMerge)
   // step9 (2026-11-15): like the balance sheet — where its books start and every statement
@@ -159,7 +158,7 @@ function AccountRow({
       <TableCell className="pl-8 whitespace-normal">
         <span className="flex items-center gap-2">
           {onRename ? (
-            <InlineRename value={a.name} onSave={onRename} label={`Rename ${a.name}`}>
+            <InlineRename value={a.name} onSave={onRename} label={t('statements.renameAccount', { name: a.name })}>
               <span className={cn(active && 'font-medium text-[#0B1C2C]')}>{a.name}</span>
             </InlineRename>
           ) : (
@@ -167,11 +166,11 @@ function AccountRow({
           )}
           {a.bank && (
             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-              {a.type === 'LIABILITY' ? 'Card' : 'Bank'}
+              {a.type === 'LIABILITY' ? t('statements.card') : t('chart.bank')}
             </span>
           )}
           {a.bank && <AccountCurrency account={a.name} currency={a.currency} />}
-          {moved && <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Moved</span>}
+          {moved && <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">{t('chart.moved')}</span>}
           <MoveMenu account={a.name} current={a.type} bank={a.bank} moved={moved} onMove={onMove} />
         </span>
         {(note || !!a.errors?.length) && (

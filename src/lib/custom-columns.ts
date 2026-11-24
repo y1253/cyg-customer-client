@@ -4,17 +4,27 @@
  * (user's request: "the frontend should enforce the min char or max char etc."). The server
  * checks again. Keep the two in step.
  */
+import i18n from '@/i18n'
 
 export const CUSTOM_COLUMN_TYPES = ['TEXT', 'LETTERS', 'NUMBER', 'DROPDOWN'] as const
 export type CustomColumnType = (typeof CUSTOM_COLUMN_TYPES)[number]
 
 export const MAX_ANSWER_CHARS = 1000
 
+/** Each type's label, read in the shown language at the moment it is used. */
 export const TYPE_LABELS: Record<CustomColumnType, string> = {
-  TEXT: 'Any text',
-  LETTERS: 'Text only (no digits)',
-  NUMBER: 'Number only',
-  DROPDOWN: 'Dropdown list',
+  get TEXT() {
+    return i18n.t('ledger:rules.type.TEXT')
+  },
+  get LETTERS() {
+    return i18n.t('ledger:rules.type.LETTERS')
+  },
+  get NUMBER() {
+    return i18n.t('ledger:rules.type.NUMBER')
+  },
+  get DROPDOWN() {
+    return i18n.t('ledger:rules.type.DROPDOWN')
+  },
 }
 
 export interface CustomColumnRules {
@@ -27,14 +37,14 @@ export interface CustomColumnRules {
 export function answerProblem(rules: CustomColumnRules, raw: string): string | null {
   const v = raw.trim()
   if (!v) return null
-  if (v.length > MAX_ANSWER_CHARS) return `At most ${MAX_ANSWER_CHARS} characters`
-  if (rules.type === 'NUMBER' && !/^-?\d+(?:[.,]\d+)?$/.test(v)) return 'Numbers only'
-  if (rules.type === 'LETTERS' && /\d/.test(v)) return 'Text only — no digits'
+  if (v.length > MAX_ANSWER_CHARS) return i18n.t('ledger:rules.atMost', { count: MAX_ANSWER_CHARS })
+  if (rules.type === 'NUMBER' && !/^-?\d+(?:[.,]\d+)?$/.test(v)) return i18n.t('ledger:rules.numbersOnly')
+  if (rules.type === 'LETTERS' && /\d/.test(v)) return i18n.t('ledger:rules.noDigits')
   if (rules.minChars !== null && v.length < rules.minChars) {
-    return `At least ${rules.minChars} character${rules.minChars === 1 ? '' : 's'}`
+    return i18n.t('ledger:rules.atLeast', { count: rules.minChars })
   }
   if (rules.maxChars !== null && v.length > rules.maxChars) {
-    return `At most ${rules.maxChars} character${rules.maxChars === 1 ? '' : 's'}`
+    return i18n.t('ledger:rules.atMost', { count: rules.maxChars })
   }
   return null
 }
@@ -56,9 +66,10 @@ export function typedValue(rules: CustomColumnRules, next: string): string {
 export function rulesText(rules: CustomColumnRules): string {
   const parts = [TYPE_LABELS[rules.type]]
   if (rules.type !== 'DROPDOWN') {
-    if (rules.minChars !== null && rules.maxChars !== null) parts.push(`${rules.minChars}–${rules.maxChars} characters`)
-    else if (rules.minChars !== null) parts.push(`at least ${rules.minChars} characters`)
-    else if (rules.maxChars !== null) parts.push(`at most ${rules.maxChars} characters`)
+    if (rules.minChars !== null && rules.maxChars !== null) {
+      parts.push(i18n.t('ledger:rules.range', { min: rules.minChars, max: rules.maxChars }))
+    } else if (rules.minChars !== null) parts.push(i18n.t('ledger:rules.atLeastLower', { count: rules.minChars }))
+    else if (rules.maxChars !== null) parts.push(i18n.t('ledger:rules.atMostLower', { count: rules.maxChars }))
   }
   return parts.join(' · ')
 }
@@ -81,7 +92,7 @@ export function storedAnswerProblem(
     if (!text) return null
     return col.options.some((o) => o.label.trim().toLowerCase() === text.toLowerCase())
       ? null
-      : 'Not one of the options'
+      : i18n.t('ledger:rules.notAnOption')
   }
   return answerProblem(col, text)
 }

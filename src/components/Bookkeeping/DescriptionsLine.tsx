@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,6 +17,7 @@ export function DescriptionLink({
   className?: string
   children: ReactNode
 }) {
+  const { t } = useTranslation(['names', 'common'])
   if (!onOpen) return <span className={className}>{children}</span>
   return (
     <button
@@ -24,7 +26,7 @@ export function DescriptionLink({
         e.stopPropagation()
         onOpen(description)
       }}
-      title="See the transactions with this description"
+      title={t('descriptions.linkTitle')}
       className={cn('max-w-full truncate text-left hover:text-brand hover:underline', className)}
     >
       {children}
@@ -51,20 +53,22 @@ export function DescriptionsLine({
   onMore: () => void
   className?: string
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const many = contains.length + descriptions.length
   if (!many) return null
   const shownContains = contains.slice(0, 2)
   const shownDescriptions = descriptions.slice(0, 2 - shownContains.length)
   return (
     <p className={cn('mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground', className)}>
-      <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
+      <span className="shrink-0 text-muted-foreground/70">{t('descriptions.label')}</span>
       <span
         className="min-w-0 truncate"
-        title={[...contains.map((t) => `contains “${t}”`), ...descriptions.map((d) => d.description)].join('\n')}
+        title={[...contains.map((text) => t('contains', { text })), ...descriptions.map((d) => d.description)].join('\n')}
       >
-        {shownContains.map((t, i) => (
-          <span key={`c:${t}`}>
-            {i > 0 && ' · '}contains “{t}”
+        {shownContains.map((text, i) => (
+          <span key={`c:${text}`}>
+            {i > 0 && ' · '}
+            {t('contains', { text })}
           </span>
         ))}
         {shownDescriptions.map((d, i) => (
@@ -78,7 +82,7 @@ export function DescriptionsLine({
       </span>
       {many > 2 && (
         <button type="button" onClick={onMore} className="shrink-0 font-medium text-brand hover:underline">
-          +{many - 2} more
+          {t('moreCount', { count: many - 2 })}
         </button>
       )}
     </p>
@@ -103,22 +107,25 @@ export function SubDescriptionsLine({
   onMore: () => void
   className?: string
 }) {
+  const { t } = useTranslation(['names', 'common'])
   if (!entries.length) return null
   const shown = entries.slice(0, 3)
   const prefix = `${parent} - `
   const short = (sub: string) => (sub.toLowerCase().startsWith(prefix.toLowerCase()) ? sub.slice(prefix.length) : sub)
   return (
     <p className={cn('mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground', className)}>
-      <span className="shrink-0 text-muted-foreground/70">Descriptions:</span>
+      <span className="shrink-0 text-muted-foreground/70">{t('descriptions.label')}</span>
       <span
         className="min-w-0 truncate"
-        title={entries.map((e) => `${e.contains ? `contains “${e.description}”` : e.description} → ${e.sub}`).join('\n')}
+        title={entries
+          .map((e) => `${e.contains ? t('contains', { text: e.description }) : e.description} → ${e.sub}`)
+          .join('\n')}
       >
         {shown.map((e, i) => (
           <span key={`${e.sub}:${e.contains ? 'c' : 'd'}:${e.key ?? e.description}`}>
             {i > 0 && ' · '}
             {e.contains ? (
-              <>contains “{e.description}”</>
+              <>{t('contains', { text: e.description })}</>
             ) : (
               <DescriptionLink description={e.description} onOpen={onOpen}>
                 {e.description}
@@ -130,7 +137,7 @@ export function SubDescriptionsLine({
                 ev.stopPropagation()
                 onMore()
               }}
-              title={`Under ${e.sub} — show the sub-names`}
+              title={t('descriptions.underTitle', { sub: e.sub })}
               className="rounded bg-brand/10 px-1 py-px text-[11px] font-medium text-brand hover:bg-brand/15"
             >
               {short(e.sub)}
@@ -140,7 +147,7 @@ export function SubDescriptionsLine({
       </span>
       {entries.length > shown.length && (
         <button type="button" onClick={onMore} className="shrink-0 font-medium text-brand hover:underline">
-          +{entries.length - shown.length} more
+          {t('moreCount', { count: entries.length - shown.length })}
         </button>
       )}
     </p>

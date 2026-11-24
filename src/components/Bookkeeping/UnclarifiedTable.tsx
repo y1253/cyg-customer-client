@@ -1,7 +1,9 @@
 import { useMemo, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { UnrecognizedName } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table'
+import { currentLocale } from '@/i18n'
 import { money } from '@/lib/money'
 import { applyTable, useTableControls, type ColumnDef } from '@/lib/table-sort'
 import { cn } from '@/lib/utils'
@@ -31,6 +33,7 @@ export function UnclarifiedTable({
   actions: (u: UnrecognizedName) => ReactNode
   className?: string
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const controls = useTableControls({ key: 'description', dir: 'asc' })
   const shown = useMemo(
     () => applyTable(rows, COLUMNS, controls.filters, controls.sort),
@@ -41,16 +44,16 @@ export function UnclarifiedTable({
     <Table className={cn('table-fixed', className)}>
       <TableHeader>
         <TableRow>
-          <ColumnHeader column="description" label="Description" kind="text" controls={controls} />
+          <ColumnHeader column="description" label={t('unclarified.description')} kind="text" controls={controls} />
           <ColumnHeader
             column="category"
-            label="Category"
+            label={t('unclarified.category')}
             kind="text"
             controls={controls}
             className="hidden w-40 sm:table-cell"
           />
-          <ColumnHeader column="rows" label="Rows" kind="number" controls={controls} className="w-20" align="end" />
-          <ColumnHeader column="total" label="Total" kind="number" controls={controls} className="w-28" align="end" />
+          <ColumnHeader column="rows" label={t('unclarified.rows')} kind="number" controls={controls} className="w-20" align="end" />
+          <ColumnHeader column="total" label={t('unclarified.total')} kind="number" controls={controls} className="w-28" align="end" />
           <TableHead className="w-28" />
         </TableRow>
       </TableHeader>
@@ -58,7 +61,7 @@ export function UnclarifiedTable({
         {shown.length === 0 ? (
           <TableRow>
             <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
-              No description matches these filters.
+              {t('unclarified.noMatch')}
             </TableCell>
           </TableRow>
         ) : (
@@ -66,7 +69,7 @@ export function UnclarifiedTable({
             <TableRow
               key={u.key}
               {...descriptionDragProps(u.key, u.sampleDescription)}
-              title="Drag onto a name to give these rows that name"
+              title={t('unclarified.dragTitle')}
               className={cn('cursor-grab active:cursor-grabbing', highlighted?.(u) && 'bg-amber-100/70')}
             >
               <TableCell className="min-w-0">
@@ -74,16 +77,16 @@ export function UnclarifiedTable({
                   <span className="truncate text-[#0B1C2C]" title={u.sampleDescription}>
                     {u.sampleDescription}
                   </span>
-                  {u.rule && <Badge className="shrink-0 bg-brand/10 text-brand">Edited</Badge>}
+                  {u.rule && <Badge className="shrink-0 bg-brand/10 text-brand">{t('edited')}</Badge>}
                 </div>
                 <p className="truncate text-xs text-muted-foreground sm:hidden">{u.category}</p>
               </TableCell>
               <TableCell className="hidden truncate text-sm text-muted-foreground sm:table-cell">
                 {u.category}
-                {u.otherCategories > 0 && ` +${u.otherCategories} more`}
+                {u.otherCategories > 0 && t('plusMore', { count: u.otherCategories })}
               </TableCell>
               <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-                {u.rows.toLocaleString()}
+                {u.rows.toLocaleString(currentLocale())}
               </TableCell>
               <TableCell
                 className={cn(

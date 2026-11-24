@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { loadStripe, type Appearance, type Stripe, type StripeElements } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { Check, CreditCard, Loader2, Lock, Plus, Sparkles, Tag, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { money, type Quote, type SavedCard } from '@/api/billing'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +19,7 @@ import { usePayAndGenerate } from '@/hooks/usePayAndGenerate'
 import { useQuote } from '@/hooks/useQuote'
 import { useSavedCards } from '@/hooks/useSavedCards'
 import { cardExpiry, cardLabel } from '@/lib/cards'
+import i18n, { currentLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /** One Stripe.js load per publishable key, for the life of the page. */
@@ -59,6 +61,7 @@ export function PayDialog({
   onOpenChange: (open: boolean) => void
   statements: number
 }) {
+  const { t } = useTranslation(['dashboard', 'common'])
   const config = useBillingConfig()
   const key = config.data?.publishableKey ?? null
   const [quote, setQuote] = useState<Quote | null>(null)
@@ -90,11 +93,8 @@ export function PayDialog({
             <Sparkles className="size-5" />
           </span>
           <div className="grid gap-1">
-            <DialogTitle className="text-lg font-bold text-[#0B1C2C]">Read your statements</DialogTitle>
-            <DialogDescription>
-              We read {statements} new statement{statements === 1 ? '' : 's'} and post every transaction to your
-              ledger.
-            </DialogDescription>
+            <DialogTitle className="text-lg font-bold text-[#0B1C2C]">{t('pay.title')}</DialogTitle>
+            <DialogDescription>{t('pay.description', { count: statements })}</DialogDescription>
           </div>
         </DialogHeader>
 
@@ -104,7 +104,7 @@ export function PayDialog({
           </div>
         ) : amount > 0 && !stripePromise ? (
           <p role="alert" className="px-6 py-10 text-center text-sm text-destructive">
-            Payments are not set up yet — please contact us.
+            {t('pay.notSetUp')}
           </p>
         ) : stripePromise ? (
           <Elements
@@ -162,6 +162,7 @@ function PayForm({
   stripe: Stripe | null
   elements: StripeElements | null
 }) {
+  const { t } = useTranslation(['dashboard', 'common'])
   const amount = quote?.amountCents ?? listPrice
   const free = amount === 0
   const cards = useSavedCards()
@@ -181,12 +182,12 @@ function PayForm({
         paymentMethodId: free || usingNew ? undefined : chosen,
         prepare: async () => {
           if (free) return
-          if (!elements) throw new Error('The card form is still loading.')
+          if (!elements) throw new Error(i18n.t('dashboard:pay.cardLoading'))
           const { error } = await elements.submit()
-          if (error) throw new Error(error.message ?? 'Check your card details.')
+          if (error) throw new Error(error.message ?? i18n.t('dashboard:pay.checkCard'))
         },
         confirm: async (clientSecret, savedCard) => {
-          if (!stripe) throw new Error('The card form is still loading.')
+          if (!stripe) throw new Error(i18n.t('dashboard:pay.cardLoading'))
           const result = savedCard
             ? await stripe.handleNextAction({ clientSecret })
             : await stripe.confirmPayment({
@@ -195,7 +196,7 @@ function PayForm({
                 redirect: 'if_required',
                 confirmParams: { return_url: window.location.href },
               })
-          if (result.error) throw new Error(result.error.message ?? 'Your card was declined.')
+          if (result.error) throw new Error(result.error.message ?? i18n.t('dashboard:pay.declined'))
         },
       },
       { onSuccess: onDone },
@@ -211,7 +212,7 @@ function PayForm({
 
       {!free && (
         <div className="grid gap-2.5">
-          <p className="text-sm font-semibold text-[#0B1C2C]">Pay with</p>
+          <p className="text-sm font-semibold text-[#0B1C2C]">{t('pay.payWith')}</p>
           {cards.isLoading ? (
             <div className="h-14 animate-pulse rounded-xl bg-muted" />
           ) : (
@@ -229,7 +230,7 @@ function PayForm({
                   <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                     <Plus className="size-4" />
                   </span>
-                  <span className="font-medium text-[#0B1C2C]">Use a new card</span>
+                  <span className="font-medium text-[#0B1C2C]">{t('pay.newCard')}</span>
                 </OptionRow>
               </div>
             )
@@ -244,7 +245,7 @@ function PayForm({
           )}
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Lock className="size-3.5 shrink-0" />
-            Secured by Stripe. Your card is saved for next time — we never see its number.
+            {t('pay.secured')}
           </p>
         </div>
       )}
@@ -257,7 +258,7 @@ function PayForm({
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row">
         <Button variant="outline" className="h-11 rounded-lg sm:flex-1" onClick={onCancel} disabled={pay.isPending}>
-          Cancel
+          {t('common:actions.cancel')}
         </Button>
         <Button
           className="h-11 gap-2 rounded-lg bg-brand text-white hover:bg-brand/85 sm:flex-[2]"
@@ -271,7 +272,11 @@ function PayForm({
           ) : (
             <Lock className="size-4" />
           )}
-          {pay.isPending ? 'Processing…' : free ? 'Generate free' : `Pay ${money(amount, currency)} & generate`}
+          {pay.isPending
+            ? t('pay.processing')
+            : free
+              ? t('pay.generateFree')
+              : t('pay.payAndGenerate', { amount: money(amount, currency) })}
         </Button>
       </div>
     </div>
@@ -289,13 +294,14 @@ function Summary({
   currency: string
   quote: Quote | null
 }) {
+  const { t } = useTranslation(['dashboard', 'common'])
   const amount = quote?.amountCents ?? listPrice
   const saving = quote?.promo ? listPrice - amount : 0
   return (
     <div className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
       <div className="flex items-center justify-between gap-3">
         <span className="text-muted-foreground">
-          Generate · {statements} statement{statements === 1 ? '' : 's'}
+          {t('pay.summary', { count: statements })}
         </span>
         <span className={cn('font-medium text-[#0B1C2C]', quote?.promo && 'text-muted-foreground line-through')}>
           {money(listPrice, currency)}
@@ -314,9 +320,9 @@ function Summary({
       )}
       <Separator />
       <div className="flex items-baseline justify-between gap-3">
-        <span className="font-semibold text-[#0B1C2C]">Total</span>
+        <span className="font-semibold text-[#0B1C2C]">{t('pay.total')}</span>
         <span className="text-2xl font-bold tracking-tight text-[#0B1C2C]">
-          {amount === 0 ? 'Free' : money(amount, currency)}
+          {amount === 0 ? t('pay.free') : money(amount, currency)}
         </span>
       </div>
     </div>
@@ -324,7 +330,9 @@ function Summary({
 }
 
 function promoLabel(promo: NonNullable<Quote['promo']>, currency: string) {
-  return promo.kind === 'PERCENT_OFF' ? `${promo.value}% off` : `Special price ${money(promo.value, currency)}`
+  return promo.kind === 'PERCENT_OFF'
+    ? i18n.t('dashboard:pay.percentOff', { value: promo.value.toLocaleString(currentLocale()) })
+    : i18n.t('dashboard:pay.specialPrice', { price: money(promo.value, currency) })
 }
 
 function PromoField({
@@ -336,6 +344,7 @@ function PromoField({
   onQuote: (q: Quote | null) => void
   disabled: boolean
 }) {
+  const { t } = useTranslation(['dashboard', 'common'])
   const apply = useQuote()
   const [openField, setOpenField] = useState(false)
   const [code, setCode] = useState('')
@@ -347,13 +356,13 @@ function PromoField({
           <Check className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-emerald-900">{quote.promo.code} applied</p>
+          <p className="truncate text-sm font-semibold text-emerald-900">{t('pay.promoApplied', { code: quote.promo.code })}</p>
           <p className="text-xs text-emerald-800">{promoLabel(quote.promo, quote.currency)}</p>
         </div>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Remove promo code"
+          aria-label={t('pay.removePromo')}
           disabled={disabled}
           className="text-emerald-800 hover:bg-emerald-100"
           onClick={() => {
@@ -375,7 +384,7 @@ function PromoField({
         className="flex w-fit items-center gap-1.5 text-sm font-medium text-brand hover:underline"
       >
         <Tag className="size-3.5" />
-        Have a promo code?
+        {t('pay.havePromo')}
       </button>
     )
 
@@ -395,8 +404,8 @@ function PromoField({
             setCode(e.target.value.toUpperCase())
             apply.reset()
           }}
-          placeholder="Promo code"
-          aria-label="Promo code"
+          placeholder={t('pay.promoCode')}
+          aria-label={t('pay.promoCode')}
           className="h-10 font-mono tracking-wider uppercase"
           disabled={disabled}
         />
@@ -406,7 +415,7 @@ function PromoField({
           className="h-10 px-4"
           disabled={disabled || apply.isPending || !code.trim()}
         >
-          {apply.isPending ? <Loader2 className="size-4 animate-spin" /> : 'Apply'}
+          {apply.isPending ? <Loader2 className="size-4 animate-spin" /> : t('common:actions.apply')}
         </Button>
       </div>
       {apply.error && <p className="text-xs text-destructive">{apply.error.message}</p>}
@@ -415,6 +424,7 @@ function PromoField({
 }
 
 function CardOption({ card, selected, onSelect }: { card: SavedCard; selected: boolean; onSelect: () => void }) {
+  const { t } = useTranslation(['dashboard', 'common'])
   return (
     <OptionRow selected={selected} onSelect={onSelect}>
       <span className="flex size-9 items-center justify-center rounded-lg bg-[#0B1C2C] text-white">
@@ -422,7 +432,7 @@ function CardOption({ card, selected, onSelect }: { card: SavedCard; selected: b
       </span>
       <span className="grid min-w-0 flex-1">
         <span className="truncate font-medium text-[#0B1C2C]">{cardLabel(card)}</span>
-        <span className="text-xs text-muted-foreground">Expires {cardExpiry(card)}</span>
+        <span className="text-xs text-muted-foreground">{t('pay.expires', { date: cardExpiry(card) })}</span>
       </span>
     </OptionRow>
   )

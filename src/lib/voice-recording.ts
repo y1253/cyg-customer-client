@@ -1,6 +1,7 @@
 /**
  * Pure helpers for recording a voice note in the browser. Unit-tested.
  */
+import i18n from '@/i18n';
 
 /**
  * Tried in order. The container goes to OpenAI exactly as the browser produced it — webm,
@@ -60,13 +61,13 @@ export function micErrorMessage(err: unknown): string {
   switch (name) {
     case 'NotAllowedError':
     case 'SecurityError':
-      return 'Microphone access is blocked. Allow it in the browser to record a voice message.';
+      return i18n.t('assistant:mic.blocked');
     case 'NotFoundError':
     case 'OverconstrainedError':
-      return 'No microphone was found.';
+      return i18n.t('assistant:mic.notFound');
     case 'NotReadableError':
-      return 'The microphone is in use by another app.';
+      return i18n.t('assistant:mic.inUse');
     default:
-      return 'Could not start recording.';
+      return i18n.t('assistant:mic.failed');
   }
 }

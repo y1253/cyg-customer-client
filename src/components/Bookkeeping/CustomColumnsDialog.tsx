@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import type { CustomColumn, CustomColumnInput } from '@/api/customColumns'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ import {
   TYPE_LABELS,
   type CustomColumnType,
 } from '@/lib/custom-columns'
+import i18n from '@/i18n'
 import { ColumnNameAnswers } from './NameColumnAnswers'
 
 type Draft = Omit<CustomColumnInput, 'minChars' | 'maxChars'> & {
@@ -43,18 +45,18 @@ const draftOf = (c: CustomColumn): Draft => ({
 
 /** The form's own check, before anything is sent (the server's `cleanColumn` says the same). */
 function draftProblem(d: Draft): string | null {
-  if (!d.name.trim()) return 'Give the column a name'
+  if (!d.name.trim()) return i18n.t('ledger:columnsDialog.needName')
   const min = d.minChars === '' ? null : Number(d.minChars)
   const max = d.maxChars === '' ? null : Number(d.maxChars)
   if (d.type !== 'DROPDOWN') {
     for (const v of [min, max]) {
-      if (v !== null && (!Number.isInteger(v) || v < 0 || v > 1000)) return 'Characters: a whole number from 0 to 1000'
+      if (v !== null && (!Number.isInteger(v) || v < 0 || v > 1000)) return i18n.t('ledger:columnsDialog.charsRange')
     }
-    if (min !== null && max !== null && min > max) return 'The minimum is more than the maximum'
+    if (min !== null && max !== null && min > max) return i18n.t('ledger:columnsDialog.minOverMax')
   } else {
     const labels = d.options.map((o) => o.label.trim().toLowerCase()).filter(Boolean)
-    if (!labels.length) return 'Add at least one option'
-    if (new Set(labels).size !== labels.length) return 'An option is in the list twice'
+    if (!labels.length) return i18n.t('ledger:columnsDialog.needOption')
+    if (new Set(labels).size !== labels.length) return i18n.t('ledger:columnsDialog.optionTwice')
   }
   return null
 }
@@ -67,7 +69,7 @@ type Broken = { transactionId: number; date?: string | null; description?: strin
 
 /** "3 answers already in this column don't fit the new rules." */
 function brokenText(n: number): string {
-  return `${n} answer${n === 1 ? '' : 's'} already in this column ${n === 1 ? "doesn't" : "don't"} fit the new rules.`
+  return i18n.t('ledger:columnsDialog.broken', { count: n })
 }
 
 /**
@@ -93,6 +95,7 @@ export function CustomColumnsDialog({
   /** The ledger's words for a row (date · name), for the list of answers to fix. */
   rowLabel?: (transactionId: number) => string | undefined
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const { data } = useCustomColumns()
   const save = useSaveCustomColumn()
   const remove = useDeleteCustomColumn()
@@ -194,11 +197,8 @@ export function CustomColumnsDialog({
     >
       <DialogContent className="overflow-x-hidden sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Your columns</DialogTitle>
-          <DialogDescription>
-            Add your own columns to this company's ledger — for example “Business” with 1, 2 or 3 — and fill them in on
-            each transaction. They are in your downloads too.
-          </DialogDescription>
+          <DialogTitle>{t('table.yourColumns')}</DialogTitle>
+          <DialogDescription>{t('columnsDialog.description')}</DialogDescription>
         </DialogHeader>
 
         {!draft && namesColumn && (
@@ -213,7 +213,7 @@ export function CustomColumnsDialog({
                   if (direct) onOpenChange(false)
                 }}
               >
-                Done
+                {t('common:actions.done')}
               </Button>
             </div>
           </div>
@@ -221,7 +221,7 @@ export function CustomColumnsDialog({
 
         {!draft && !namesColumn && (
           <div className="flex min-w-0 flex-col gap-3">
-            {columns.length === 0 && <p className="text-sm text-muted-foreground">No columns of your own yet.</p>}
+            {columns.length === 0 && <p className="text-sm text-muted-foreground">{t('columnsDialog.none')}</p>}
             {columns.map((c) => (
               <div key={c.id} className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
                 <div className="min-w-0 flex-1">
@@ -229,13 +229,13 @@ export function CustomColumnsDialog({
                   <p className="truncate text-xs text-muted-foreground">
                     {rulesText(c)}
                     {c.type === 'DROPDOWN' && `: ${c.options.map((o) => o.label).join(', ')}`}
-                    {c.required && ' · required'}
+                    {c.required && ` · ${t('table.requiredLower')}`}
                   </p>
                 </div>
-                <Button variant="ghost" size="icon-sm" onClick={() => setNamesFor(c.id)} title="Answers per name">
+                <Button variant="ghost" size="icon-sm" onClick={() => setNamesFor(c.id)} title={t('columnsDialog.answersPerName')}>
                   <Users className="size-4" />
                 </Button>
-                <Button variant="ghost" size="icon-sm" onClick={() => setDraft(draftOf(c))} title="Edit">
+                <Button variant="ghost" size="icon-sm" onClick={() => setDraft(draftOf(c))} title={t('common:actions.edit')}>
                   <Pencil className="size-4" />
                 </Button>
                 <Button
@@ -243,7 +243,7 @@ export function CustomColumnsDialog({
                   size="icon-sm"
                   disabled={remove.isPending}
                   onClick={() => remove.mutate(c.id)}
-                  title="Remove the column (and its answers)"
+                  title={t('columnsDialog.removeColumn')}
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -251,26 +251,23 @@ export function CustomColumnsDialog({
             ))}
             <div className="flex flex-wrap gap-2">
               <Button className="gap-1.5 bg-brand text-white hover:bg-brand/85" onClick={() => setDraft({ ...EMPTY })}>
-                <Plus className="size-4" /> Add a column
+                <Plus className="size-4" /> {t('columnsDialog.addColumn')}
               </Button>
-              {templates.map((t) => (
+              {templates.map((tpl) => (
                 <Button
-                  key={t.bookId}
+                  key={tpl.bookId}
                   variant="outline"
                   className="gap-1.5"
                   disabled={copy.isPending}
-                  onClick={() => copy.mutate(t.bookId)}
-                  title={`Copy: ${t.columns.map((c) => c.name).join(', ')}`}
+                  onClick={() => copy.mutate(tpl.bookId)}
+                  title={t('columnsDialog.copyTitle', { columns: tpl.columns.map((c) => c.name).join(', ') })}
                 >
-                  <Copy className="size-4" /> Same as {t.bookName}
+                  <Copy className="size-4" /> {t('columnsDialog.sameAs', { book: tpl.bookName })}
                 </Button>
               ))}
             </div>
             {templates.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                “Same as …” copies that company's columns and their options (not the answers). Columns with a name you
-                already have are skipped.
-              </p>
+              <p className="text-xs text-muted-foreground">{t('columnsDialog.sameAsHelp')}</p>
             )}
             {(remove.error || copy.error) && (
               <p className="text-sm text-destructive">{(remove.error ?? copy.error)?.message}</p>
@@ -287,18 +284,18 @@ export function CustomColumnsDialog({
             }}
           >
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="cc-name">Column name</Label>
+              <Label htmlFor="cc-name">{t('columnsDialog.name')}</Label>
               <Input
                 id="cc-name"
                 autoFocus
                 maxLength={64}
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                placeholder="Business"
+                placeholder={t('columnsDialog.namePlaceholder')}
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>What it holds</Label>
+              <Label>{t('columnsDialog.holds')}</Label>
               <Select
                 value={draft.type}
                 onValueChange={(v) =>
@@ -314,9 +311,9 @@ export function CustomColumnsDialog({
                   <SelectValue>{(v: CustomColumnType) => TYPE_LABELS[v]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {CUSTOM_COLUMN_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {TYPE_LABELS[t]}
+                  {CUSTOM_COLUMN_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {TYPE_LABELS[type]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -324,20 +321,20 @@ export function CustomColumnsDialog({
             </div>
             {draft.type === 'DROPDOWN' ? (
               <div className="flex flex-col gap-1.5">
-                <Label>Options</Label>
+                <Label>{t('columnsDialog.options')}</Label>
                 {draft.options.map((o, i) => (
                   <div key={o.id ?? `n${i}`} className="flex items-center gap-1">
                     <Input
                       value={o.label}
                       maxLength={120}
                       onChange={(e) => setOption(i, e.target.value)}
-                      placeholder={`Option ${i + 1}`}
+                      placeholder={t('columnsDialog.option', { n: i + 1 })}
                       className="h-9"
                     />
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => moveOption(i, -1)} title="Up">
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => moveOption(i, -1)} title={t('columnsDialog.up')}>
                       <ArrowUp className="size-4" />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => moveOption(i, 1)} title="Down">
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => moveOption(i, 1)} title={t('columnsDialog.down')}>
                       <ArrowDown className="size-4" />
                     </Button>
                     <Button
@@ -345,7 +342,7 @@ export function CustomColumnsDialog({
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => setDraft({ ...draft, options: draft.options.filter((_, k) => k !== i) })}
-                      title="Remove the option"
+                      title={t('columnsDialog.removeOption')}
                     >
                       <X className="size-4" />
                     </Button>
@@ -358,37 +355,37 @@ export function CustomColumnsDialog({
                   className="w-fit gap-1.5"
                   onClick={() => setDraft({ ...draft, options: [...draft.options, { label: '' }] })}
                 >
-                  <Plus className="size-4" /> Add an option
+                  <Plus className="size-4" /> {t('columnsDialog.addOption')}
                 </Button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="cc-min">Min characters</Label>
+                  <Label htmlFor="cc-min">{t('columnsDialog.minChars')}</Label>
                   <Input
                     id="cc-min"
                     inputMode="numeric"
                     value={draft.minChars}
                     onChange={(e) => setDraft({ ...draft, minChars: e.target.value.replace(/\D/g, '') })}
-                    placeholder="None"
+                    placeholder={t('common:status.none')}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="cc-max">Max characters</Label>
+                  <Label htmlFor="cc-max">{t('columnsDialog.maxChars')}</Label>
                   <Input
                     id="cc-max"
                     inputMode="numeric"
                     value={draft.maxChars}
                     onChange={(e) => setDraft({ ...draft, maxChars: e.target.value.replace(/\D/g, '') })}
-                    placeholder="None"
+                    placeholder={t('common:status.none')}
                   />
                 </div>
               </div>
             )}
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
-                <Label htmlFor="cc-required">Required</Label>
-                <span className="text-xs text-muted-foreground">Empty cells are marked so you can fill them in.</span>
+                <Label htmlFor="cc-required">{t('common:status.required')}</Label>
+                <span className="text-xs text-muted-foreground">{t('columnsDialog.requiredHelp')}</span>
               </div>
               <Switch
                 id="cc-required"
@@ -399,17 +396,16 @@ export function CustomColumnsDialog({
             {toFix.length > 0 && (
               <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800 ring-1 ring-red-600/20">
                 <p className="font-medium">
-                  {brokenText(toFix.length)} Fix {toFix.length === 1 ? 'it' : 'them'} in the ledger first, or keep the
-                  old rules.
+                  {brokenText(toFix.length)} {t('columnsDialog.fixFirst', { count: toFix.length })}
                 </p>
                 <ul className="mt-1.5 max-h-40 space-y-0.5 overflow-y-auto text-xs">
                   {toFix.slice(0, 50).map((b) => (
                     <li key={b.transactionId} className="flex min-w-0 gap-1.5">
                       <span className="min-w-0 truncate text-red-900/80">
                         {rowLabel?.(b.transactionId) ??
-                          ([b.date, b.description].filter(Boolean).join(' · ') || `Row ${b.transactionId}`)}
+                          ([b.date, b.description].filter(Boolean).join(' · ') || t('columnsDialog.row', { id: b.transactionId }))}
                       </span>
-                      <span className="max-w-32 shrink-0 truncate font-medium">“{b.value}”</span>
+                      <span className="max-w-32 shrink-0 truncate font-medium">{t('columnsDialog.quoted', { value: b.value })}</span>
                       <span className="shrink-0">— {b.problem}</span>
                     </li>
                   ))}
@@ -431,18 +427,18 @@ export function CustomColumnsDialog({
                     setNamesFor(editing.id)
                   }}
                 >
-                  <Users className="size-4" /> Answers per name
+                  <Users className="size-4" /> {t('columnsDialog.answersPerName')}
                 </Button>
               )}
               <Button type="button" variant="outline" onClick={closeForm}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={save.isPending || broken.length > 0}
                 className="bg-brand text-white hover:bg-brand/85"
               >
-                {draft.id ? 'Save' : 'Add column'}
+                {draft.id ? t('common:actions.save') : t('columnsDialog.addColumnShort')}
               </Button>
             </div>
           </form>

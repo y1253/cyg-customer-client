@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronRight,
   CreditCard,
@@ -119,6 +120,7 @@ function Body({
   onViewTransaction?: (transactionId: number) => void
   onOpenStatement?: (statementId: number) => void
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const attachments = useAttachments()
   const folders = useNameFolders()
   const { attach } = useAttachmentActions()
@@ -152,7 +154,7 @@ function Body({
       ? BUCKET_LABEL[target.bucket]
       : target.kind === 'account'
         ? target.account.name
-        : name || 'Unsorted'
+        : name || t('files.unsorted')
   const Icon = target.kind === 'account' ? (target.account.card ? CreditCard : Landmark) : key === UNSORTED ? Inbox : Folder
 
   const row = (a: Attachment) => (
@@ -178,16 +180,12 @@ function Body({
         </DialogTitle>
         <DialogDescription>
           {target.kind === 'bucket'
-            ? target.bucket === 'ERROR'
-              ? 'Files we could not link to a transaction, could not read, or could not tell who they are from. Open one to choose its transaction, move it to a name, or ask the AI.'
-              : target.bucket === 'RELATED'
-                ? 'Every file linked to a transaction of your ledger.'
-                : 'Contracts, letters and other files that are not a transaction — kept under their name.'
+            ? t(`files.help.${target.bucket}`)
             : target.kind === 'account'
-              ? 'The statements of this account — click one for its transactions.'
+              ? t('files.help.account')
               : key === UNSORTED
-                ? 'Files we could not file under a name yet. Move each to its name, or ask the AI about it.'
-                : 'Everything about this name, newest first. Add files here — we still find the transaction each belongs to.'}
+                ? t('files.help.unsorted')
+                : t('files.help.name')}
         </DialogDescription>
         {/* "Read all again" where the unrecognised files are: the error list and Unsorted. */}
         {(filter === 'ERROR' || key === UNSORTED) && <RereadAllFiles files={list} />}
@@ -197,7 +195,7 @@ function Body({
         {target.kind === 'account' && (
           <section className="flex flex-col gap-1.5">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Statements · {target.account.statements.length}
+              {t('files.statements', { count: target.account.statements.length })}
             </h3>
             <ul className="flex flex-col gap-1.5">
               {target.account.statements.map((s) => (
@@ -207,7 +205,7 @@ function Body({
                     disabled={!onOpenStatement || s.status !== 'DONE'}
                     onClick={() => onOpenStatement?.(s.id)}
                     className="flex w-full min-w-0 items-center gap-2.5 rounded-xl bg-white px-3 py-2.5 text-left ring-1 ring-black/5 enabled:hover:bg-brand/5 disabled:cursor-default"
-                    title={s.status === 'DONE' ? 'See the transactions of this statement' : undefined}
+                    title={s.status === 'DONE' ? t('files.seeStatement') : undefined}
                   >
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                       <FileText className="size-4" />
@@ -217,10 +215,10 @@ function Body({
                       <span className="block truncate text-xs text-muted-foreground">
                         {fmtDay(s.periodEnd)} ·{' '}
                         {s.status === 'DONE'
-                          ? `${s.transactionCount} transaction${s.transactionCount === 1 ? '' : 's'}`
+                          ? t('files.transactions', { count: s.transactionCount })
                           : unreadable(s)
-                            ? (s.error ?? 'could not be read')
-                            : 'not read yet'}
+                            ? (s.error ?? t('files.couldNotRead'))
+                            : t('files.notRead')}
                       </span>
                     </span>
                     {s.status === 'DONE' && <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
@@ -234,7 +232,7 @@ function Body({
         {isName && (
           <div className="flex flex-wrap items-center gap-1.5">
             <Chip active={filter === null} onClick={() => setFilter(null)}>
-              All files
+              {t('files.all')}
             </Chip>
             {(['RELATED', 'DOCUMENT', 'ERROR'] as const).map((b) => (
               <Chip key={b} active={filter === b} tone={b} onClick={() => (setFilter(b), setFolderId(null))}>
@@ -269,7 +267,7 @@ function Body({
         ) : (
           (target.kind !== 'account' || filter) && (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              {filter ? 'Nothing in this list.' : 'No files here yet.'}
+              {filter ? t('files.emptyList') : t('files.emptyFolder')}
             </p>
           )
         )}
@@ -343,9 +341,10 @@ function Breadcrumb({
   path: Array<{ id: number; title: string }>
   onGo: (id: number | null) => void
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   if (!path.length) return null
   return (
-    <nav aria-label="Folder" className="flex flex-wrap items-center gap-1 text-sm">
+    <nav aria-label={t('move.folder')} className="flex flex-wrap items-center gap-1 text-sm">
       <button type="button" onClick={() => onGo(null)} className="text-brand hover:underline">
         {root}
       </button>
@@ -379,6 +378,7 @@ function Subfolders({
   folders: Array<{ id: number; title: string }>
   onOpen: (id: number) => void
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const { create, rename, remove } = useNameFolderActions()
   const [adding, setAdding] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: number; title: string } | null>(null)
@@ -404,10 +404,10 @@ function Subfolders({
               className="h-8"
             />
             <Button type="submit" size="sm" disabled={rename.isPending}>
-              Save
+              {t('common:actions.save')}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
           </form>
         ) : (
@@ -423,7 +423,7 @@ function Subfolders({
             <Button
               variant="ghost"
               size="icon-sm"
-              title="Rename this folder"
+              title={t('files.renameFolder')}
               onClick={() => setEditing({ id: f.id, title: f.title })}
             >
               <Pencil />
@@ -431,7 +431,7 @@ function Subfolders({
             <Button
               variant="ghost"
               size="icon-sm"
-              title="Delete this folder (its files move up a level)"
+              title={t('files.deleteFolder')}
               disabled={remove.isPending}
               onClick={() => remove.mutate(f.id)}
               className="text-muted-foreground hover:text-destructive"
@@ -455,20 +455,20 @@ function Subfolders({
             autoFocus
             value={adding}
             maxLength={128}
-            placeholder="Folder name, e.g. Contracts"
+            placeholder={t('files.folderPlaceholder')}
             onChange={(e) => setAdding(e.target.value)}
             className="h-8"
           />
           <Button type="submit" size="sm" disabled={create.isPending}>
-            Create
+            {t('files.create')}
           </Button>
           <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(null)}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
         </form>
       ) : (
         <Button variant="ghost" size="sm" onClick={() => setAdding('')} className="w-fit gap-1.5 text-muted-foreground">
-          <FolderPlus className="size-4" /> New folder
+          <FolderPlus className="size-4" /> {t('files.newFolder')}
         </Button>
       )}
       {error && <p className="text-sm text-destructive">{error.message}</p>}
@@ -478,6 +478,7 @@ function Subfolders({
 
 /** Drop or browse files into this folder — they are read and matched like any other. */
 function AddFiles({ name, folderId }: { name: string | null; folderId: number | null }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const input = useRef<HTMLInputElement>(null)
   const upload = useUploadAttachments()
   const [dragging, setDragging] = useState(false)
@@ -488,7 +489,7 @@ function AddFiles({ name, folderId }: { name: string | null; folderId: number | 
     if (!all.length || upload.isPending) return
     const ok = all.filter((f) => isAcceptedAttachment(f) && f.size <= MAX_ATTACHMENT_BYTES)
     const skipped = all.length - ok.length
-    setNotice(skipped ? `Skipped ${skipped} file${skipped === 1 ? '' : 's'} (not a photo, PDF, audio or spreadsheet, or over 25 MB).` : null)
+    setNotice(skipped ? t('files.skipped', { count: skipped }) : null)
     if (ok.length) upload.mutate({ files: ok, place: { name, folderId } })
   }
   const onDrop = (e: DragEvent) => {
@@ -516,9 +517,9 @@ function AddFiles({ name, folderId }: { name: string | null; folderId: number | 
       >
         {upload.isPending ? <Loader2 className="size-4 animate-spin text-brand" /> : <Paperclip className="size-4 text-brand" />}
         <span className="font-medium text-[#0B1C2C]">
-          {upload.isPending ? 'Uploading…' : `Add files to ${name || 'Unsorted'}`}
+          {upload.isPending ? t('files.uploading') : t('files.addTo', { name: name || t('files.unsorted') })}
         </span>
-        <span className="hidden text-muted-foreground sm:inline">— drop them here or browse</span>
+        <span className="hidden text-muted-foreground sm:inline">{t('files.dropHint')}</span>
       </button>
       <input
         ref={input}

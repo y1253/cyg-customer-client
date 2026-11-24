@@ -1,4 +1,5 @@
 import { Mail, Phone } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { CONTACT } from './content'
 import { SECTION_TITLE } from './cta'
 
@@ -7,14 +8,14 @@ import { SECTION_TITLE } from './cta'
  * 2026-10-23 (step12c) — the API's `POST /api/contact` and `api/contact.ts` still exist.
  */
 export function ContactSection() {
+  const { t } = useTranslation('site')
   return (
     <section id="contact" className="scroll-mt-6 bg-white py-16 lg:py-[100px]">
       <div className="mx-auto flex max-w-[1280px] flex-col gap-10 px-4 sm:px-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-xl">
-          <h2 className={SECTION_TITLE}>Talk to a person</h2>
+          <h2 className={SECTION_TITLE}>{t('contact.title')}</h2>
           <p className="mt-6 text-lg text-black/70">
-            The assistant handles the day-to-day, and our accountants are always there behind it.
-            Reach the CYG Finance office directly any time.
+            {t('contact.body')}
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -27,7 +28,7 @@ export function ContactSection() {
             </span>
             <span className="min-w-0">
               <span className="block text-xs font-semibold uppercase tracking-[2px] text-black/50">
-                Email us
+                {t('contact.emailUs')}
               </span>
               <span className="block truncate text-base font-medium text-black group-hover:text-brand">
                 {CONTACT.email}
@@ -43,7 +44,7 @@ export function ContactSection() {
             </span>
             <span className="min-w-0">
               <span className="block text-xs font-semibold uppercase tracking-[2px] text-black/50">
-                Call us
+                {t('contact.callUs')}
               </span>
               <span className="block text-base font-medium text-black group-hover:text-brand">
                 {CONTACT.phoneLabel}

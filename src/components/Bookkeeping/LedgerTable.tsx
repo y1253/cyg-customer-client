@@ -13,9 +13,9 @@ import {
   Search,
   Split,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   openOriginal,
-  UNCLARIFIED_NAME,
   type LedgerPageRow,
   type LedgerQuery,
   type LedgerTransaction,
@@ -37,7 +37,7 @@ import {
 import type { CustomColumn, CustomColumnsData } from '@/api/customColumns'
 import { useBook } from '@/hooks/useBook'
 import { useCustomColumns } from '@/hooks/useCustomColumns'
-import { useLedgerColumns, type LedgerColumns } from '@/hooks/useLedgerColumns'
+import { useLedgerColumns, type FixedColumn, type LedgerColumns } from '@/hooks/useLedgerColumns'
 import { useDebounced } from '@/hooks/useDebounced'
 import { useLedgerPages, useLedgerSummary } from '@/hooks/useLedgerPages'
 import { useDuplicateSplit } from '@/hooks/useSplits'
@@ -45,6 +45,7 @@ import { money } from '@/lib/money'
 import { useTableControls, type SortState } from '@/lib/table-sort'
 import { rulesText } from '@/lib/custom-columns'
 import { cn } from '@/lib/utils'
+import { currentLocale } from '@/i18n'
 import { ColumnHeader } from './ColumnHeader'
 import { CustomCell } from './CustomCell'
 import { CustomColumnsDialog, type ColumnsDialogStart } from './CustomColumnsDialog'
@@ -58,7 +59,7 @@ import { folderOf, groupByAccount } from './statement-folders'
 /** Date-only ISO → "Sep 2, 2026", parsed as LOCAL midnight so it never slips a day. */
 const fmtDate = (iso: string | null) =>
   iso
-    ? new Date(iso + 'T00:00:00').toLocaleDateString(undefined, {
+    ? new Date(iso + 'T00:00:00').toLocaleDateString(currentLocale(), {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
@@ -81,14 +82,15 @@ const customIdOf = (id: string) => Number(id.slice(1))
 
 /** step8 (user's rule): the POSTING date is the date; the pending one, when different, under it. */
 function DateStack({ t }: { t: LedgerTransaction }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const pending = fmtDate(t.pendingDate)
   const posting = fmtDate(t.postingDate)
   return (
     <span className="flex flex-col whitespace-normal text-muted-foreground">
       <span>{posting || pending}</span>
       {pending && posting && posting !== pending && (
-        <span className="text-[11px] leading-tight text-muted-foreground/70" title="Pending (authorized) date">
-          pending {pending}
+        <span className="text-[11px] leading-tight text-muted-foreground/70" title={tr('table.pendingTitle')}>
+          {tr('table.pending', { date: pending })}
         </span>
       )}
     </span>
@@ -162,6 +164,7 @@ export function LedgerTable({
   subName?: { id: number; name: string } | null
   onClearSubName?: () => void
 }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const [query, setQuery] = useState('')
   // step11 (2026-11-23): the search runs on the server — sent once typing pauses.
   const searched = useDebounced(query.trim(), 300)
@@ -320,7 +323,7 @@ export function LedgerTable({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, description or account"
+            placeholder={tr('table.searchPlaceholder')}
             className="h-10 pl-9"
           />
         </div>
@@ -329,7 +332,7 @@ export function LedgerTable({
             type="button"
             onClick={onClearAccount}
             className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
-            title="Show every account"
+            title={tr('table.showEveryAccount')}
           >
             {account} ✕
           </button>
@@ -339,7 +342,7 @@ export function LedgerTable({
             type="button"
             onClick={onClearName}
             className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
-            title="Show every name"
+            title={tr('table.showEveryName')}
           >
             {name} ✕
           </button>
@@ -349,7 +352,7 @@ export function LedgerTable({
             type="button"
             onClick={onClearSubName}
             className="max-w-full shrink-0 truncate rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
-            title="Show every row of the name"
+            title={tr('table.showEveryRowOfName')}
           >
             {subName.name} ✕
           </button>
@@ -359,7 +362,7 @@ export function LedgerTable({
             type="button"
             onClick={onClearDescription}
             className="max-w-full shrink-0 truncate rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
-            title="Show every description"
+            title={tr('table.showEveryDescription')}
           >
             “{description}” ✕
           </button>
@@ -369,9 +372,14 @@ export function LedgerTable({
             type="button"
             onClick={onClearRange}
             className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
-            title="Show every date"
+            title={tr('table.showEveryDate')}
           >
-            {from && to ? `${fmtDate(from)} – ${fmtDate(to)}` : from ? `From ${fmtDate(from)}` : `Up to ${fmtDate(to)}`} ✕
+            {from && to
+              ? `${fmtDate(from)} – ${fmtDate(to)}`
+              : from
+                ? tr('common:period.from', { date: fmtDate(from) })
+                : tr('common:period.upTo', { date: fmtDate(to) })}{' '}
+            ✕
           </button>
         )}
         {(controls.activeCount > 0 || controls.sort?.key !== defaultSort?.key || controls.sort?.dir !== defaultSort?.dir) && (
@@ -382,11 +390,11 @@ export function LedgerTable({
               controls.setSort(defaultSort)
             }}
             className="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-            title="Back to every row, in the usual order"
+            title={tr('table.resetTitle')}
           >
             {controls.activeCount > 0
-              ? `Clear ${controls.activeCount} column filter${controls.activeCount === 1 ? '' : 's'} ✕`
-              : 'Reset order ✕'}
+              ? tr('table.clearFilters', { count: controls.activeCount })
+              : tr('table.resetOrder')}
           </button>
         )}
         {focusId != null && (
@@ -394,16 +402,16 @@ export function LedgerTable({
             type="button"
             onClick={onClearFocus}
             className="shrink-0 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-brand hover:bg-brand/15"
-            title="Show every transaction"
+            title={tr('table.showEveryTransaction')}
           >
-            One transaction ✕
+            {tr('table.oneTransaction')}
           </button>
         )}
         {(folders.length > 1 || statementChips.length > 1) && (
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             {folders.length > 1 && (
               <div className="flex flex-wrap gap-1.5">
-                {[{ id: 'all', label: 'All accounts' }, ...folders.map((f) => ({ id: f.account!, label: f.account! }))].map(
+                {[{ id: 'all', label: tr('table.allAccounts') }, ...folders.map((f) => ({ id: f.account!, label: f.account! }))].map(
                   (opt) => (
                     <button
                       key={opt.id}
@@ -429,7 +437,7 @@ export function LedgerTable({
             )}
             {statementChips.length > 1 && (
           <div className="flex min-w-0 flex-wrap gap-1.5">
-            {[{ id: 'all' as const, label: 'All statements' }, ...statementLabels(statementChips)].map(
+            {[{ id: 'all' as const, label: tr('table.allStatements') }, ...statementLabels(statementChips)].map(
               (opt) => (
                 <button
                   key={opt.id}
@@ -457,9 +465,9 @@ export function LedgerTable({
               size="sm"
               onClick={layout.reset}
               className="hidden h-9 gap-1.5 text-muted-foreground md:inline-flex"
-              title="Put the columns back in their usual order and widths"
+              title={tr('table.resetColumnsTitle')}
             >
-              <RotateCcw className="size-4" /> Reset columns
+              <RotateCcw className="size-4" /> {tr('table.resetColumns')}
             </Button>
           )}
           <Button
@@ -467,9 +475,9 @@ export function LedgerTable({
             size="sm"
             onClick={() => openColumns(null)}
             className="h-9 gap-1.5"
-            title="Add your own columns (e.g. Business 1 / 2 / 3)"
+            title={tr('table.yourColumnsTitle')}
           >
-            <Columns3 className="size-4" /> Your columns
+            <Columns3 className="size-4" /> {tr('table.yourColumns')}
           </Button>
         {family.size > 0 && !isAgency && (
           <Button
@@ -478,13 +486,11 @@ export function LedgerTable({
             onClick={() => setCollapsed(anyOpen ? new Set(family.keys()) : new Set())}
             className="h-9 shrink-0 gap-1.5"
             title={
-              anyOpen
-                ? 'Fold every split away — each transaction at its full bank amount'
-                : 'Show every split — the tax lines and splits taken out of each transaction'
+              anyOpen ? tr('table.collapseAllTitle') : tr('table.expandAllTitle')
             }
           >
             {anyOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
-            {anyOpen ? 'Collapse all splits' : 'Expand all splits'}
+            {anyOpen ? tr('table.collapseAll') : tr('table.expandAll')}
           </Button>
         )}
         </div>
@@ -503,10 +509,8 @@ export function LedgerTable({
         </div>
       ) : !allTx ? (
         <div className="px-6 py-16 text-center">
-          <p className="font-medium text-[#0B1C2C]">Your ledger is empty</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Upload a bank statement and every transaction will appear here, posted as a debit and a credit.
-          </p>
+          <p className="font-medium text-[#0B1C2C]">{tr('table.emptyTitle')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{tr('table.emptyText')}</p>
         </div>
       ) : (
         <>
@@ -539,8 +543,8 @@ export function LedgerTable({
                 <button
                   type="button"
                   onClick={() => openColumns({ add: true })}
-                  title="Add a new column of your own"
-                  aria-label="Add a new column"
+                  title={tr('table.addColumnTitle')}
+                  aria-label={tr('table.addColumn')}
                   className="inline-flex size-7 items-center justify-center rounded-full border border-dashed border-brand/60 text-brand transition-colors hover:border-solid hover:bg-brand hover:text-white focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none"
                 >
                   <Plus className="size-4" />
@@ -575,11 +579,11 @@ export function LedgerTable({
                   type="button"
                   onClick={() => toggle(t.id)}
                   disabled={isAgency}
-                  title={open ? 'Fold its split rows away' : 'Show its split rows'}
+                  title={open ? tr('table.foldSplits') : tr('table.showSplits')}
                   className="inline-flex w-fit shrink-0 items-center gap-0.5 rounded-md bg-slate-100 py-0.5 pr-1.5 pl-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-200"
                 >
                   {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                  {kids} split row{kids === 1 ? '' : 's'}
+                  {tr('table.splitRows', { count: kids })}
                 </button>
               )
               const description = (
@@ -588,7 +592,7 @@ export function LedgerTable({
                     <Badge variant="secondary">{t.description}</Badge>
                   ) : t.kind === 'fx' ? (
                     <span className="flex flex-col items-start gap-0.5">
-                      <Badge variant="secondary">Exchange gain or loss</Badge>
+                      <Badge variant="secondary">{tr('table.fxBadge')}</Badge>
                       <span className="text-muted-foreground">{t.description}</span>
                     </span>
                   ) : (
@@ -606,7 +610,7 @@ export function LedgerTable({
                         openOriginal(auth, t.statementId).catch((e: Error) => setOpenError(e.message))
                       }}
                       className="max-w-full min-w-0 truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:underline"
-                      title={`Open the statement PDF — ${t.statementLabel}`}
+                      title={tr('table.openStatement', { label: t.statementLabel })}
                     >
                       {t.statementLabel}
                     </button>
@@ -643,7 +647,7 @@ export function LedgerTable({
                         <button
                           type="button"
                           onClick={() => setEditing(t)}
-                          title="Change the name or category"
+                          title={tr('table.changeNameOrCategory')}
                           className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
                         >
                           {t.subName?.name ?? t.name ?? <Unclarified />}
@@ -651,16 +655,16 @@ export function LedgerTable({
                       )}
                     </span>
                     {t.subName && !t.kind && (
-                      <span className="block truncate text-[11px] font-normal text-muted-foreground" title="Counted under this name">
-                        under {t.name}
+                      <span className="block truncate text-[11px] font-normal text-muted-foreground" title={tr('table.countedUnder')}>
+                        {tr('table.under', { name: t.name })}
                       </span>
                     )}
                     {t.exception && (
                       <span
                         className="block truncate text-[11px] font-normal text-amber-700"
-                        title={`Renamed for this transaction only — its description's rule names it ${t.exception.main}`}
+                        title={tr('table.exceptionTitle', { name: t.exception.main })}
                       >
-                        exception from {t.exception.main}
+                        {tr('table.exceptionFrom', { name: t.exception.main })}
                       </span>
                     )}
                     {/* Phone: the description, accounts and statement fold in under the name. */}
@@ -748,7 +752,10 @@ export function LedgerTable({
             {hasMore && (
               <TableRow key={`more-${transactions.length}`} ref={setSentinel} className="hover:bg-transparent">
                 <TableCell colSpan={layout.order.length + 1} className="py-4 text-center text-xs text-muted-foreground">
-                  Showing {transactions.length.toLocaleString()} of {(txCount + splitCount).toLocaleString()} rows — loading more…
+                  {tr('table.loadingMore', {
+                    shown: transactions.length.toLocaleString(currentLocale()),
+                    total: (txCount + splitCount).toLocaleString(currentLocale()),
+                  })}
                 </TableCell>
               </TableRow>
             )}
@@ -767,11 +774,11 @@ export function LedgerTable({
                       <TableCell
                         key={id}
                         className={cn(base, 'pl-4 text-right font-bold tabular-nums', net < 0 ? 'text-red-600' : 'text-emerald-700')}
-                        title="Net change"
+                        title={tr('table.netChangeTitle')}
                       >
                         {money(net)}
                         {homeNet !== null && (
-                          <span className="block text-[11px] font-medium text-muted-foreground" title="In your home currency">
+                          <span className="block text-[11px] font-medium text-muted-foreground" title={tr('table.homeCurrency')}>
                             = {money(homeNet)}
                           </span>
                         )}
@@ -781,12 +788,17 @@ export function LedgerTable({
                   if (id === countAt) {
                     return (
                       <TableCell key={id} className={cn(base, 'font-medium whitespace-normal')}>
-                        {txCount.toLocaleString()} transaction{txCount === 1 ? '' : 's'}
-                        {txCount !== allTx && ` of ${allTx.toLocaleString()}`}
+                        {txCount !== allTx
+                          ? tr('table.txCountOf', {
+                              count: txCount,
+                              n: txCount.toLocaleString(currentLocale()),
+                              all: allTx.toLocaleString(currentLocale()),
+                            })
+                          : tr('table.txCount', { count: txCount, n: txCount.toLocaleString(currentLocale()) })}
                         {splitCount > 0 && (
                           <span className="font-normal text-muted-foreground">
                             {' '}
-                            + {splitCount.toLocaleString()} split{splitCount === 1 ? '' : 's'}
+                            {tr('table.splitCount', { count: splitCount, n: splitCount.toLocaleString(currentLocale()) })}
                           </span>
                         )}
                       </TableCell>
@@ -794,7 +806,7 @@ export function LedgerTable({
                   }
                   return (
                     <TableCell key={id} className={cn(base, 'text-sm text-muted-foreground')}>
-                      {id === afterAmount && id !== countAt ? 'net change' : null}
+                      {id === afterAmount && id !== countAt ? tr('table.netChange') : null}
                     </TableCell>
                   )
                 })
@@ -840,15 +852,16 @@ function edgeClass(order: readonly string[], id: string): string {
   return cn(order[0] === id && 'pl-3 sm:pl-5', order[order.length - 1] === id && 'md:pr-5')
 }
 
-const FIXED_LABELS: Record<string, { label: string; kind: 'text' | 'number' | 'date' }> = {
-  date: { label: 'Date', kind: 'date' },
-  name: { label: 'Name', kind: 'text' },
-  description: { label: 'Description', kind: 'text' },
-  product: { label: 'Product', kind: 'text' },
-  amount: { label: 'Amount', kind: 'number' },
-  debit: { label: 'Debit', kind: 'text' },
-  credit: { label: 'Credit', kind: 'text' },
-  statement: { label: 'Statement', kind: 'text' },
+/** The fixed columns' kinds; their labels are `ledger:columns.<id>`. */
+const FIXED_KINDS: Record<string, 'text' | 'number' | 'date'> = {
+  date: 'date',
+  name: 'text',
+  description: 'text',
+  product: 'text',
+  amount: 'number',
+  debit: 'text',
+  credit: 'text',
+  statement: 'text',
 }
 const COLUMN_MIME = 'application/x-cyg-ledger-column'
 
@@ -869,6 +882,7 @@ function LedgerHeaders({
   /** step9 part 3: a custom column's header → "Edit column…". */
   onEditColumn: (id: number) => void
 }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const [over, setOver] = useState<string | null>(null)
   const resize = (id: string) => (e: PointerEvent<HTMLSpanElement>) => {
     e.preventDefault()
@@ -920,9 +934,9 @@ function LedgerHeaders({
     <>
       {layout.order.map((id) => {
         const col = isCustom(id) ? customById.get(customIdOf(id)) : undefined
-        const fixed = FIXED_LABELS[id]
-        const label = col?.name ?? fixed?.label ?? ''
-        const kind = col ? (col.type === 'NUMBER' ? 'number' : 'text') : (fixed?.kind ?? 'text')
+        const fixed = FIXED_KINDS[id]
+        const label = col?.name ?? (fixed ? tr(`columns.${id as FixedColumn}`) : '')
+        const kind = col ? (col.type === 'NUMBER' ? 'number' : 'text') : (fixed ?? 'text')
         return (
           <ColumnHeader
             key={id}
@@ -931,7 +945,7 @@ function LedgerHeaders({
             kind={kind}
             align={id === 'amount' ? 'end' : 'start'}
             controls={controls}
-            title={`${col ? `${rulesText(col)} — ` : ''}Sort or filter by ${label.toLowerCase()}. Drag to move the column; drag its edge to resize.`}
+            title={`${col ? `${rulesText(col)} — ` : ''}${tr('table.headerTitle', { label: label.toLowerCase() })}`}
             className={cn(
               'relative md:cursor-grab',
               id in PHONE ? '' : MD,
@@ -941,7 +955,7 @@ function LedgerHeaders({
             )}
             thProps={dragProps(id)}
             onEdit={col && (() => onEditColumn(col.id))}
-            rules={col && `${rulesText(col)}${col.required ? ' · required' : ''}`}
+            rules={col && `${rulesText(col)}${col.required ? ` · ${tr('table.requiredLower')}` : ''}`}
           >
             <span
               onPointerDown={resize(id)}
@@ -986,6 +1000,7 @@ function SplitRow({
   /** step12 (2026-11-20): its name opens the same window as a transaction's (`NameRuleDialog`). */
   onEditName: () => void
 }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   // step9 (2026-11-17): a split of a split sits further in, under the split it was cut from.
   const indent = { paddingLeft: `${0.5 + (t.depth ?? 0)}rem` }
   const item = (
@@ -993,12 +1008,12 @@ function SplitRow({
       {t.splitRule ? (
         <span
           className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/20"
-          title={`Made by the split rule ${t.splitRule.name} — change it like any split`}
+          title={tr('table.madeByRule', { name: t.splitRule.name })}
         >
-          from {t.splitRule.name}
+          {tr('table.fromRule', { name: t.splitRule.name })}
         </span>
       ) : (
-        <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">Split</span>
+        <span className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand">{tr('table.splitBadge')}</span>
       )}
       <span className="truncate text-xs text-muted-foreground">{t.description}</span>
     </span>
@@ -1027,14 +1042,14 @@ function SplitRow({
           <button
             type="button"
             onClick={onEditName}
-            title="Change this split's name or category"
+            title={tr('table.changeSplitName')}
             className="max-w-full truncate rounded text-left hover:text-brand hover:underline"
           >
             {t.subName?.name ?? t.name ?? <Unclarified />}
           </button>
           {t.subName && (
-            <span className="block truncate text-[11px] font-normal text-muted-foreground" title="Counted under this name">
-              under {t.name}
+            <span className="block truncate text-[11px] font-normal text-muted-foreground" title={tr('table.countedUnder')}>
+              {tr('table.under', { name: t.name })}
             </span>
           )}
         </span>
@@ -1101,11 +1116,12 @@ function SplitRow({
  * visible), otherwise shown on hover to add one.
  */
 function AttachButton({ count, onClick }: { count: number; onClick: () => void }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   return (
     <button
       type="button"
       onClick={onClick}
-      title={count ? 'See its receipts and files' : 'Add a receipt or file'}
+      title={count ? tr('table.seeFiles') : tr('table.addFile')}
       className={cn(
         'inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 transition-opacity hover:bg-brand/10',
         count
@@ -1122,7 +1138,7 @@ function AttachButton({ count, onClick }: { count: number; onClick: () => void }
 /** Shown on hover: one more split of the row, at $0.00, to fill in place. */
 function SplitButton({
   onClick,
-  label = 'Split',
+  label,
   disabled,
   ofSplit = false,
 }: {
@@ -1132,26 +1148,26 @@ function SplitButton({
   /** step9 (2026-11-17): on a split row the new line is cut from that split. */
   ofSplit?: boolean
 }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       title={
-        ofSplit
-          ? 'Split this split — a copy of it at $0.00 under it; what you give it comes out of this split'
-          : 'Add a split — a copy of this line at $0.00 with its own amount, name, category and product'
+        ofSplit ? tr('table.splitSplitTitle', { zero: money(0) }) : tr('table.splitTitle', { zero: money(0) })
       }
       className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-brand opacity-0 ring-1 ring-brand/30 transition-opacity group-hover:opacity-100 hover:bg-brand/10 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
     >
       <Split className="size-3.5" />
-      {label}
+      {label ?? tr('table.split')}
     </button>
   )
 }
 
 /** Debit over credit in one cell, for screens too narrow for a column each. */
 function AccountStack({ t, onEdit }: { t: LedgerTransaction; onEdit?: () => void }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const line = (label: string, name: string) => (
     <span className="flex max-w-full min-w-0 items-center gap-1.5">
       <span className="w-5 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase">{label}</span>
@@ -1160,8 +1176,8 @@ function AccountStack({ t, onEdit }: { t: LedgerTransaction; onEdit?: () => void
   )
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      {line('Dr', t.debitAccount)}
-      {line('Cr', t.creditAccount)}
+      {line(tr('table.dr'), t.debitAccount)}
+      {line(tr('table.cr'), t.creditAccount)}
     </span>
   )
 }
@@ -1179,12 +1195,13 @@ function AccountCell({
   offset: boolean
   onEdit?: () => void
 }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   if (offset && onEdit) {
     return (
       <button
         type="button"
         onClick={onEdit}
-        title="Change the category"
+        title={tr('table.changeCategory')}
         className="inline-flex max-w-full truncate rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand ring-brand/40 hover:bg-brand/15 hover:ring-1"
       >
         {name}
@@ -1206,6 +1223,7 @@ function AccountCell({
  * revaluation row (`fx`) shows only its home-currency difference.
  */
 function FxNote({ t, amount }: { t: LedgerTransaction; amount: number }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   if (!t.currency) return null
   const rate = t.fxRate
   const home = t.kind === 'fx' ? (t.homeAmount ?? 0) : rate != null ? Math.round(amount * 100 * rate) / 100 : null
@@ -1213,9 +1231,15 @@ function FxNote({ t, amount }: { t: LedgerTransaction; amount: number }) {
     <span className="mt-0.5 block text-[11px] leading-tight font-normal text-muted-foreground">
       {t.kind !== 'fx' && <span className="mr-1">{t.currency}</span>}
       {home === null ? (
-        <span title="No exchange rate known for this day yet">no rate yet</span>
+        <span title={tr('table.noRateTitle')}>{tr('table.noRate')}</span>
       ) : (
-        <span title={rate != null ? `Rate ${rate.toFixed(4)}` : undefined}>
+        <span title={
+            rate != null
+              ? tr('table.rate', {
+                  rate: rate.toLocaleString(currentLocale(), { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
+                })
+              : undefined
+          }>
           = <span className={cn('font-medium', home < 0 ? 'text-red-600' : 'text-emerald-700')}>{money(home)}</span>
         </span>
       )}
@@ -1225,5 +1249,6 @@ function FxNote({ t, amount }: { t: LedgerTransaction; amount: number }) {
 
 /** A row the AI found no payee name for. Nothing is stored — the ledger just says so. */
 function Unclarified() {
-  return <span className="font-normal text-muted-foreground italic">{UNCLARIFIED_NAME}</span>
+  const { t: tr } = useTranslation(['ledger', 'common'])
+  return <span className="font-normal text-muted-foreground italic">{tr('unclarified')}</span>
 }

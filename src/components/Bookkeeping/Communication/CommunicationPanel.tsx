@@ -15,6 +15,8 @@ import {
   PhoneOutgoing,
   Upload,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n, { currentLocale } from '@/i18n'
 import {
   callRecordingUrl,
   openCommFile,
@@ -34,38 +36,58 @@ import { useIntake } from '@/hooks/useIntake'
 import { formatPhone } from '@/lib/portal-format'
 import { cn } from '@/lib/utils'
 
-const CHANNEL: Record<CommChannel, { label: string; icon: typeof Mail; empty: string }> = {
-  WHATSAPP: { label: 'WhatsApp', icon: MessageCircle, empty: 'Nothing on WhatsApp yet.' },
-  SMS: { label: 'Text messages', icon: MessageSquare, empty: 'No text messages yet.' },
-  VOICE: { label: 'Phone calls', icon: Phone, empty: 'No calls with the AI yet.' },
-  EMAIL: { label: 'Email', icon: Mail, empty: 'No emails yet.' },
-  BOT: { label: 'Website chat', icon: Bot, empty: 'No chats on the website yet.' },
-  UPLOADS: { label: 'Uploads', icon: Upload, empty: 'Nothing uploaded on the website yet.' },
+const CHANNEL_ICON: Record<CommChannel, typeof Mail> = {
+  WHATSAPP: MessageCircle,
+  SMS: MessageSquare,
+  VOICE: Phone,
+  EMAIL: Mail,
+  BOT: Bot,
+  UPLOADS: Upload,
 }
+const channelInfo = (c: CommChannel) => ({
+  label: i18n.t(`books:comm.channel.${c}.label`),
+  icon: CHANNEL_ICON[c],
+  empty: i18n.t(`books:comm.channel.${c}.empty`),
+})
 
-const STATUS: Record<string, { label: string; tone: string }> = {
-  MATCHED: { label: 'Filed', tone: 'bg-emerald-50 text-emerald-700' },
-  DONE: { label: 'Read', tone: 'bg-emerald-50 text-emerald-700' },
-  UNMATCHED: { label: 'Not matched yet', tone: 'bg-amber-50 text-amber-700' },
-  NEEDS_REVIEW: { label: 'Needs review', tone: 'bg-amber-50 text-amber-700' },
-  UPLOADED: { label: 'Waiting for Generate', tone: 'bg-slate-100 text-slate-600' },
-  PENDING: { label: 'Reading…', tone: 'bg-slate-100 text-slate-600' },
-  PROCESSING: { label: 'Reading…', tone: 'bg-slate-100 text-slate-600' },
-  FAILED: { label: "Couldn't read", tone: 'bg-red-50 text-red-700' },
-  DOCUMENT: { label: 'Document', tone: 'bg-sky-50 text-sky-800' },
-  REMOVED: { label: 'Removed', tone: 'bg-slate-100 text-slate-500' },
+type FileStatus =
+  | 'MATCHED'
+  | 'DONE'
+  | 'UNMATCHED'
+  | 'NEEDS_REVIEW'
+  | 'UPLOADED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'FAILED'
+  | 'DOCUMENT'
+  | 'REMOVED'
+const STATUS_TONE: Record<FileStatus, string> = {
+  MATCHED: 'bg-emerald-50 text-emerald-700',
+  DONE: 'bg-emerald-50 text-emerald-700',
+  UNMATCHED: 'bg-amber-50 text-amber-700',
+  NEEDS_REVIEW: 'bg-amber-50 text-amber-700',
+  UPLOADED: 'bg-slate-100 text-slate-600',
+  PENDING: 'bg-slate-100 text-slate-600',
+  PROCESSING: 'bg-slate-100 text-slate-600',
+  FAILED: 'bg-red-50 text-red-700',
+  DOCUMENT: 'bg-sky-50 text-sky-800',
+  REMOVED: 'bg-slate-100 text-slate-500',
 }
+const fileStatus = (s: string): { label: string; tone: string } | undefined =>
+  s in STATUS_TONE
+    ? { label: i18n.t(`books:comm.fileStatus.${s as FileStatus}`), tone: STATUS_TONE[s as FileStatus] }
+    : undefined
 
 const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  new Date(iso).toLocaleString(currentLocale(), { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 /** "Today 3:04 PM", "Oct 12", "Oct 12, 2025" — for the channel list. */
 function fmtShort(iso: string): string {
   const d = new Date(iso)
   const now = new Date()
   if (d.toDateString() === now.toDateString())
-    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-  return d.toLocaleDateString(undefined, {
+    return d.toLocaleTimeString(currentLocale(), { hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleDateString(currentLocale(), {
     month: 'short',
     day: 'numeric',
     ...(d.getFullYear() !== now.getFullYear() && { year: 'numeric' }),
@@ -80,6 +102,7 @@ function fmtShort(iso: string): string {
  * the Assistant tab.
  */
 export function CommunicationPanel({ onOpenAssistant }: { onOpenAssistant?: () => void }) {
+  const { t } = useTranslation(['books', 'common'])
   const channels = useCommChannels()
   const [picked, setOpen] = useState<CommChannel | null>(null)
   // On a wide screen the newest chat is open from the start; a phone starts on the list.
@@ -118,7 +141,7 @@ export function CommunicationPanel({ onOpenAssistant }: { onOpenAssistant?: () =
           />
         ) : (
           <div className="flex h-full min-h-60 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-            Pick a conversation to see everything sent on it.
+            {t('comm.pick')}
           </div>
         )}
       </section>
@@ -127,7 +150,7 @@ export function CommunicationPanel({ onOpenAssistant }: { onOpenAssistant?: () =
 }
 
 function ChannelRow({ c, active, onClick }: { c: ChannelSummary; active: boolean; onClick: () => void }) {
-  const { label, icon: Icon } = CHANNEL[c.channel]
+  const { label, icon: Icon, empty } = channelInfo(c.channel)
   return (
     <li>
       <button
@@ -151,7 +174,7 @@ function ChannelRow({ c, active, onClick }: { c: ChannelSummary; active: boolean
             <span className="truncate text-sm font-semibold text-[#0B1C2C]">{label}</span>
             {c.lastAt && <span className="shrink-0 text-[11px] text-muted-foreground">{fmtShort(c.lastAt)}</span>}
           </span>
-          <span className="truncate text-xs text-muted-foreground">{c.preview ?? CHANNEL[c.channel].empty}</span>
+          <span className="truncate text-xs text-muted-foreground">{c.preview ?? empty}</span>
         </span>
       </button>
     </li>
@@ -167,13 +190,12 @@ function Thread({
   onBack: () => void
   onOpenAssistant?: () => void
 }) {
-  const { label, icon: Icon } = CHANNEL[channel]
+  const { t } = useTranslation(['books', 'common'])
+  const info = channelInfo(channel)
+  const { label, icon: Icon } = info
   const intake = useIntake()
   // step12c: only point at calling while calling the AI actually works.
-  const empty =
-    channel === 'VOICE' && intake.data?.voice
-      ? 'No calls with the AI yet. Call our receipt number to talk to it.'
-      : CHANNEL[channel].empty
+  const empty = channel === 'VOICE' && intake.data?.voice ? t('comm.noCallsCall') : info.empty
   const q = useCommThread(channel)
   const scroller = useRef<HTMLDivElement>(null)
   // Oldest at the top, like a phone; the pages come newest first.
@@ -204,14 +226,14 @@ function Thread({
   return (
     <div className="flex h-[70vh] min-h-96 flex-col">
       <header className="flex items-center gap-2 border-b px-3 py-2.5">
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to conversations">
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label={t('comm.back')}>
           <ArrowLeft className="size-4" />
         </Button>
         <Icon className="size-4 text-[#1f8f86]" />
         <h3 className="text-sm font-semibold text-[#0B1C2C]">{label}</h3>
         {onOpenAssistant && (
           <Button variant="outline" size="sm" className="ml-auto" onClick={onOpenAssistant}>
-            Continue on the Assistant tab
+            {t('comm.continue')}
           </Button>
         )}
       </header>
@@ -224,7 +246,7 @@ function Thread({
       >
         {q.hasNextPage && (
           <Button variant="ghost" size="sm" className="self-center" disabled={q.isFetchingNextPage} onClick={loadOlder}>
-            {q.isFetchingNextPage ? 'Loading…' : 'Load earlier'}
+            {q.isFetchingNextPage ? t('common:status.loading') : t('comm.loadEarlier')}
           </Button>
         )}
         {q.isLoading && <Skeleton className="h-16 w-2/3" />}
@@ -243,6 +265,7 @@ function Thread({
 }
 
 function Bubble({ m, onError }: { m: CommItem; onError: (msg: string) => void }) {
+  const { t } = useTranslation(['books', 'common'])
   if (m.kind === 'call' && m.call) return <CallBubble call={m.call} at={m.at} />
   const own = m.side === 'customer'
   return (
@@ -256,7 +279,7 @@ function Bubble({ m, onError }: { m: CommItem; onError: (msg: string) => void })
         {!own && <p className="mb-0.5 text-xs font-semibold text-[#1f8f86]">CYG Finance</p>}
         {m.kind === 'upload' && (
           <p className={cn('mb-1 text-xs', own ? 'text-white/85' : 'text-muted-foreground')}>
-            {m.files[0]?.type === 'statement' ? 'Uploaded a statement' : 'Sent a file'}
+            {m.files[0]?.type === 'statement' ? t('comm.uploadedStatement') : t('comm.sentFile')}
           </p>
         )}
         {m.files.length > 0 && (
@@ -275,8 +298,9 @@ function Bubble({ m, onError }: { m: CommItem; onError: (msg: string) => void })
 }
 
 function FileChip({ f, own, onError }: { f: CommFile; own: boolean; onError: (msg: string) => void }) {
+  const { t } = useTranslation(['books', 'common'])
   const { auth } = useBook()
-  const status = STATUS[f.status]
+  const status = fileStatus(f.status)
   const removed = f.status === 'REMOVED'
   const Icon = f.type === 'statement' ? FileText : Paperclip
   return (
@@ -289,7 +313,7 @@ function FileChip({ f, own, onError }: { f: CommFile; own: boolean; onError: (ms
         own ? 'bg-white/15 hover:bg-white/25' : 'bg-muted hover:bg-muted/70',
         removed && 'cursor-default opacity-70',
       )}
-      title={removed ? 'This file was removed since' : 'Open the file'}
+      title={removed ? t('comm.removed') : t('comm.openFile')}
     >
       <Icon className="size-4 shrink-0" />
       <span className={cn('min-w-0 flex-1 truncate font-medium', removed && 'line-through')}>{f.filename}</span>
@@ -298,27 +322,34 @@ function FileChip({ f, own, onError }: { f: CommFile; own: boolean; onError: (ms
   )
 }
 
-const PURPOSE: Record<string, string> = {
-  INBOUND: 'You called us',
-  ACCOUNT_STATUS: 'We called with your account status',
-  FINANCIAL_REPORT: 'We called with your financial report',
-  AI_SCHEDULE: 'We called with a message you scheduled',
-  REQUESTED: 'We called you back, as you asked',
-  THIRD_PARTY: 'We called them for you',
-}
+const PURPOSES = ['INBOUND', 'ACCOUNT_STATUS', 'FINANCIAL_REPORT', 'AI_SCHEDULE', 'REQUESTED', 'THIRD_PARTY'] as const
+const purposeLabel = (p: string) =>
+  (PURPOSES as readonly string[]).includes(p)
+    ? i18n.t(`books:comm.purpose.${p as (typeof PURPOSES)[number]}`)
+    : i18n.t('books:comm.phoneCall')
 
-const CALL_STATUS: Record<string, { label: string; tone: string }> = {
-  COMPLETED: { label: 'Completed', tone: 'bg-emerald-50 text-emerald-700' },
-  IN_PROGRESS: { label: 'In progress', tone: 'bg-sky-50 text-sky-800' },
-  RINGING: { label: 'Ringing', tone: 'bg-sky-50 text-sky-800' },
-  NO_ANSWER: { label: 'No answer', tone: 'bg-amber-50 text-amber-700' },
-  FAILED: { label: 'Failed', tone: 'bg-red-50 text-red-700' },
+type CallStatus = 'COMPLETED' | 'IN_PROGRESS' | 'RINGING' | 'NO_ANSWER' | 'FAILED'
+const CALL_TONE: Record<CallStatus, string> = {
+  COMPLETED: 'bg-emerald-50 text-emerald-700',
+  IN_PROGRESS: 'bg-sky-50 text-sky-800',
+  RINGING: 'bg-sky-50 text-sky-800',
+  NO_ANSWER: 'bg-amber-50 text-amber-700',
+  FAILED: 'bg-red-50 text-red-700',
 }
+const callStatus = (s: string): { label: string; tone: string } | undefined =>
+  s in CALL_TONE
+    ? { label: i18n.t(`books:comm.callStatus.${s as CallStatus}`), tone: CALL_TONE[s as CallStatus] }
+    : undefined
 
-const fmtClock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+const fmtClock = (iso: string) =>
+  new Date(iso).toLocaleTimeString(currentLocale(), { hour: 'numeric', minute: '2-digit' })
 
 const fmtDuration = (s: number | null) =>
-  s == null ? '' : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`
+  s == null
+    ? ''
+    : s < 60
+      ? i18n.t('common:duration.sec', { s })
+      : i18n.t('common:duration.minSec', { m: Math.floor(s / 60), s: String(s % 60).padStart(2, '0') })
 
 /**
  * step12: one phone call with the AI — who it was with, from which number to which, from
@@ -326,6 +357,7 @@ const fmtDuration = (s: number | null) =>
  * sign-in token only then) and what was said, line by line.
  */
 function CallBubble({ call, at }: { call: CommCall; at: string }) {
+  const { t } = useTranslation(['books', 'common'])
   const { auth } = useBook()
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState<string | null>(null)
@@ -335,13 +367,17 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
   const canOpen = !missed && (call.hasRecording || call.hasTranscript !== false)
   const Icon = missed ? PhoneMissed : call.direction === 'OUTBOUND' ? PhoneOutgoing : PhoneIncoming
   const thirdParty = call.purpose === 'THIRD_PARTY'
-  const who = call.withName ?? 'you'
+  const who = call.withName
   const title = thirdParty
-    ? `Call with ${who}`
+    ? t('comm.callWith', { who: who ?? t('comm.you') })
     : call.direction === 'INBOUND'
-      ? `${who === 'you' ? 'You' : who} called us`
-      : `We called ${who === 'you' ? 'you' : who}`
-  const status = CALL_STATUS[call.status]
+      ? who
+        ? t('comm.theyCalled', { who })
+        : t('comm.youCalled')
+      : who
+        ? t('comm.weCalledThem', { who })
+        : t('comm.weCalledYou')
+  const status = callStatus(call.status)
   const start = call.answeredAt ?? at
   const span = call.endedAt ? `${fmtTime(start)} – ${fmtClock(call.endedAt)}` : fmtTime(at)
   // The recording is fetched when the card opens and its object URL dropped when it closes.
@@ -371,7 +407,7 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
           onClick={toggle}
           aria-expanded={open}
           className={cn('flex flex-col gap-2 text-left', canOpen ? 'cursor-pointer' : 'cursor-default')}
-          title={canOpen ? (open ? 'Close the call' : 'Open the recording and what was said') : undefined}
+          title={canOpen ? (open ? t('comm.closeCall') : t('comm.openCall')) : undefined}
         >
           <div className="flex w-full items-start gap-2">
             <Icon className={cn('mt-0.5 size-4 shrink-0', missed ? 'text-red-600' : 'text-brand')} />
@@ -380,9 +416,9 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
               <p className="text-xs text-muted-foreground">
                 {missed
                   ? thirdParty
-                    ? 'Nobody answered'
-                    : 'Missed — we sent it by text or email instead'
-                  : (PURPOSE[call.purpose] ?? 'Phone call')}
+                    ? t('comm.nobodyAnswered')
+                    : t('comm.missed')
+                  : purposeLabel(call.purpose)}
               </p>
             </div>
             {status && <Badge className={cn('shrink-0 text-[10px]', status.tone)}>{status.label}</Badge>}
@@ -394,9 +430,9 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
           </div>
           {(call.fromNumber || call.toNumber) && (
             <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-[#0B1C2C]">
-              <span className="text-muted-foreground">From</span>
+              <span className="text-muted-foreground">{t('comm.from')}</span>
               <span className="font-medium tabular-nums">{call.fromNumber ? formatPhone(call.fromNumber) : '—'}</span>
-              <span className="text-muted-foreground">→ To</span>
+              <span className="text-muted-foreground">→ {t('comm.to')}</span>
               <span className="font-medium tabular-nums">{call.toNumber ? formatPhone(call.toNumber) : '—'}</span>
             </p>
           )}
@@ -404,7 +440,7 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
             {[span, fmtDuration(call.durationSec)].filter(Boolean).join(' · ')}
             {canOpen && !open && (
               <span className="ml-1.5 font-medium text-[#1f8f86]">
-                · {call.hasRecording ? 'Recording & transcript' : 'Transcript'}
+                · {call.hasRecording ? t('comm.recordingTranscript') : t('comm.transcript')}
               </span>
             )}
           </p>
@@ -416,7 +452,7 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
                 <audio controls src={url} className="w-full" />
               ) : loading ? (
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" /> Loading the recording…
+                  <Loader2 className="size-3.5 animate-spin" /> {t('comm.loadingRecording')}
                 </p>
               ) : null)}
             {error && <p className="text-xs text-destructive">{error}</p>}
@@ -430,12 +466,13 @@ function CallBubble({ call, at }: { call: CommCall; at: string }) {
 
 /** step12g: what was said on a call — the person on the left, the AI on the right. */
 function CallTranscript({ call }: { call: CommCall }) {
+  const { t } = useTranslation(['books', 'common'])
   const q = useCallTranscript(call.id, true)
-  const them = call.purpose === 'THIRD_PARTY' ? (call.contactName ?? call.withName ?? 'Them') : 'You'
+  const them = call.purpose === 'THIRD_PARTY' ? (call.contactName ?? call.withName ?? t('comm.them')) : t('comm.youCap')
   if (q.isLoading) return <Skeleton className="h-16 w-full" />
   if (q.error) return <p className="text-xs text-destructive">{q.error.message}</p>
   const lines = q.data ?? []
-  if (!lines.length) return <p className="text-xs text-muted-foreground">No transcript for this call.</p>
+  if (!lines.length) return <p className="text-xs text-muted-foreground">{t('comm.noTranscript')}</p>
   return (
     <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pr-1">
       {lines.map((l) => {
@@ -451,7 +488,7 @@ function CallTranscript({ call }: { call: CommCall }) {
               {l.text}
             </div>
             <span className="mt-0.5 text-[10px] text-muted-foreground">
-              {ai ? 'CYG Finance AI' : them} · {fmtClock(l.at)}
+              {ai ? t('comm.ai') : them} · {fmtClock(l.at)}
             </span>
           </div>
         )

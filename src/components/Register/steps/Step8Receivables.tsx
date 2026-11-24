@@ -1,8 +1,9 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MonthDaySelect } from "@/components/ui/MonthDaySelect";
-import { monthDayLabel } from "@/lib/cycle";
+import { CYCLE_TYPES, monthDayLabel, monthName, monthNames, ordinalNames, weekdayName, weekdayNames } from "@/lib/cycle";
 import type { FormData } from '../types';
 
 const SELECT_CLASS =
@@ -11,17 +12,13 @@ const SELECT_CLASS =
 const TEXTAREA_CLASS =
   "flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground resize-none";
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const ORDINALS = ["1st", "2nd", "3rd", "4th"];
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
 interface Props {
   data: FormData;
   onChange: (patch: Partial<FormData>) => void;
 }
 
 interface RuleConfig {
-  question: string;
+  id: "invoicing" | "statements" | "collection" | "report";
   enabledKey: keyof FormData;
   startDateKey: keyof FormData;
   cycleTypeKey: keyof FormData;
@@ -34,7 +31,7 @@ interface RuleConfig {
 
 const RULES: RuleConfig[] = [
   {
-    question: "Should we handle invoicing?",
+    id: "invoicing",
     enabledKey: "arInvoicingEnabled",
     startDateKey: "arInvoicingStartDate",
     cycleTypeKey: "arInvoicingCycleType",
@@ -45,7 +42,7 @@ const RULES: RuleConfig[] = [
     idPrefix: "ar-inv",
   },
   {
-    question: "Should we send statements and notices?",
+    id: "statements",
     enabledKey: "arStatementsEnabled",
     startDateKey: "arStatementsStartDate",
     cycleTypeKey: "arStatementsCycleType",
@@ -56,7 +53,7 @@ const RULES: RuleConfig[] = [
     idPrefix: "ar-stmt",
   },
   {
-    question: "Should we handle collections?",
+    id: "collection",
     enabledKey: "arCollectionEnabled",
     startDateKey: "arCollectionStartDate",
     cycleTypeKey: "arCollectionCycleType",
@@ -67,7 +64,7 @@ const RULES: RuleConfig[] = [
     idPrefix: "ar-col",
   },
   {
-    question: "Should we produce an open invoices report?",
+    id: "report",
     enabledKey: "arReportEnabled",
     startDateKey: "arReportStartDate",
     cycleTypeKey: "arReportCycleType",
@@ -88,6 +85,7 @@ function CyclePicker({
   onChange: (patch: Partial<FormData>) => void;
   rule: RuleConfig;
 }) {
+  const { t } = useTranslation(["register", "common"]);
   const cycleType = data[rule.cycleTypeKey] as string;
   const cycleDay = String((data[rule.cycleDayKey] as number | null) ?? 1);
   const cycleNth = String((data[rule.cycleNthKey] as number | null) ?? 1);
@@ -97,19 +95,19 @@ function CyclePicker({
     <div className="flex flex-col gap-3 pl-1">
       {/* Starting date */}
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${rule.idPrefix}-start-date`}>Starting Date</Label>
+        <Label htmlFor={`${rule.idPrefix}-start-date`}>{t("schedule.startDate")}</Label>
         <Input
           id={`${rule.idPrefix}-start-date`}
           type="date"
           value={data[rule.startDateKey] as string}
           onChange={(e) => onChange({ [rule.startDateKey]: e.target.value } as Partial<FormData>)}
         />
-        <p className="text-xs text-muted-foreground">Past dates will backfill all todos up to today.</p>
+        <p className="text-xs text-muted-foreground">{t("schedule.backfill")}</p>
       </div>
 
       {/* Cycle type */}
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${rule.idPrefix}-cycle-type`}>Repeat</Label>
+        <Label htmlFor={`${rule.idPrefix}-cycle-type`}>{t("schedule.repeat")}</Label>
         <select
           id={`${rule.idPrefix}-cycle-type`}
           value={cycleType}
@@ -123,19 +121,16 @@ function CyclePicker({
           }
           className={SELECT_CLASS}
         >
-          <option value="DAYS">Every N days</option>
-          <option value="MONTHLY_DATE">Monthly — specific date</option>
-          <option value="WEEKLY_DAY">Weekly — specific day</option>
-          <option value="MONTHLY_WEEKDAY">Monthly — Nth weekday</option>
-          <option value="QUARTERLY">Quarterly — specific date</option>
-          <option value="YEARLY">Yearly — specific date</option>
+          {CYCLE_TYPES.map((c) => (
+            <option key={c} value={c}>{t(`schedule.types.${c}`)}</option>
+          ))}
         </select>
       </div>
 
       {/* DAYS */}
       {cycleType === "DAYS" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${rule.idPrefix}-cycle-days`}>Every (days)</Label>
+          <Label htmlFor={`${rule.idPrefix}-cycle-days`}>{t("schedule.everyDays")}</Label>
           <Input
             id={`${rule.idPrefix}-cycle-days`}
             type="number"
@@ -144,21 +139,21 @@ function CyclePicker({
             onChange={(e) => onChange({ [rule.cycleKey]: Number(e.target.value) || 30 } as Partial<FormData>)}
             placeholder="30"
           />
-          <p className="text-xs text-muted-foreground">First todo due in {cycle || 30} days.</p>
+          <p className="text-xs text-muted-foreground">{t("schedule.firstDue", { count: cycle || 30 })}</p>
         </div>
       )}
 
       {/* MONTHLY_DATE */}
       {cycleType === "MONTHLY_DATE" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${rule.idPrefix}-cycle-date`}>Day of month</Label>
+          <Label htmlFor={`${rule.idPrefix}-cycle-date`}>{t("schedule.dayOfMonth")}</Label>
           <MonthDaySelect
             id={`${rule.idPrefix}-cycle-date`}
             value={cycleDay}
             onChange={(v) => onChange({ [rule.cycleDayKey]: v } as Partial<FormData>)}
           />
           <p className="text-xs text-muted-foreground">
-            Repeats on {monthDayLabel(cycleDay)} of each month.
+            {t("schedule.repeatsMonthly", { day: monthDayLabel(cycleDay) })}
           </p>
         </div>
       )}
@@ -166,18 +161,18 @@ function CyclePicker({
       {/* WEEKLY_DAY */}
       {cycleType === "WEEKLY_DAY" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${rule.idPrefix}-cycle-weekday`}>Day of week</Label>
+          <Label htmlFor={`${rule.idPrefix}-cycle-weekday`}>{t("schedule.dayOfWeek")}</Label>
           <select
             id={`${rule.idPrefix}-cycle-weekday`}
             value={cycleDay}
             onChange={(e) => onChange({ [rule.cycleDayKey]: Number(e.target.value) } as Partial<FormData>)}
             className={SELECT_CLASS}
           >
-            {WEEKDAYS.map((d, i) => (
+            {weekdayNames().map((d, i) => (
               <option key={i} value={i}>{d}</option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground">Repeats every {WEEKDAYS[Number(cycleDay)]}.</p>
+          <p className="text-xs text-muted-foreground">{t("schedule.repeatsWeekly", { weekday: weekdayName(Number(cycleDay)) })}</p>
         </div>
       )}
 
@@ -186,34 +181,34 @@ function CyclePicker({
         <div className="flex flex-col gap-3">
           <div className="flex gap-3">
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${rule.idPrefix}-cycle-nth`}>Which</Label>
+              <Label htmlFor={`${rule.idPrefix}-cycle-nth`}>{t("schedule.which")}</Label>
               <select
                 id={`${rule.idPrefix}-cycle-nth`}
                 value={cycleNth}
                 onChange={(e) => onChange({ [rule.cycleNthKey]: Number(e.target.value) } as Partial<FormData>)}
                 className={SELECT_CLASS}
               >
-                {ORDINALS.map((o, i) => (
+                {ordinalNames().map((o, i) => (
                   <option key={i + 1} value={i + 1}>{o}</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${rule.idPrefix}-cycle-mwd`}>Weekday</Label>
+              <Label htmlFor={`${rule.idPrefix}-cycle-mwd`}>{t("schedule.weekday")}</Label>
               <select
                 id={`${rule.idPrefix}-cycle-mwd`}
                 value={cycleDay}
                 onChange={(e) => onChange({ [rule.cycleDayKey]: Number(e.target.value) } as Partial<FormData>)}
                 className={SELECT_CLASS}
               >
-                {WEEKDAYS.map((d, i) => (
+                {weekdayNames().map((d, i) => (
                   <option key={i} value={i}>{d}</option>
                 ))}
               </select>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Repeats on the {ORDINALS[Number(cycleNth) - 1]} {WEEKDAYS[Number(cycleDay)]} of each month.
+            {t("schedule.repeatsNthWeekday", { nth: ordinalNames()[Number(cycleNth) - 1], weekday: weekdayName(Number(cycleDay)) })}
           </p>
         </div>
       )}
@@ -221,14 +216,14 @@ function CyclePicker({
       {/* QUARTERLY */}
       {cycleType === "QUARTERLY" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${rule.idPrefix}-cycle-quarterly`}>Day of month</Label>
+          <Label htmlFor={`${rule.idPrefix}-cycle-quarterly`}>{t("schedule.dayOfMonth")}</Label>
           <MonthDaySelect
             id={`${rule.idPrefix}-cycle-quarterly`}
             value={cycleDay}
             onChange={(v) => onChange({ [rule.cycleDayKey]: v } as Partial<FormData>)}
           />
           <p className="text-xs text-muted-foreground">
-            Repeats every 3 months on {monthDayLabel(cycleDay)}.
+            {t("schedule.repeatsQuarterly", { day: monthDayLabel(cycleDay) })}
           </p>
         </div>
       )}
@@ -238,20 +233,20 @@ function CyclePicker({
         <div className="flex flex-col gap-3">
           <div className="flex gap-3">
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${rule.idPrefix}-cycle-yearly-month`}>Month</Label>
+              <Label htmlFor={`${rule.idPrefix}-cycle-yearly-month`}>{t("schedule.month")}</Label>
               <select
                 id={`${rule.idPrefix}-cycle-yearly-month`}
                 value={cycleNth}
                 onChange={(e) => onChange({ [rule.cycleNthKey]: Number(e.target.value) } as Partial<FormData>)}
                 className={SELECT_CLASS}
               >
-                {MONTHS.map((m, i) => (
+                {monthNames().map((m, i) => (
                   <option key={i + 1} value={i + 1}>{m}</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${rule.idPrefix}-cycle-yearly-day`}>Day</Label>
+              <Label htmlFor={`${rule.idPrefix}-cycle-yearly-day`}>{t("schedule.day")}</Label>
               <MonthDaySelect
                 id={`${rule.idPrefix}-cycle-yearly-day`}
                 value={cycleDay}
@@ -260,19 +255,19 @@ function CyclePicker({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Repeats every year on {MONTHS[Number(cycleNth) - 1]} ({monthDayLabel(cycleDay)}).
+            {t("schedule.repeatsYearly", { month: monthName(Number(cycleNth) - 1), day: monthDayLabel(cycleDay) })}
           </p>
         </div>
       )}
 
       {/* Note (optional) */}
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${rule.idPrefix}-note`}>Note <span className="text-muted-foreground font-normal">(optional)</span></Label>
+        <Label htmlFor={`${rule.idPrefix}-note`}>{t("schedule.note")} <span className="text-muted-foreground font-normal">{t("schedule.optionalParen")}</span></Label>
         <textarea
           id={`${rule.idPrefix}-note`}
           value={data[rule.noteKey] as string}
           onChange={(e) => onChange({ [rule.noteKey]: e.target.value } as Partial<FormData>)}
-          placeholder="Any additional instructions..."
+          placeholder={t("schedule.notePlaceholder")}
           className={TEXTAREA_CLASS}
         />
       </div>
@@ -281,13 +276,14 @@ function CyclePicker({
 }
 
 export function Step8Receivables({ data, onChange }: Props) {
+  const { t } = useTranslation(["register", "common"]);
   return (
     <div className="flex flex-col gap-8">
       {RULES.map((rule) => {
         const enabled = data[rule.enabledKey] as boolean | null;
         return (
           <div key={rule.idPrefix} className="flex flex-col gap-3">
-            <p className="text-sm font-medium text-foreground">{rule.question}</p>
+            <p className="text-sm font-medium text-foreground">{t(`receivables.${rule.id}`)}</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
@@ -301,7 +297,7 @@ export function Step8Receivables({ data, onChange }: Props) {
                 )}
               >
                 <span className="text-2xl">✓</span>
-                Yes
+                {t("common:actions.yes")}
               </button>
               <button
                 type="button"
@@ -314,7 +310,7 @@ export function Step8Receivables({ data, onChange }: Props) {
                 )}
               >
                 <span className="text-2xl">✕</span>
-                No
+                {t("common:actions.no")}
               </button>
             </div>
 

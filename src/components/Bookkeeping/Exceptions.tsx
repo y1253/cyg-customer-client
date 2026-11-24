@@ -1,4 +1,6 @@
+import { Trans, useTranslation } from 'react-i18next'
 import type { NameDescription, NameExceptionOf } from '@/api/bookkeeping'
+import { currentLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { DescriptionLink } from './DescriptionsLine'
 
@@ -16,18 +18,24 @@ export function ExceptionList({
   onGoTo?: (name: string) => void
   className?: string
 }) {
+  const { t } = useTranslation(['names', 'common'])
   return (
     <ul className={cn('mt-0.5 mb-1 ml-4 flex flex-col gap-0.5 border-l-2 border-amber-300 pl-3 text-xs', className)}>
       {exceptions.map((e) => (
         <li key={`${e.name}|${e.category ?? ''}|${e.split ? 's' : ''}`} className="flex flex-wrap items-center gap-x-2">
           {e.category ? (
             <span className="text-muted-foreground">
-              Only {e.rows === 1 ? 'this row' : 'these rows'} in{' '}
-              <span className="font-medium text-amber-800">{e.category}</span>
+              <Trans
+                t={t}
+                i18nKey="exceptions.onlyRows"
+                count={e.rows}
+                values={{ category: e.category }}
+                components={{ b: <span className="font-medium text-amber-800" /> }}
+              />
             </span>
           ) : (
             <>
-              <span className="text-muted-foreground">{e.split ? 'A split named' : 'Renamed one time to'}</span>
+              <span className="text-muted-foreground">{e.split ? t('exceptions.splitNamed') : t('exceptions.renamedTo')}</span>
               {onGoTo ? (
                 <button
                   type="button"
@@ -42,7 +50,7 @@ export function ExceptionList({
             </>
           )}
           <span className="text-muted-foreground/80 tabular-nums">
-            · {e.rows} row{e.rows === 1 ? '' : 's'}
+            · {t('rows', { count: e.rows, n: e.rows.toLocaleString(currentLocale()) })}
           </span>
         </li>
       ))}
@@ -62,21 +70,26 @@ export function ExceptionOfLines({
   onOpenDescription?: (description: string) => void
   className?: string
 }) {
+  const { t } = useTranslation(['names', 'common'])
   return (
     <>
       {items.map((x) => (
         <p key={`${x.main}|${x.key}`} className={cn('mt-0.5 text-xs text-amber-800', className)}>
-          {x.rows === 1 ? 'One row is' : `${x.rows} rows are`}{' '}
-          {x.split ? (x.rows === 1 ? 'a split' : 'splits') : 'an exception'} from{' '}
-          {onGoTo ? (
-            <button type="button" onClick={() => onGoTo(x.main)} className="font-medium underline hover:text-amber-950">
-              {x.main}
-            </button>
-          ) : (
-            <span className="font-medium">{x.main}</span>
-          )}{' '}
+          <Trans
+            t={t}
+            i18nKey={x.split ? 'exceptions.splitFrom' : 'exceptions.exceptionFrom'}
+            count={x.rows}
+            values={{ main: x.main }}
+            components={{
+              main: onGoTo ? (
+                <button type="button" onClick={() => onGoTo(x.main)} className="font-medium underline hover:text-amber-950" />
+              ) : (
+                <span className="font-medium" />
+              ),
+            }}
+          />{' '}
           <DescriptionLink description={x.description} onOpen={onOpenDescription} className="text-amber-800/70">
-            (“{x.description}”)
+            {t('exceptions.quoted', { description: x.description })}
           </DescriptionLink>
         </p>
       ))}

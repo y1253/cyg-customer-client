@@ -1,5 +1,6 @@
 import { bookFetch, bookUrl, type AttachmentKind, type BookAuth } from './bookkeeping'
 import { errorFrom, handleUnauthorized } from './client'
+import i18n from '@/i18n'
 
 /**
  * PENDING/PROCESSING = being read; UNMATCHED = read, the customer picks the transaction;
@@ -176,7 +177,7 @@ export function uploadAttachments(
     xhr.onload = () => {
       if (xhr.status === 401) {
         handleUnauthorized()
-        return reject(new Error('Please log in again'))
+        return reject(new Error(i18n.t('ledger:upload.logInAgain')))
       }
       let body: unknown = null
       try {
@@ -189,12 +190,12 @@ export function uploadAttachments(
       reject(
         new Error(
           xhr.status === 413
-            ? 'These files are too large to upload at once.'
-            : ((Array.isArray(message) ? message[0] : message) ?? 'The upload failed. Please try again.'),
+            ? i18n.t('ledger:upload.tooLarge')
+            : ((Array.isArray(message) ? message[0] : message) ?? i18n.t('ledger:upload.failed')),
         ),
       )
     }
-    xhr.onerror = () => reject(new Error('The upload failed — check your connection and try again.'))
+    xhr.onerror = () => reject(new Error(i18n.t('ledger:upload.network')))
     xhr.send(form)
   })
 }
@@ -376,9 +377,9 @@ export function phoneUpload(
       }
       if (xhr.status >= 200 && xhr.status < 300) return resolve(body as Array<{ id: number; filename: string }>)
       const message = (body as { message?: string | string[] } | null)?.message
-      reject(new Error((Array.isArray(message) ? message[0] : message) ?? 'The upload failed. Please try again.'))
+      reject(new Error((Array.isArray(message) ? message[0] : message) ?? i18n.t('ledger:upload.failed')))
     }
-    xhr.onerror = () => reject(new Error('The upload failed — check your connection and try again.'))
+    xhr.onerror = () => reject(new Error(i18n.t('ledger:upload.network')))
     xhr.send(form)
   })
 }

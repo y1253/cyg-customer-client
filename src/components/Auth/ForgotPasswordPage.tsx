@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,17 +13,21 @@ import { CodeInput, ResendButton } from './CodeInput'
 import { passwordProblem } from '@/lib/password'
 import { NewPasswordFields } from './NewPasswordFields'
 
-const BACK_TO_LOGIN = (
-  <>
-    Remembered it?{' '}
-    <Link to="/login" className="font-semibold text-brand-light hover:underline">
-      Log in
-    </Link>
-  </>
-)
+function BackToLogin() {
+  const { t } = useTranslation('auth')
+  return (
+    <>
+      {t('forgot.remembered')}{' '}
+      <Link to="/login" className="font-semibold text-brand-light hover:underline">
+        {t('forgot.logIn')}
+      </Link>
+    </>
+  )
+}
 
 /** Forgot password: email → emailed 6-digit code + new password → signed in. */
 export function ForgotPasswordPage() {
+  const { t } = useTranslation('auth')
   const navigate = useNavigate()
   const location = useLocation()
   const forgot = useForgotPassword()
@@ -36,7 +41,7 @@ export function ForgotPasswordPage() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setFormError('Enter a valid email address')
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setFormError(t('errors.invalidEmail'))
     if (human.required && !human.token) return setFormError(human.pendingMessage)
     setFormError(null)
     forgot.mutate(
@@ -62,13 +67,13 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthLayout
-      title="Forgot your password?"
-      description="We'll email you a code to choose a new one."
-      footer={BACK_TO_LOGIN}
+      title={t('forgot.title')}
+      description={t('forgot.description')}
+      footer={<BackToLogin />}
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t('fields.email')}</Label>
           <Input
             id="email"
             type="email"
@@ -86,7 +91,7 @@ export function ForgotPasswordPage() {
           </p>
         )}
         <Button type="submit" disabled={forgot.isPending} className={SUBMIT_CLASS}>
-          {forgot.isPending ? 'Sending code…' : 'Send code'}
+          {forgot.isPending ? t('forgot.sendingCode') : t('forgot.submit')}
         </Button>
       </form>
     </AuthLayout>
@@ -103,6 +108,7 @@ function ResetStep({
   onDone: () => void
   onChangeEmail: () => void
 }) {
+  const { t } = useTranslation('auth')
   const reset = useResetPassword()
   const resend = useForgotPassword()
   // "Resend" asks forgot-password again, so it needs a fresh token of its own.
@@ -115,7 +121,7 @@ function ResetStep({
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
-    if (code.length !== 6) return setFormError('Enter the 6-digit code from the email')
+    if (code.length !== 6) return setFormError(t('errors.enterCode'))
     const problem = passwordProblem(password, confirm)
     if (problem) return setFormError(problem)
     setFormError(null)
@@ -142,16 +148,15 @@ function ResetStep({
 
   return (
     <AuthLayout
-      title="Choose a new password"
-      description="Enter the code we emailed you and your new password."
-      footer={BACK_TO_LOGIN}
+      title={t('forgot.resetTitle')}
+      description={t('forgot.resetDescription')}
+      footer={<BackToLogin />}
     >
       <p className="text-sm text-muted-foreground">
-        If an account exists for <span className="font-semibold text-foreground">{email}</span>, we
-        sent it a 6-digit code. It expires in 10 minutes.
+        <Trans t={t} i18nKey="forgot.sentTo" values={{ email }} components={{ b: <b className="font-semibold text-foreground" /> }} />
       </p>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <CodeInput id="reset-code" label="Code" value={code} onChange={setCode} />
+        <CodeInput id="reset-code" label={t('fields.code')} value={code} onChange={setCode} />
         <NewPasswordFields
           password={password}
           confirm={confirm}
@@ -164,16 +169,16 @@ function ResetStep({
           </p>
         )}
         {resend.isSuccess && !error && (
-          <p className="text-sm text-muted-foreground">A new code is on its way.</p>
+          <p className="text-sm text-muted-foreground">{t('code.newOnItsWay')}</p>
         )}
         {human.widget}
         <Button type="submit" disabled={reset.isPending} className={SUBMIT_CLASS}>
-          {reset.isPending ? 'Saving…' : 'Save new password'}
+          {reset.isPending ? t('forgot.saving') : t('forgot.save')}
         </Button>
       </form>
       <div className="flex items-center justify-between text-sm">
         <Button variant="link" className="h-auto p-0" onClick={onChangeEmail}>
-          Use a different email
+          {t('forgot.otherEmail')}
         </Button>
         <ResendButton wait={countdown.left} pending={resend.isPending} onClick={onResend} />
       </div>

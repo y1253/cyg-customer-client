@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 interface StepConfig {
@@ -13,6 +14,7 @@ interface Props {
 
 export function StepIndicator({ steps, currentStep }: Props) {
   const activeRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation(['register', 'common']);
 
   /**
    * Keep the current step on screen.
@@ -37,7 +39,7 @@ export function StepIndicator({ steps, currentStep }: Props) {
           glance. Small screens only — the rail says it well enough when most of it is
           visible. */}
       <p className="mb-2 text-center text-[11px] text-muted-foreground sm:hidden">
-        Step {currentStep + 1} of {steps.length} ·{' '}
+        {t('indicator.stepOf', { n: currentStep + 1, total: steps.length })} ·{' '}
         <span className="font-medium text-foreground">
           {steps[currentStep]?.label}
         </span>

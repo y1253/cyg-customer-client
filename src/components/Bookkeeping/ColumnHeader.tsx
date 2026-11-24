@@ -1,4 +1,5 @@
 import { useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,11 +9,8 @@ import { TableHead } from '@/components/ui/table'
 import { isActive, type ColumnFilter, type ColumnKind, type SortDir, type TableControls } from '@/lib/table-sort'
 import { cn } from '@/lib/utils'
 
-const SORT_LABELS: Record<ColumnKind, Record<SortDir, string>> = {
-  text: { asc: 'A → Z', desc: 'Z → A' },
-  number: { asc: 'Smallest first', desc: 'Largest first' },
-  date: { asc: 'Oldest first', desc: 'Newest first' },
-}
+/** The two sort orders of a column kind: `ledger:columnHeader.sort.<kind>.<dir>`. */
+type SortKey = `${ColumnKind}.${SortDir}`
 
 /**
  * A table header that sorts and filters its own column: click it for a small panel with
@@ -51,6 +49,7 @@ export function ColumnHeader({
   onEdit?: () => void
   rules?: string
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const [open, setOpen] = useState(false)
   // "Edit column…" opens its window once this panel is fully closed — opened sooner, the
   // panel's focus going back to the header closes the new window again.
@@ -79,11 +78,11 @@ export function ColumnHeader({
             align === 'end' && 'flex-row-reverse',
             (sorted || filtered) && 'text-brand',
           )}
-          title={title ?? `Sort or filter by ${label.toLowerCase()}`}
+          title={title ?? t('columnHeader.title', { label: label.toLowerCase() })}
         >
           <span className="truncate">{label}</span>
           <SortIcon className={cn('size-3.5 shrink-0', !sorted && 'opacity-40')} />
-          {filtered && <span className="size-1.5 shrink-0 rounded-full bg-brand" aria-label="filtered" />}
+          {filtered && <span className="size-1.5 shrink-0 rounded-full bg-brand" aria-label={t('columnHeader.filtered')} />}
         </PopoverTrigger>
         <PopoverContent align={align} className="w-64 font-normal">
           {onEdit && (
@@ -97,7 +96,7 @@ export function ColumnHeader({
                   setOpen(false)
                 }}
               >
-                <Pencil className="size-3.5" /> Edit column…
+                <Pencil className="size-3.5" /> {t('columnHeader.editColumn')}
               </Button>
               {rules && <p className="text-xs text-muted-foreground">{rules}</p>}
             </div>
@@ -111,18 +110,18 @@ export function ColumnHeader({
                 className={cn('h-8 flex-1', sorted === dir && 'bg-brand text-white hover:bg-brand/85')}
                 onClick={() => setSort(sorted === dir ? null : { key: column, dir })}
               >
-                {SORT_LABELS[kind][dir]}
+                {t(`columnHeader.sort.${`${kind}.${dir}` as SortKey}`)}
               </Button>
             ))}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Filter {label.toLowerCase()}</Label>
+            <Label className="text-xs text-muted-foreground">{t('columnHeader.filter', { label: label.toLowerCase() })}</Label>
             {kind === 'text' && (
               <Input
                 autoFocus
                 value={f.text ?? ''}
                 onChange={(e) => setFilter(column, { text: e.target.value })}
-                placeholder="Contains…"
+                placeholder={t('columnHeader.contains')}
                 className="h-8"
               />
             )}
@@ -133,7 +132,7 @@ export function ColumnHeader({
                   inputMode="decimal"
                   value={f.min ?? ''}
                   onChange={(e) => setFilter(column, { ...f, min: num(e.target.value) })}
-                  placeholder="Min"
+                  placeholder={t('columnHeader.min')}
                   className="h-8"
                 />
                 <span className="text-muted-foreground">–</span>
@@ -142,7 +141,7 @@ export function ColumnHeader({
                   inputMode="decimal"
                   value={f.max ?? ''}
                   onChange={(e) => setFilter(column, { ...f, max: num(e.target.value) })}
-                  placeholder="Max"
+                  placeholder={t('columnHeader.max')}
                   className="h-8"
                 />
               </div>
@@ -154,14 +153,14 @@ export function ColumnHeader({
                   value={f.from ?? ''}
                   onChange={(e) => setFilter(column, { ...f, from: e.target.value || null })}
                   className="h-8"
-                  aria-label="From"
+                  aria-label={t('columnHeader.from')}
                 />
                 <Input
                   type="date"
                   value={f.to ?? ''}
                   onChange={(e) => setFilter(column, { ...f, to: e.target.value || null })}
                   className="h-8"
-                  aria-label="To"
+                  aria-label={t('columnHeader.to')}
                 />
               </div>
             )}
@@ -176,7 +175,7 @@ export function ColumnHeader({
                 if (sorted) setSort(null)
               }}
             >
-              <X className="size-3.5" /> Clear
+              <X className="size-3.5" /> {t('common:actions.clear')}
             </Button>
           )}
         </PopoverContent>

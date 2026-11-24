@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Label } from '@/components/ui/label'
 import { MIN_PASSWORD } from '@/lib/password'
 import { PasswordInput } from './PasswordInput'
@@ -14,11 +15,12 @@ export function NewPasswordFields({
   onPassword: (value: string) => void
   onConfirm: (value: string) => void
 }) {
+  const { t } = useTranslation('auth')
   const mismatch = confirm.length > 0 && confirm !== password
   return (
     <>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="new-password">New password</Label>
+        <Label htmlFor="new-password">{t('fields.newPassword')}</Label>
         <PasswordInput
           id="new-password"
           autoComplete="new-password"
@@ -26,10 +28,10 @@ export function NewPasswordFields({
           value={password}
           onChange={(e) => onPassword(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">At least {MIN_PASSWORD} characters.</p>
+        <p className="text-xs text-muted-foreground">{t('password.minHint', { min: MIN_PASSWORD })}</p>
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="confirm-new-password">Confirm new password</Label>
+        <Label htmlFor="confirm-new-password">{t('fields.confirmNewPassword')}</Label>
         <PasswordInput
           id="confirm-new-password"
           autoComplete="new-password"
@@ -38,7 +40,7 @@ export function NewPasswordFields({
           aria-invalid={mismatch}
           onChange={(e) => onConfirm(e.target.value)}
         />
-        {mismatch && <p className="text-xs text-destructive">Passwords do not match.</p>}
+        {mismatch && <p className="text-xs text-destructive">{t('password.mismatchHint')}</p>}
       </div>
     </>
   )

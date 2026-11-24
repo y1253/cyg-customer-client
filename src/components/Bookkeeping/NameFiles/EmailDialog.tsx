@@ -1,4 +1,6 @@
 import { Loader2, Paperclip } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
+import { currentLocale } from '@/i18n'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAttachmentEmail } from '@/hooks/useNameFiles'
 import { useClosingValue } from '@/hooks/useClosingValue'
@@ -18,6 +20,7 @@ export function EmailDialog({
   /** Open another file of the same email (its folder entry). */
   onOpenFile?: (id: number) => void
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const shown = useClosingValue(attachmentId)
   const email = useAttachmentEmail(shown)
   const e = email.data
@@ -25,16 +28,21 @@ export function EmailDialog({
     <Dialog open={attachmentId != null} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col gap-4 sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="pr-6">{e?.subject || 'Email'}</DialogTitle>
+          <DialogTitle className="pr-6">{e?.subject || t('email.title')}</DialogTitle>
           <DialogDescription>
             {e ? (
               <>
-                From <span className="font-medium text-foreground">{e.from ?? 'unknown'}</span>
-                {e.to && <> · to {e.to}</>}
-                {e.receivedAt && <> · {new Date(e.receivedAt).toLocaleString()}</>}
+                <Trans
+                  t={t}
+                  i18nKey="email.from"
+                  values={{ from: e.from ?? t('email.unknown') }}
+                  components={{ b: <span className="font-medium text-foreground" /> }}
+                />
+                {e.to && <> · {t('email.to', { to: e.to })}</>}
+                {e.receivedAt && <> · {new Date(e.receivedAt).toLocaleString(currentLocale())}</>}
               </>
             ) : (
-              'Loading…'
+              t('common:status.loading')
             )}
           </DialogDescription>
         </DialogHeader>
@@ -44,19 +52,19 @@ export function EmailDialog({
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             {e.partial && (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                This email came before we kept whole emails — here are its words as we filed them.
+                {t('email.partial')}
               </p>
             )}
             {e.html ? (
               <iframe
-                title="Email"
+                title={t('email.title')}
                 sandbox=""
                 srcDoc={e.html}
                 className="h-[55vh] w-full rounded-lg bg-white ring-1 ring-black/10"
               />
             ) : (
               <pre className="rounded-lg bg-muted/40 p-3 font-sans text-sm whitespace-pre-wrap text-[#0B1C2C]">
-                {e.text || '(no text)'}
+                {e.text || t('email.noText')}
               </pre>
             )}
             {e.files.length > 0 && (

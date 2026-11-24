@@ -1,11 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AccountStatementError, AccountType, Reports, ReportLine } from '@/api/bookkeeping'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
-import { STARTS_WARNING, startingNote } from '@/lib/starting-dates'
+import { startingDatesList, startingNote, startsWarning } from '@/lib/starting-dates'
 import { AccountErrors } from './AccountErrors'
 import { ForeignAmount } from './AccountCurrency'
 import { DropSection, MoveMenu } from './AccountMove'
@@ -40,7 +41,7 @@ export function ReportSection({
   lines,
   total,
   totalLabel,
-  empty = 'Nothing in this period',
+  empty,
   onOpen,
   type,
   onMove,
@@ -66,6 +67,7 @@ export function ReportSection({
   /** step2: an account with more than one starting date gets "Ask AI" (its statements' chat). */
   onAskStarts?: (account: string, note: string) => void
 }) {
+  const { t } = useTranslation(['books', 'common'])
   return (
     <section className="mb-6 last:mb-0">
       <DropSection type={type ?? 'ASSET'} onMove={type && onMove ? onMove : undefined} className="-mx-1 px-1">
@@ -78,10 +80,10 @@ export function ReportSection({
               note?.warn && onAskStarts ? (
                 <button
                   type="button"
-                  title="Ask AI to fix the starting dates"
-                  aria-label="Ask AI to fix the starting dates"
+                  title={t('reports.askStarts')}
+                  aria-label={t('reports.askStarts')}
                   className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-brand hover:bg-brand/10"
-                  onClick={() => onAskStarts(l.name, [note.text, ...(note.reasons ?? [])].join('. '))}
+                  onClick={() => onAskStarts(l.name, [startingDatesList(l.starts ?? []), ...(note.reasons ?? [])].join('. '))}
                 >
                   <Sparkles className="size-4" />
                 </button>
@@ -123,7 +125,7 @@ export function ReportSection({
             )
           })
         ) : (
-          <p className="py-1.5 pl-3 text-sm text-muted-foreground">{empty}</p>
+          <p className="py-1.5 pl-3 text-sm text-muted-foreground">{empty ?? t('reports.emptyPeriod')}</p>
         )}
       </DropSection>
       <ReportRow label={totalLabel} amount={total} strong />
@@ -153,6 +155,7 @@ function readByNameSort(): ByNameSort {
  * to reverse); the server's order is amount, largest first.
  */
 function ByName({ lines }: { lines: ReportLine[] }) {
+  const { t } = useTranslation(['books', 'common'])
   const [sort, setSort] = useState(readByNameSort)
   const sorted = useMemo(() => {
     const out = [...lines].sort((a, b) =>
@@ -182,7 +185,7 @@ function ByName({ lines }: { lines: ReportLine[] }) {
           e.stopPropagation()
           pick(key)
         }}
-        title={`Sort by ${label.toLowerCase()}`}
+        title={t('reports.sortBy', { label: label.toLocaleLowerCase() })}
         className={cn(
           'inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-semibold tracking-wide uppercase transition-colors hover:bg-white/15',
           on ? 'opacity-100' : 'opacity-60 hover:opacity-90',
@@ -197,10 +200,10 @@ function ByName({ lines }: { lines: ReportLine[] }) {
     <div className="flex w-72 flex-col py-0.5">
       <span className="mb-1 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1">
-          {header('name', 'By name')}
+          {header('name', t('reports.byName'))}
           {lines.length > 1 && <span className="text-[11px] opacity-60">· {lines.length}</span>}
         </span>
-        {header('amount', 'Amount')}
+        {header('amount', t('reports.amount'))}
       </span>
       <div className="-mr-2 flex max-h-[60vh] flex-col gap-0.5 overflow-y-auto overscroll-contain pr-2">
         {sorted.map((l) => (
@@ -239,7 +242,7 @@ export function AccountNote({ note, errors }: { note?: AccountStartNote | null; 
                 </span>
               ))
             ) : (
-              <span className="block text-red-600/80">{STARTS_WARNING}</span>
+              <span className="block text-red-600/80">{startsWarning()}</span>
             ))}
         </span>
       )}
@@ -285,6 +288,7 @@ export function ReportRow({
   /** step2: a pencil beside the name renames the account in place. */
   rename?: (to: string) => Promise<unknown>
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const drop = useAccountDrop(label, merge?.bank ?? false, merge?.onMerge)
   const body = (
     <>
@@ -314,7 +318,7 @@ export function ReportRow({
     <button
       type="button"
       onClick={onClick}
-      title={byName?.length ? undefined : 'See its transactions'}
+      title={byName?.length ? undefined : t('reports.seeTransactions')}
       className="flex min-w-0 flex-1 items-baseline gap-4 text-left hover:text-brand"
     >
       {body}
@@ -341,7 +345,7 @@ export function ReportRow({
   return (
     <div className={rowClass} {...drag} {...drop.props}>
       {rename ? (
-        <InlineRename value={label} onSave={rename} label={`Rename ${label}`} className="flex-1">
+        <InlineRename value={label} onSave={rename} label={t('statements.renameAccount', { name: label })} className="flex-1">
           {main}
         </InlineRename>
       ) : (
@@ -354,12 +358,12 @@ export function ReportRow({
 
 /** The figures are only as complete as the AI's categories — say so when some are missing. */
 export function UncategorizedNote({ reports }: { reports: Reports }) {
+  const { t } = useTranslation(['books', 'common'])
   const { count, amount } = reports.uncategorized
   if (!count) return null
   return (
     <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-      {count} transaction{count === 1 ? '' : 's'} ({money(amount)}) could not be categorized and{' '}
-      {count === 1 ? 'is' : 'are'} counted under “Uncategorized” expenses.
+      {t('reports.uncategorized', { count, amount: money(amount) })}
     </p>
   )
 }

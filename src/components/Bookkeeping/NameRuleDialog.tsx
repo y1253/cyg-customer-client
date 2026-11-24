@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { ChevronDown, Plus, TriangleAlert, X } from 'lucide-react'
 import {
   CONTAINS_MIN,
@@ -36,6 +37,7 @@ import { useEditSplit, useSubNames } from '@/hooks/useSplits'
 import { useSubNameTools } from '@/hooks/useSubNameTools'
 import { useTax } from '@/hooks/useTax'
 import { cn } from '@/lib/utils'
+import { currentLocale } from '@/i18n'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
 import { AgencyPicker } from './AgencyPicker'
 import { CategoryField } from './CategoryField'
@@ -94,6 +96,7 @@ function keyOf(t: NameRuleTarget): string {
 }
 
 function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () => void }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const create = useCreateAccount()
   const saveRule = useSaveNameRule()
   const editRow = useEditTransaction()
@@ -183,9 +186,9 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
   const [draftTexts, setDraftTexts] = useState<string[]>([])
   const [textInput, setTextInput] = useState('')
   const addText = () => {
-    const t = textInput.trim()
-    if (t.length < CONTAINS_MIN) return
-    if (!draftTexts.some((x) => x.toLowerCase() === t.toLowerCase())) setDraftTexts([...draftTexts, t])
+    const text = textInput.trim()
+    if (text.length < CONTAINS_MIN) return
+    if (!draftTexts.some((x) => x.toLowerCase() === text.toLowerCase())) setDraftTexts([...draftTexts, text])
     setTextInput('')
   }
   const owner = finalName ? existingName(finalName) : undefined
@@ -328,57 +331,65 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       <DialogHeader>
         <DialogTitle>
           {target.kind === 'unrecognized'
-            ? 'Name this transaction'
-            : `Edit ${rowSub?.name ?? target.view.name ?? (isSplit ? 'this split' : 'this transaction')}`}
+            ? t('nameRule.titleUnrecognized')
+            : (rowSub?.name ?? target.view.name)
+              ? t('nameRule.titleEdit', { name: rowSub?.name ?? target.view.name })
+              : isSplit
+                ? t('nameRule.titleEditSplit')
+                : t('nameRule.titleEditTransaction')}
         </DialogTitle>
         <DialogDescription>
           {target.kind === 'transaction' ? (
             <>
-              {rowSub && <>Under {target.view.name} · </>}
-              {isSplit && <>A split of </>}“{target.view.description}”
+              {rowSub && <>{t('nameRule.underName', { name: target.view.name })} · </>}
+              {isSplit
+                ? t('nameRule.splitOf', { description: target.view.description })
+                : t('columnsDialog.quoted', { value: target.view.description })}
             </>
           ) : target.kind === 'unrecognized' ? (
-            <>
-              “{target.view.sampleDescription}” — {rows.toLocaleString()} row{rows === 1 ? '' : 's'}
-            </>
+            t('nameRule.unrecognizedRows', {
+              description: target.view.sampleDescription,
+              count: rows,
+              n: rows.toLocaleString(currentLocale()),
+            })
           ) : (
-            <>
-              {rows.toLocaleString()} row{rows === 1 ? '' : 's'} with this name
-            </>
+            t('nameRule.rowsWithName', { count: rows, n: rows.toLocaleString(currentLocale()) })
           )}
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="name-rule-name">Name</Label>
+        <Label htmlFor="name-rule-name">{t('columns.name')}</Label>
         <NamePicker
           id="name-rule-name"
           value={name}
-          placeholder={shownName || 'Unclarified name'}
+          placeholder={shownName || t('unclarified')}
           onChange={onNameChange}
         />
-        {nameMissing && <p className="text-xs text-destructive">A name is required.</p>}
+        {nameMissing && <p className="text-xs text-destructive">{t('nameRule.nameRequired')}</p>}
         {rowSub && !nameChanged && (
           <p className="text-xs text-muted-foreground">
-            “{rowSub.name}” is a sub-name of {initialName}. Type another name to move this row; its own name and
-            settings are below.
+            {t('nameRule.subNameOf', { sub: rowSub.name, name: initialName })}
           </p>
         )}
       </div>
 
       {canScope && (!isSplit || nameChanged) && (
         <div className="flex flex-col gap-1.5">
-          <Label>Apply to</Label>
+          <Label>{t('nameRule.applyTo')}</Label>
           <div className={cn('grid gap-1 rounded-lg bg-muted p-1', isSplit ? 'grid-cols-2' : 'grid-cols-3')}>
             {(isSplit
               ? ([
-                  { id: 'ONCE', label: 'Only this transaction' },
-                  { id: 'ALWAYS', label: 'Always' },
+                  { id: 'ONCE', label: t('nameRule.scope.onlyThisTransaction') },
+                  { id: 'ALWAYS', label: t('nameRule.scope.always') },
                 ] as const)
               : ([
-                  { id: 'ALWAYS', label: 'This description' },
-                  { id: 'CONTAINS', label: 'Contains text' },
-                  { id: 'ONCE', label: target.kind === 'transaction' ? 'Only this row' : 'Only these rows' },
+                  { id: 'ALWAYS', label: t('nameRule.scope.thisDescription') },
+                  { id: 'CONTAINS', label: t('nameRule.scope.containsText') },
+                  {
+                    id: 'ONCE',
+                    label: target.kind === 'transaction' ? t('splitRule.onlyThisRow') : t('nameRule.scope.onlyTheseRows'),
+                  },
                 ] as const)
             ).map((o) => (
               <button
@@ -397,64 +408,76 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
           {contains && (
             <>
               <Input
-                aria-label="Description contains"
+                aria-label={t('nameRule.descriptionContains')}
                 value={containsText}
                 onChange={(e) => setContainsText(e.target.value)}
                 maxLength={191}
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">
-                Trim it to the part every description has. At least {CONTAINS_MIN} characters; capital letters
-                don't matter.
-              </p>
+              <p className="text-xs text-muted-foreground">{t('nameRule.containsHelp', { count: CONTAINS_MIN })}</p>
             </>
           )}
           <p className="text-xs text-muted-foreground">
             {isSplit
               ? scope === 'ALWAYS'
-                ? `Every transaction with this description gets “${trimmed}” — the whole transaction too, now and on every statement from now on.`
-                : 'Only this split gets this name. Nothing is saved for the future.'
+                ? t('nameRule.help.splitAlways', { name: trimmed })
+                : t('nameRule.help.splitOnce')
               : contains
-              ? `Every transaction whose description contains this text gets ${nameChanged ? `the name “${trimmed}” and its category` : 'this category'} — in this ledger and every statement from now on. A rule for one exact description still wins.`
+              ? nameChanged
+                ? t('nameRule.help.containsName', { name: trimmed })
+                : t('nameRule.help.containsCategory')
               : scope === 'ALWAYS'
-              ? 'Every transaction with this description gets this name — in this ledger and every statement you upload from now on.'
+              ? t('nameRule.help.always')
               : target.kind === 'transaction'
-                ? 'Only this transaction gets this name. Nothing is saved for the future.'
-                : 'Only the rows already in your ledger get this name. Nothing is saved for the future.'}
+                ? t('nameRule.help.onceTransaction')
+                : t('nameRule.help.onceRows')}
           </p>
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
-        <Label>Category</Label>
+        <Label>{t('nameRule.category')}</Label>
         <CategoryField value={choice} onChange={onCategoryChange} />
         {overriding && owner ? (
           <p className="flex gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-900 ring-1 ring-amber-600/20">
             <TriangleAlert className="mt-px size-3.5 shrink-0" />
             <span>
-              “{owner.name}” is in <b>{owner.category}</b>. Saving moves its default to <b>{chosenCategory}</b> —
-              all {owner.rows.toLocaleString()} of its row{owner.rows === 1 ? '' : 's'}, and new ones from now on.
+              <Trans
+                t={t}
+                i18nKey="nameRule.overriding"
+                count={owner.rows}
+                values={{
+                  name: owner.name,
+                  from: owner.category,
+                  to: chosenCategory,
+                  n: owner.rows.toLocaleString(currentLocale()),
+                }}
+                components={{ b: <b /> }}
+              />
             </span>
           </p>
         ) : (
           adopted && (
             <p className="text-xs text-brand">
-              “{adopted.name}” is in {adopted.category} — filled in above.{' '}
-              {isSplit
-                ? 'Pick another to put this split in a sub-name of its own.'
-                : 'Pick another category to change its default.'}
+              {t('nameRule.adopted', { name: adopted.name, category: adopted.category })}{' '}
+              {isSplit ? t('nameRule.adoptedSplit') : t('nameRule.adoptedOther')}
             </p>
           )
         )}
         {askSplitScope && owner && (
           <div className="flex flex-col gap-1 rounded-md bg-amber-50 p-1.5 text-xs text-amber-900 ring-1 ring-amber-600/20">
             <span className="px-0.5">
-              “{owner.name}” is in <b>{owner.category}</b>. Put it in <b>{chosenCategory}</b> for:
+              <Trans
+                t={t}
+                i18nKey="nameRule.splitScopeQuestion"
+                values={{ name: owner.name, from: owner.category, to: chosenCategory }}
+                components={{ b: <b /> }}
+              />
             </span>
             {(
               [
-                { id: 'SUB', label: `Only this split — as “${owner.name} - ${chosenCategory}”` },
-                { id: 'ALL', label: `All ${owner.name} rows — the transaction too` },
+                { id: 'SUB', label: t('nameRule.onlyThisSplitAs', { sub: `${owner.name} - ${chosenCategory}` }) },
+                { id: 'ALL', label: t('cells.allRowsToo', { name: owner.name }) },
               ] as const
             ).map((o) => (
               <button
@@ -473,15 +496,15 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         )}
         {otherCategories > 0 && !categoryChanged && (
           <p className="text-xs text-muted-foreground">
-            Its rows have {otherCategories + 1} different categories. Choose one to put them all in it.
+            {t('nameRule.otherCategories', { count: otherCategories + 1 })}
           </p>
         )}
         <p className="text-xs text-muted-foreground">
           {isSplit
-            ? 'A split keeps its name’s category, or one of its own as a sub-name of the name.'
+            ? t('nameRule.categoryHelp.split')
             : finalName
-              ? `A name has one category: every transaction named “${finalName}” goes in it.`
-              : 'Every unnamed transaction with this description goes in it.'}
+              ? t('nameRule.categoryHelp.named', { name: finalName })
+              : t('nameRule.categoryHelp.unnamed')}
         </p>
       </div>
 
@@ -495,8 +518,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
         owner &&
         isWrapper(owner.name) && (
           <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            “{owner.name}” has sub-names: its settings (group, split rules, details) are on each sub-name — open
-            one of its rows, or its sub-names on the Names tab.
+            {t('nameRule.wrapper', { name: owner.name })}
           </p>
         )
       )}
@@ -511,9 +533,9 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[#0B1C2C] hover:bg-muted/40"
           >
             <ChevronDown className={cn('size-4 shrink-0 transition-transform', settingsOpen && 'rotate-180')} />
-            <span className="min-w-0 flex-1 truncate">Settings of “{owner?.name ?? trimmed}”</span>
+            <span className="min-w-0 flex-1 truncate">{t('nameRule.settingsOf', { name: owner?.name ?? trimmed })}</span>
             <span className="hidden shrink-0 text-xs font-normal text-muted-foreground sm:inline">
-              group · tax · descriptions · phone &amp; more
+              {t('nameRule.settingsHint')}
             </span>
           </button>
           {settingsOpen && (
@@ -522,20 +544,20 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                 <NameDescriptionsEditor name={owner.name} withTax />
               ) : (
                 <>
-                  <p className="text-xs text-muted-foreground">A new name — these are saved with it.</p>
+                  <p className="text-xs text-muted-foreground">{t('nameRule.newNameNote')}</p>
                   {groups.length > 0 && (
                     <div className="flex flex-col gap-1.5">
-                      <Label>Group</Label>
+                      <Label>{t('nameRule.group')}</Label>
                       <GroupPicker groups={groups} value={draftGroup} onChange={setDraftGroup} />
-                      <p className="text-xs text-muted-foreground">Left empty, it follows its category.</p>
+                      <p className="text-xs text-muted-foreground">{t('nameRule.groupHelp')}</p>
                     </div>
                   )}
                   {(tax.data?.agencies.length ?? 0) > 0 && (
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex flex-col">
-                        <Label>Split rules</Label>
+                        <Label>{t('nameRule.splitRules')}</Label>
                         <span className="text-xs text-muted-foreground">
-                          A rule picked splits {trimmed}'s transactions once, after saving.
+                          {t('nameRule.splitRulesHelp', { name: trimmed })}
                         </span>
                       </div>
                       <AgencyPicker
@@ -553,19 +575,18 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                     </div>
                   )}
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="name-rule-text">Descriptions</Label>
+                    <Label htmlFor="name-rule-text">{t('nameRule.descriptions')}</Label>
                     <span className="text-xs text-muted-foreground">
-                      Every transaction whose description contains one of these gets “{trimmed}” — now and on every
-                      statement from now on.
+                      {t('nameRule.descriptionsHelp', { name: trimmed })}
                     </span>
-                    {draftTexts.map((t) => (
-                      <span key={t} className="flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-sm">
-                        <span className="min-w-0 flex-1 truncate">“{t}”</span>
+                    {draftTexts.map((text) => (
+                      <span key={text} className="flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-sm">
+                        <span className="min-w-0 flex-1 truncate">{t('columnsDialog.quoted', { value: text })}</span>
                         <button
                           type="button"
-                          onClick={() => setDraftTexts(draftTexts.filter((x) => x !== t))}
+                          onClick={() => setDraftTexts(draftTexts.filter((x) => x !== text))}
                           className="shrink-0 text-muted-foreground hover:text-foreground"
-                          aria-label={`Remove “${t}”`}
+                          aria-label={t('nameRule.removeText', { text })}
                         >
                           <X className="size-3.5" />
                         </button>
@@ -576,7 +597,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                         id="name-rule-text"
                         value={textInput}
                         maxLength={191}
-                        placeholder="A description, or part of one"
+                        placeholder={t('nameRule.textPlaceholder')}
                         onChange={(e) => setTextInput(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -594,7 +615,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
                         onClick={addText}
                         className="gap-1"
                       >
-                        <Plus className="size-3.5" /> Add
+                        <Plus className="size-3.5" /> {t('common:actions.add')}
                       </Button>
                     </div>
                   </div>
@@ -610,9 +631,9 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
       <RuleConflictDialog conflict={conflict} />
 
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
         <Button type="submit" disabled={!canSave} className="bg-brand text-white hover:bg-brand/85">
-          {pending ? 'Saving…' : overriding ? 'Save & change default' : 'Save'}
+          {pending ? t('common:actions.saving') : overriding ? t('nameRule.saveAndChange') : t('common:actions.save')}
         </Button>
       </DialogFooter>
     </form>
@@ -621,6 +642,7 @@ function NameRuleForm({ target, onDone }: { target: NameRuleTarget; onDone: () =
 
 /** step12 (2026-11-20): "Settings of “Walmart - Rent”" — the sub-name's own, folded like a name's. */
 function SubNameSection({ subNameId, name }: { subNameId: number; name: string }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const [open, setOpen] = useState(false)
   const tools = useSubNameTools(subNameId)
   return (
@@ -632,9 +654,9 @@ function SubNameSection({ subNameId, name }: { subNameId: number; name: string }
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[#0B1C2C] hover:bg-muted/40"
       >
         <ChevronDown className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')} />
-        <span className="min-w-0 flex-1 truncate">Settings of “{tools.sub?.name ?? name}”</span>
+        <span className="min-w-0 flex-1 truncate">{t('nameRule.settingsOf', { name: tools.sub?.name ?? name })}</span>
         <span className="hidden shrink-0 text-xs font-normal text-muted-foreground sm:inline">
-          name · group · split rules · phone &amp; more
+          {t('nameRule.subSettingsHint')}
         </span>
       </button>
       {open && (
@@ -650,7 +672,7 @@ function SubNameSection({ subNameId, name }: { subNameId: number; name: string }
               inline
             />
           ) : (
-            <p className="text-xs text-muted-foreground">{tools.loading ? 'Loading…' : 'This sub-name is gone.'}</p>
+            <p className="text-xs text-muted-foreground">{tools.loading ? t('common:status.loading') : t('nameRule.subGone')}</p>
           )}
         </div>
       )}

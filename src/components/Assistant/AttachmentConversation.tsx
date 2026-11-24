@@ -1,4 +1,5 @@
 import { Loader2, MessagesSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAttachmentMessages } from '@/hooks/useAssistant'
 import { ChatBubble } from './ChatPanel'
 
@@ -9,11 +10,12 @@ import { ChatBubble } from './ChatPanel'
  * deleted.
  */
 export function AttachmentConversation({ attachmentId }: { attachmentId: number }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const messages = useAttachmentMessages(attachmentId)
   if (messages.isLoading) {
     return (
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Loader2 className="size-3.5 animate-spin" /> Loading the conversation…
+        <Loader2 className="size-3.5 animate-spin" /> {t('attachmentConversation.loading')}
       </p>
     )
   }
@@ -22,7 +24,7 @@ export function AttachmentConversation({ attachmentId }: { attachmentId: number 
   return (
     <section className="flex flex-col gap-2 rounded-xl bg-muted/30 p-3">
       <h4 className="flex items-center gap-1.5 text-xs font-semibold text-[#0B1C2C]">
-        <MessagesSquare className="size-3.5 text-brand" /> Conversation about this file
+        <MessagesSquare className="size-3.5 text-brand" /> {t('attachmentConversation.title')}
       </h4>
       <div className="flex max-h-80 flex-col gap-2.5 overflow-y-auto">
         {list.map((m) => (

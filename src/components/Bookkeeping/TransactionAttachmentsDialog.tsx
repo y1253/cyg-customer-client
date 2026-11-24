@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link2Off, ListChecks, Loader2, Paperclip, Sparkles } from 'lucide-react'
 import { ATTACHMENT_ACCEPT, isAcceptedAttachment, MAX_ATTACHMENT_BYTES } from '@/api/attachments'
 import type { LedgerTransaction } from '@/api/bookkeeping'
@@ -9,7 +10,7 @@ import { AttachmentChat } from '@/components/Assistant/AttachmentChat'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useAttachmentActions, useAttachments, useUploadAttachments } from '@/hooks/useAttachments'
 import { useClosingValue } from '@/hooks/useClosingValue'
-import { KIND_LABEL } from '@/lib/attachment-labels'
+import { kindLabel } from '@/lib/attachment-labels'
 import { money } from '@/lib/money'
 import { AttachmentPreview, AttachmentStatusBadge, KindIcon, ReadingSummary } from './AttachmentParts'
 
@@ -36,6 +37,7 @@ export function TransactionAttachmentsDialog({
 }
 
 function Body({ transaction }: { transaction: LedgerTransaction }) {
+  const { t } = useTranslation('ledger')
   const input = useRef<HTMLInputElement>(null)
   const attachments = useAttachments()
   const upload = useUploadAttachments()
@@ -54,16 +56,16 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Attachments · {transaction.name ?? transaction.description}</DialogTitle>
+        <DialogTitle>{t('attachments.title', { name: transaction.name ?? transaction.description })}</DialogTitle>
         <DialogDescription>
-          “{transaction.description}” — {money(transaction.amount)}
+          {t('attachments.description', { description: transaction.description, amount: money(transaction.amount) })}
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
         {attachments.isLoading && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
         {!attachments.isLoading && !mine.length && (
-          <p className="text-sm text-muted-foreground">No receipts or files on this transaction yet.</p>
+          <p className="text-sm text-muted-foreground">{t('attachments.none')}</p>
         )}
         {mine.map((a) => {
           // step12: a split's file never splits it again — items split a whole transaction.
@@ -76,7 +78,7 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
                   <KindIcon kind={a.kind} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#0B1C2C]">{KIND_LABEL[a.kind]}</p>
+                  <p className="truncate text-sm font-medium text-[#0B1C2C]">{kindLabel(a.kind)}</p>
                   <p className="truncate text-xs text-muted-foreground">{a.filename}</p>
                 </div>
                 <AttachmentStatusBadge a={a} />
@@ -92,9 +94,9 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
                     variant={asking === a.id ? 'secondary' : 'ghost'}
                     onClick={() => setAsking(asking === a.id ? null : a.id)}
                     className="gap-1.5 text-brand"
-                    title="Tell the AI what is wrong with this file"
+                    title={t('attachments.askAiTitle')}
                   >
-                    <Sparkles className="size-4" /> {asking === a.id ? 'Hide AI chat' : 'Ask AI'}
+                    <Sparkles className="size-4" /> {asking === a.id ? t('attachments.hideAi') : t('attachments.askAi')}
                   </Button>
                 )}
                 {canSplit && (
@@ -104,9 +106,9 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
                     disabled={applyItems.isPending}
                     onClick={() => applyItems.mutate(a.id)}
                     className="gap-1.5"
-                    title="Replace this transaction's splits with one split per receipt line"
+                    title={t('attachments.useItemsTitle')}
                   >
-                    <ListChecks className="size-4" /> Use receipt items
+                    <ListChecks className="size-4" /> {t('attachments.useItems')}
                   </Button>
                 )}
                 <Button
@@ -115,9 +117,9 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
                   disabled={attach.isPending}
                   onClick={() => attach.mutate({ id: a.id, transactionId: null })}
                   className="gap-1.5 text-muted-foreground"
-                  title="Take this file off the transaction (its splits stay)"
+                  title={t('attachments.detachTitle')}
                 >
-                  <Link2Off className="size-4" /> Remove from transaction
+                  <Link2Off className="size-4" /> {t('attachments.detach')}
                 </Button>
               </div>
             </div>
@@ -134,7 +136,7 @@ function Body({ transaction }: { transaction: LedgerTransaction }) {
           className="gap-1.5 bg-brand text-white hover:bg-brand/85"
         >
           {upload.isPending ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
-          Add a file
+          {t('attachments.addFile')}
         </Button>
         <input
           ref={input}

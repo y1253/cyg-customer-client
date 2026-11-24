@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Building2, Check, ChevronDown, Loader2, Pencil, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { Book } from '@/api/books'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,6 +40,7 @@ export function BookSwitcher({
   current: Book
   onSelect: (id: number) => void
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const [dialog, setDialog] = useState<'new' | 'rename' | null>(null)
 
   return (
@@ -46,7 +48,7 @@ export function BookSwitcher({
       <DropdownMenu>
         <DropdownMenuTrigger
           className="inline-flex h-10 max-w-full items-center gap-2 rounded-lg bg-white px-3 text-sm font-medium text-[#0B1C2C] ring-1 ring-black/10 transition-colors outline-none hover:bg-[#F6F8FA] focus-visible:ring-2 focus-visible:ring-brand"
-          title="Switch company"
+          title={t('switcher.switch')}
         >
           <Building2 className="size-4 shrink-0 text-brand" />
           <span className="truncate">{current.name}</span>
@@ -55,7 +57,7 @@ export function BookSwitcher({
         <DropdownMenuContent align="start" className="w-64">
           {/* base-ui throws when a GroupLabel (DropdownMenuLabel) is not inside a Group. */}
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Your companies</DropdownMenuLabel>
+            <DropdownMenuLabel>{t('switcher.yours')}</DropdownMenuLabel>
             {sortByLabel(books, (b) => b.name).map((b) => (
               <DropdownMenuItem
                 key={b.id}
@@ -70,11 +72,11 @@ export function BookSwitcher({
           <DropdownMenuSeparator />
           <DropdownMenuItem className="gap-2" onClick={() => setDialog('rename')}>
             <Pencil className="size-4" />
-            Rename “{current.name}”
+            {t('switcher.rename', { name: current.name })}
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2" onClick={() => setDialog('new')}>
             <Plus className="size-4" />
-            New company
+            {t('switcher.new')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -107,6 +109,7 @@ function NameForm({
   current: Book
   onDone: (book: Book) => void
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const create = useCreateBook()
   const rename = useRenameBook()
   const [name, setName] = useState(mode === 'rename' ? current.name : '')
@@ -124,22 +127,22 @@ function NameForm({
   return (
     <form onSubmit={submit} className="contents">
       <DialogHeader>
-        <DialogTitle>{mode === 'new' ? 'New company' : 'Rename company'}</DialogTitle>
+        <DialogTitle>{mode === 'new' ? t('switcher.new') : t('switcher.renameTitle')}</DialogTitle>
         <DialogDescription>
           {mode === 'new'
-            ? 'A separate set of books — its own statements, files, rules and reports.'
-            : 'The name shows on this page and heads your reports and exports.'}
+            ? t('switcher.newHint')
+            : t('switcher.renameHint')}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-1.5">
-        <Label htmlFor="book-name">Company name</Label>
+        <Label htmlFor="book-name">{t('switcher.nameLabel')}</Label>
         <Input
           id="book-name"
           autoFocus
           maxLength={120}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Maple Street Rentals"
+          placeholder={t('switcher.namePlaceholder')}
         />
         {error && (
           <p role="alert" className="text-sm text-destructive">
@@ -148,10 +151,10 @@ function NameForm({
         )}
       </div>
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
         <Button type="submit" disabled={pending || !name.trim()} className="bg-brand text-white hover:bg-brand/85">
           {pending && <Loader2 className="size-4 animate-spin" />}
-          {mode === 'new' ? 'Create' : 'Save'}
+          {mode === 'new' ? t('switcher.create') : t('common:actions.save')}
         </Button>
       </DialogFooter>
     </form>

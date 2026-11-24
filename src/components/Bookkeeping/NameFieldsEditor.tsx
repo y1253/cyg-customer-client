@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import type { NameField, NameFieldKind } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FIELD_KIND_ICON, FIELD_KIND_LABEL, FIELD_PLACEHOLDER, fieldHref } from '@/lib/name-fields'
+import { FIELD_KIND_ICON, FIELD_KINDS, fieldHref, fieldKindLabel, fieldPlaceholder } from '@/lib/name-fields'
 import { cn } from '@/lib/utils'
 
 type Draft = { index: number | null; kind: NameFieldKind; label: string; value: string }
@@ -26,6 +27,7 @@ export function NameFieldsEditor({
   pending?: boolean
   error?: Error | null
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const [draft, setDraft] = useState<Draft | null>(null)
 
   const save = async () => {
@@ -43,14 +45,14 @@ export function NameFieldsEditor({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <Label>Profile — phone, email and more</Label>
+        <Label>{t('fields.label')}</Label>
         <Button
           type="button"
           variant="ghost"
           size="xs"
           onClick={() => setDraft({ index: null, kind: 'PHONE', label: '', value: '' })}
         >
-          <Plus className="size-3.5" /> Add field
+          <Plus className="size-3.5" /> {t('fields.add')}
         </Button>
       </div>
       {fields.length > 0 && (
@@ -62,7 +64,7 @@ export function NameFieldsEditor({
               <li key={`${i}:${f.kind}:${f.value}`} className="flex min-w-0 items-center gap-2 px-1 py-0.5">
                 <Icon className="size-3.5 shrink-0 text-brand" />
                 <span className="w-20 shrink-0 truncate text-xs text-muted-foreground">
-                  {f.label || FIELD_KIND_LABEL[f.kind]}
+                  {f.label || fieldKindLabel(f.kind)}
                 </span>
                 {href ? (
                   <a
@@ -83,7 +85,7 @@ export function NameFieldsEditor({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  title="Edit"
+                  title={t('common:actions.edit')}
                   onClick={() => setDraft({ index: i, ...f })}
                 >
                   <Pencil />
@@ -92,7 +94,7 @@ export function NameFieldsEditor({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  title="Remove"
+                  title={t('common:actions.remove')}
                   disabled={pending}
                   className="text-muted-foreground hover:text-destructive"
                   onClick={() => void Promise.resolve(onChange(fields.filter((_, j) => j !== i))).catch(() => {})}
@@ -105,39 +107,41 @@ export function NameFieldsEditor({
         </ul>
       )}
       {!fields.length && !draft && (
-        <p className="text-xs text-muted-foreground">Keep this name's phone, email, address or anything else here.</p>
+        <p className="text-xs text-muted-foreground">{t('fields.empty')}</p>
       )}
       {draft && (
         <div className="flex flex-col gap-2 rounded-lg bg-muted/50 p-2.5">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[8rem_1fr]">
             <Select value={draft.kind} onValueChange={(v) => v && setDraft({ ...draft, kind: v as NameFieldKind })}>
               <SelectTrigger className="w-full">
-                <SelectValue>{(v: NameFieldKind) => FIELD_KIND_LABEL[v]}</SelectValue>
+                <SelectValue>{(v: NameFieldKind) => fieldKindLabel(v)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(FIELD_KIND_LABEL) as NameFieldKind[]).map((k) => (
+                {FIELD_KINDS.map((k) => (
                   <SelectItem key={k} value={k}>
-                    {FIELD_KIND_LABEL[k]}
+                    {fieldKindLabel(k)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Input
-              aria-label="Label"
+              aria-label={t('fields.labelAria')}
               value={draft.label}
               maxLength={64}
-              placeholder={draft.kind === 'TEXT' ? 'Label, e.g. Account #' : `Label (optional), e.g. ${draft.kind === 'PHONE' ? 'Mobile' : 'Office'}`}
+              placeholder={t(
+                draft.kind === 'TEXT' ? 'fields.labelText' : draft.kind === 'PHONE' ? 'fields.labelPhone' : 'fields.labelOther',
+              )}
               onChange={(e) => setDraft({ ...draft, label: e.target.value })}
             />
           </div>
           <div className="flex gap-1.5">
             <Input
               autoFocus
-              aria-label="Value"
+              aria-label={t('fields.valueAria')}
               value={draft.value}
               maxLength={500}
               inputMode={draft.kind === 'PHONE' ? 'tel' : draft.kind === 'EMAIL' ? 'email' : undefined}
-              placeholder={FIELD_PLACEHOLDER[draft.kind]}
+              placeholder={fieldPlaceholder(draft.kind)}
               onChange={(e) => setDraft({ ...draft, value: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -146,10 +150,10 @@ export function NameFieldsEditor({
                 }
               }}
             />
-            <Button type="button" size="icon" title="Save" disabled={pending || !draft.value.trim()} onClick={() => void save()}>
+            <Button type="button" size="icon" title={t('common:actions.save')} disabled={pending || !draft.value.trim()} onClick={() => void save()}>
               <Check />
             </Button>
-            <Button type="button" size="icon" variant="ghost" title="Cancel" onClick={() => setDraft(null)}>
+            <Button type="button" size="icon" variant="ghost" title={t('common:actions.cancel')} onClick={() => setDraft(null)}>
               <X />
             </Button>
           </div>

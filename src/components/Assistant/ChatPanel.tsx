@@ -8,11 +8,13 @@ import {
   type ReactNode,
 } from 'react'
 import { AlertTriangle, FileText, Loader2, Paperclip, SendHorizontal, Sparkles, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AssistantMessage, AssistantMessageFile } from '@/api/assistant'
 import { ATTACHMENT_ACCEPT, MAX_ATTACHMENT_BYTES, isAcceptedAttachment } from '@/api/attachments'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { channelLabel, isFileLabel, linkParts, optimisticMessage } from '@/lib/assistant'
+import i18n, { currentLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { DictateButton } from './DictateButton'
 
@@ -20,10 +22,11 @@ import { DictateButton } from './DictateButton'
 const MAX_FILES = 10
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  new Date(iso).toLocaleString(currentLocale(), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 /** The text of a message, with any link it carries clickable (the AI sends file links). */
 function MessageText({ text, own }: { text: string; own: boolean }) {
+  const { t } = useTranslation(['assistant', 'common'])
   return (
     <p className="break-words whitespace-pre-wrap">
       {linkParts(text).map((p, i) =>
@@ -35,7 +38,7 @@ function MessageText({ text, own }: { text: string; own: boolean }) {
             rel="noreferrer"
             className={cn('break-all underline underline-offset-2', own ? 'text-white' : 'text-[#1f8f86]')}
           >
-            {p.href.includes('/api/f/') ? 'Open the file' : p.text}
+            {p.href.includes('/api/f/') ? t('chat.openFile') : p.text}
           </a>
         ) : (
           <span key={i}>{p.text}</span>
@@ -47,12 +50,13 @@ function MessageText({ text, own }: { text: string; own: boolean }) {
 
 /** The files a message came with or is about; a deleted one stays, struck through. */
 function MessageFiles({ files, own }: { files: AssistantMessageFile[]; own: boolean }) {
+  const { t } = useTranslation(['assistant', 'common'])
   return (
     <ul className="mt-1 flex flex-wrap gap-1.5">
       {files.map((f) => (
         <li
           key={`${f.id}:${f.role}`}
-          title={f.live ? f.filename : 'This file was removed since'}
+          title={f.live ? f.filename : t('chat.fileRemovedTitle')}
           className={cn(
             'flex max-w-56 items-center gap-1 rounded-md px-2 py-1 text-xs',
             own ? 'bg-white/20 text-white' : 'bg-muted text-[#0B1C2C]',
@@ -61,7 +65,7 @@ function MessageFiles({ files, own }: { files: AssistantMessageFile[]; own: bool
         >
           <FileText className="size-3.5 shrink-0" />
           <span className={cn('truncate', !f.live && 'line-through')}>{f.filename}</span>
-          {!f.live && <span className="shrink-0">(removed)</span>}
+          {!f.live && <span className="shrink-0">{t('chat.removed')}</span>}
         </li>
       ))}
     </ul>
@@ -70,6 +74,7 @@ function MessageFiles({ files, own }: { files: AssistantMessageFile[]; own: bool
 
 /** One message: the customer on the right (teal), the AI on the left, with what it did. */
 export function ChatBubble({ m }: { m: AssistantMessage }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const own = m.role === 'USER'
   const files = m.files ?? []
   const text = files.length && isFileLabel(m.text) ? null : m.text
@@ -84,7 +89,7 @@ export function ChatBubble({ m }: { m: AssistantMessage }) {
       >
         {!own && (
           <p className="mb-0.5 flex items-center gap-1 text-xs font-semibold text-[#1f8f86]">
-            <Sparkles className="size-3" /> AI assistant
+            <Sparkles className="size-3" /> {t('chat.aiAssistant')}
           </p>
         )}
         {text && <MessageText text={text} own={own} />}
@@ -97,7 +102,7 @@ export function ChatBubble({ m }: { m: AssistantMessage }) {
         )}
         {!!m.actions?.length && (
           <div className="mt-2 border-t pt-1.5 text-xs">
-            <p className="font-medium text-muted-foreground">AI did:</p>
+            <p className="font-medium text-muted-foreground">{t('chat.aiDid')}</p>
             <ul className="mt-0.5 flex flex-col gap-0.5">
               {m.actions.map((a, i) => (
                 <li key={i} className={a.ok ? 'text-[#0B1C2C]/80' : 'text-red-600'}>
@@ -132,7 +137,7 @@ export function ChatPanel({
   onSend,
   empty,
   className,
-  placeholder = 'Ask about your books…',
+  placeholder,
   disabled,
   allowFiles,
   initialDraft = '',
@@ -157,6 +162,7 @@ export function ChatPanel({
   /** step2 (2026-11-09): open with the mic already recording (the chat bubble's "Dictate"). */
   autoDictate?: boolean
 }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const [draft, setDraft] = useState(initialDraft)
   const [files, setFiles] = useState<File[]>([])
   const [pending, setPending] = useState<AssistantMessage | null>(null)
@@ -177,9 +183,7 @@ export function ChatPanel({
     const refused = incoming.length - ok.length
     setFiles((prev) => [...prev, ...ok].slice(0, MAX_FILES))
     setError(
-      refused
-        ? `${refused} file${refused === 1 ? ' was' : 's were'} not added — use a photo (JPG, PNG), a PDF, a spreadsheet (XLSX, CSV) or a voice note under 25 MB.`
-        : null,
+      refused ? i18n.t('assistant:chat.refused', { count: refused }) : null,
     )
   }
 
@@ -193,7 +197,7 @@ export function ChatPanel({
     setFiles([])
     onSend(text, sending)
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : 'The assistant could not answer.')
+        setError(e instanceof Error ? e.message : i18n.t('assistant:chat.couldNotAnswer'))
         setDraft(text)
         setFiles(sending)
       })
@@ -226,7 +230,7 @@ export function ChatPanel({
       <div className="flex min-h-40 flex-1 flex-col gap-2.5 overflow-y-auto rounded-xl bg-muted/30 p-3">
         {loading ? (
           <p className="m-auto flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Loading…
+            <Loader2 className="size-4 animate-spin" /> {t('common:status.loading')}
           </p>
         ) : !shown.length ? (
           <div className="m-auto max-w-sm text-center text-sm text-muted-foreground">{empty}</div>
@@ -236,7 +240,7 @@ export function ChatPanel({
         {pending && (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
-            {pending.files?.length ? 'Reading your files… this can take a minute.' : 'The AI is thinking…'}
+            {pending.files?.length ? t('chat.readingFiles') : t('chat.thinking')}
           </p>
         )}
         <div ref={end} />
@@ -266,7 +270,7 @@ export function ChatPanel({
                   <span className="truncate">{f.name}</span>
                   <button
                     type="button"
-                    aria-label={`Remove ${f.name}`}
+                    aria-label={t('chat.removeFile', { name: f.name })}
                     onClick={() => setFiles((prev) => prev.filter((_, n) => n !== i))}
                     className="ml-0.5 rounded text-muted-foreground hover:text-destructive"
                   >
@@ -294,8 +298,8 @@ export function ChatPanel({
                   type="button"
                   variant="outline"
                   size="icon"
-                  title="Add a file (receipt, cheque, letter…)"
-                  aria-label="Add a file"
+                  title={t('chat.addFileTitle')}
+                  aria-label={t('chat.addFile')}
                   disabled={!!pending || files.length >= MAX_FILES}
                   onClick={() => picker.current?.click()}
                   className="h-11 w-11 shrink-0"
@@ -307,7 +311,7 @@ export function ChatPanel({
             <DictateButton
               autoStart={autoDictate}
               disabled={!!pending}
-              onText={(t) => setDraft((d) => (d.trim() ? `${d.trim()} ${t}` : t).slice(0, 2000))}
+              onText={(heard) => setDraft((d) => (d.trim() ? `${d.trim()} ${heard}` : heard).slice(0, 2000))}
             />
             {extraAction}
             <Textarea
@@ -315,7 +319,7 @@ export function ChatPanel({
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKeyDown}
               onPaste={onPaste}
-              placeholder={placeholder}
+              placeholder={placeholder ?? t('chat.placeholder')}
               maxLength={2000}
               rows={2}
               className="max-h-40 min-h-11 resize-none bg-white"
@@ -325,7 +329,7 @@ export function ChatPanel({
               disabled={(!draft.trim() && !files.length) || !!pending}
               className="h-11 shrink-0 gap-1.5"
             >
-              <SendHorizontal className="size-4" /> Send
+              <SendHorizontal className="size-4" /> {t('common:actions.send')}
             </Button>
           </div>
         </div>

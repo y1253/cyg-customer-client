@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 import type { Attachment } from '@/api/attachments'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -46,6 +47,7 @@ function PickerBody({
   onPick: (transactionId: number) => void
   pending?: boolean
 }) {
+  const { t: tr } = useTranslation('ledger')
   const [query, setQuery] = useState('')
   // step11 (2026-11-23): searched and ranked on the server — closest amount and day first,
   // on the full bank amount (splits added back).
@@ -69,7 +71,7 @@ function PickerBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Choose the transaction</DialogTitle>
+        <DialogTitle>{tr('picker.title')}</DialogTitle>
         <DialogDescription>
           {attachment.filename}
           {attachment.total != null && ` · ${money(attachment.total)}`}
@@ -82,15 +84,15 @@ function PickerBody({
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name, description or amount"
+          placeholder={tr('picker.search')}
           className="h-10 pl-9"
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto rounded-xl ring-1 ring-black/5">
         {transactions.isPending ? (
-          <p className="p-4 text-sm text-muted-foreground">Loading transactions…</p>
+          <p className="p-4 text-sm text-muted-foreground">{tr('picker.loading')}</p>
         ) : !rows.length ? (
-          <p className="p-4 text-sm text-muted-foreground">No transactions found.</p>
+          <p className="p-4 text-sm text-muted-foreground">{tr('picker.none')}</p>
         ) : (
           <ul className="divide-y">
             {rows.slice(0, SHOWN).map(({ t, full }) => (

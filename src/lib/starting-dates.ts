@@ -1,4 +1,5 @@
 import type { StartDerived, StartReason } from '@/api/bookkeeping'
+import i18n from '@/i18n'
 import { money } from './money'
 import { fmtDay } from './period'
 
@@ -10,9 +11,26 @@ import { fmtDay } from './period'
 export type StartingDate = { date: string | null; amount?: number; derived?: StartDerived; reason?: StartReason }
 
 /** Why a start's amount was not printed (step2, 2026-11-13): it was worked out, or set at $0. */
-const DERIVED_TEXT: Record<StartDerived, string> = {
-  CLOSING: 'worked out from the closing balance',
-  ZERO: 'not printed — set at 0.00',
+const derivedText = (d: StartDerived) => i18n.t(`books:starts.derived.${d}`)
+
+const dayOf = (s: StartingDate) => (s.date ? fmtDay(s.date) : i18n.t('books:starts.undated'))
+
+/** Oldest first; a statement that printed no period still counts — last, with no date. */
+const oldestFirst = (starts: ReadonlyArray<StartingDate>) =>
+  [...starts].sort((a, b) => (a.date ?? '￿').localeCompare(b.date ?? '￿'))
+
+/** "Dec 29, 2023 (1,200.00) · Oct 31, 2024 (0.00)" — every start of an account, oldest first. */
+export function startingDatesList(starts: ReadonlyArray<StartingDate>): string {
+  return oldestFirst(starts)
+    .map((s) =>
+      s.amount === undefined
+        ? dayOf(s)
+        : i18n.t(s.derived ? 'books:starts.dateAmountWorked' : 'books:starts.dateAmount', {
+            date: dayOf(s),
+            amount: money(s.amount),
+          }),
+    )
+    .join(' · ')
 }
 
 /**
@@ -28,42 +46,45 @@ export function startingNote(
   starts: ReadonlyArray<StartingDate>,
   fallbackDate?: string | null,
 ): { text: string; warn: boolean; reasons?: string[] } | null {
-  if (!starts.length) return fallbackDate ? { text: `Starting date: ${fmtDay(fallbackDate.slice(0, 10))}`, warn: false } : null
-  // Oldest first; a statement that printed no period still counts — last, with no date.
-  const sorted = [...starts].sort((a, b) => (a.date ?? '\uffff').localeCompare(b.date ?? '\uffff'))
-  const day = (s: StartingDate) => (s.date ? fmtDay(s.date) : 'an undated statement')
+  if (!starts.length)
+    return fallbackDate
+      ? { text: i18n.t('books:starts.date', { date: fmtDay(fallbackDate.slice(0, 10)) }), warn: false }
+      : null
+  const sorted = oldestFirst(starts)
   if (sorted.length < 2) {
     const [only] = sorted
-    return only.amount === undefined
-      ? { text: `Starting date: ${day(only)}`, warn: false }
-      : {
-          text: `Starting balance: ${money(only.amount)} on ${day(only)}${only.derived ? ` (${DERIVED_TEXT[only.derived]})` : ''}`,
-          warn: false,
-        }
+    if (only.amount === undefined) return { text: i18n.t('books:starts.date', { date: dayOf(only) }), warn: false }
+    const text = i18n.t('books:starts.balance', { amount: money(only.amount), date: dayOf(only) })
+    return { text: only.derived ? `${text} (${derivedText(only.derived)})` : text, warn: false }
   }
-  const labels = sorted.map((s) =>
-    s.amount === undefined ? day(s) : `${day(s)} (${money(s.amount)}${s.derived ? ', worked out' : ''})`,
-  )
   const reasons = sorted.flatMap((s) => (s.reason ? [startReasonText(s.date, s.reason)] : []))
-  return { text: `Starting dates: ${labels.join(' · ')}`, warn: true, ...(reasons.length ? { reasons } : {}) }
+  return {
+    text: i18n.t('books:starts.dates', { dates: startingDatesList(sorted) }),
+    warn: true,
+    ...(reasons.length ? { reasons } : {}),
+  }
 }
 
 /** "Jul 1, 2026: missing statement Jun 1, 2026 – Jun 30, 2026" — why the books start again there. */
 export function startReasonText(date: string | null, r: StartReason): string {
-  const at = date ? fmtDay(date) : 'An undated statement'
+  const at = date ? fmtDay(date) : i18n.t('books:starts.undatedCap')
   if (r.kind === 'MISSING') {
     // step2 (2026-11-12): the balance jumped across the gap too ($1,024.43 → $0).
-    const jump =
+    const jumped =
       r.previousClosing != null && r.opening != null && Math.round(r.previousClosing * 100) !== Math.round(r.opening * 100)
-        ? `, and the balance went from ${money(r.previousClosing)} to ${money(r.opening)}`
-        : ''
-    return `${at}: missing statement ${fmtDay(r.from)} – ${r.to ? fmtDay(r.to) : 'this one'}${jump}`
+    const vars = { at, from: fmtDay(r.from), to: r.to ? fmtDay(r.to) : i18n.t('books:starts.thisOne') }
+    return jumped
+      ? i18n.t('books:starts.missingJump', { ...vars, before: money(r.previousClosing!), after: money(r.opening!) })
+      : i18n.t('books:starts.missing', vars)
   }
-  const before = r.previousEnd ? `the statement ending ${fmtDay(r.previousEnd)}` : 'the statement before'
-  if (r.kind === 'REVIEW') return `${at}: ${before} needs review, so the books start again here`
-  const closed = r.previousClosing === null ? 'has no closing balance read' : `closes at ${money(r.previousClosing)}`
-  return `${at}: balances don't carry over — ${before} ${closed}, this one opens at ${money(r.opening)}`
+  const before = r.previousEnd
+    ? i18n.t('books:starts.statementEnding', { date: fmtDay(r.previousEnd) })
+    : i18n.t('books:starts.statementBefore')
+  if (r.kind === 'REVIEW') return i18n.t('books:starts.review', { at, before })
+  return r.previousClosing === null
+    ? i18n.t('books:starts.mismatchNoClosing', { at, before, opening: money(r.opening) })
+    : i18n.t('books:starts.mismatch', { at, before, closing: money(r.previousClosing), opening: money(r.opening) })
 }
 
-export const STARTS_WARNING =
-  'More than one starting date: a statement is missing, or the balances do not carry over from one statement to the next.'
+/** The warning beside an account whose books start more than once. */
+export const startsWarning = () => i18n.t('books:starts.warning')

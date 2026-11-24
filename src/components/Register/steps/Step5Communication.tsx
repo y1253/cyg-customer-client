@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CheckCircle2, Eye, EyeOff, Loader2, Mail, Phone } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,6 +37,7 @@ export function Step5Communication({
   onConnect,
   onDisconnect,
 }: Props) {
+  const { t } = useTranslation(['register', 'common'])
   const [showPassword, setShowPassword] = useState(false)
   const [showFallback, setShowFallback] = useState(
     !mailbox && (data.billingEmail !== '' || billingPasswordSaved),
@@ -46,9 +48,9 @@ export function Step5Communication({
       {/* Email */}
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">Connect your email</p>
+          <p className="text-sm font-medium text-foreground">{t('communication.connectTitle')}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            We will read and answer your business email with you, from your own address.
+            {t('communication.connectHint')}
           </p>
         </div>
 
@@ -58,13 +60,13 @@ export function Step5Communication({
               <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
               <span className="min-w-0">
                 <span className="font-medium">
-                  {mailbox.provider === 'gmail' ? 'Gmail' : 'Outlook'} connected
+                  {t('communication.connected', { provider: mailbox.provider === 'gmail' ? 'Gmail' : 'Outlook' })}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">{mailbox.address}</span>
               </span>
             </div>
             <Button variant="outline" size="sm" onClick={onDisconnect} disabled={disconnecting}>
-              {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+              {disconnecting ? t('communication.disconnecting') : t('communication.disconnect')}
             </Button>
           </div>
         ) : (
@@ -77,7 +79,7 @@ export function Step5Communication({
               onClick={() => onConnect('gmail')}
             >
               {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Connect Gmail
+              {t('communication.connectGmail')}
             </Button>
             <Button
               type="button"
@@ -87,7 +89,7 @@ export function Step5Communication({
               onClick={() => onConnect('microsoft', 'work')}
             >
               {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Connect Outlook
+              {t('communication.connectOutlook')}
             </Button>
           </div>
         )}
@@ -98,7 +100,7 @@ export function Step5Communication({
             disabled={connecting}
             onClick={() => onConnect('microsoft', 'personal')}
           >
-            Using a personal Outlook.com / Hotmail account?
+            {t('communication.personalOutlook')}
           </button>
         )}
         {connectError && <p className="text-xs text-destructive">{connectError}</p>}
@@ -113,32 +115,31 @@ export function Step5Communication({
               onClick={() => setShowFallback(true)}
               className="self-start text-sm text-primary underline underline-offset-2 hover:opacity-80"
             >
-              Can&apos;t connect your account? Enter your email and password instead
+              {t('communication.fallbackLink')}
             </button>
           ) : (
             <>
               <p className="text-xs text-muted-foreground">
-                If connecting does not work, give us your email address and its password. The
-                password is stored encrypted (AES-256) and only your accountant can see it.
+                {t('communication.fallbackHint')}
               </p>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="billingEmail">
-                  Email address <span className="text-destructive">*</span>
+                  {t('communication.emailAddress')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="billingEmail"
                   type="email"
                   value={data.billingEmail}
                   onChange={(e) => onChange({ billingEmail: e.target.value })}
-                  placeholder="billing@yourcompany.com"
+                  placeholder={t('communication.emailPlaceholder')}
                 />
                 {data.billingEmail && !data.billingEmail.includes('@') && (
-                  <p className="text-xs text-destructive">Please enter a valid email address.</p>
+                  <p className="text-xs text-destructive">{t('contact.emailInvalid')}</p>
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="billingPassword">
-                  Password {!billingPasswordSaved && <span className="text-destructive">*</span>}
+                  {t('communication.password')} {!billingPasswordSaved && <span className="text-destructive">*</span>}
                 </Label>
                 <div className="relative">
                   <Input
@@ -146,7 +147,7 @@ export function Step5Communication({
                     type={showPassword ? 'text' : 'password'}
                     value={data.billingPassword}
                     onChange={(e) => onChange({ billingPassword: e.target.value })}
-                    placeholder={billingPasswordSaved ? 'Saved — leave blank to keep it' : 'Password for that email'}
+                    placeholder={billingPasswordSaved ? t('communication.passwordSaved') : t('communication.passwordPlaceholder')}
                     className="pr-10"
                   />
                   <button
@@ -154,7 +155,7 @@ export function Step5Communication({
                     onClick={() => setShowPassword((v) => !v)}
                     className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground transition-colors hover:text-foreground"
                     tabIndex={-1}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? t('communication.hidePassword') : t('communication.showPassword')}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -169,9 +170,7 @@ export function Step5Communication({
       <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
         <Phone className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          <span className="font-medium">Your own phone number.</span> At the end of this application,
-          after your card details, you will get your own new phone number that you can call, text or
-          WhatsApp us on.
+          <Trans t={t} i18nKey="communication.phoneLine" components={{ b: <span className="font-medium" /> }} />
         </p>
       </div>
     </div>

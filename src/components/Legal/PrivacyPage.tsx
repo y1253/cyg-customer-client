@@ -1,8 +1,19 @@
+import { useTranslation } from 'react-i18next'
 import { LegalContact, LegalLayout, LegalList, LegalSection } from './LegalLayout'
+import { PrivacyPageFr } from './PrivacyPageFr'
 
 export function PrivacyPage() {
+  const { t, i18n } = useTranslation('legal')
   return (
-    <LegalLayout title="Privacy Policy" updated="October 20, 2026">
+    <LegalLayout title={t('privacyTitle')} updated="2026-10-20">
+      {i18n.resolvedLanguage === 'en' ? <PrivacyPageEn /> : <PrivacyPageFr />}
+    </LegalLayout>
+  )
+}
+
+function PrivacyPageEn() {
+  return (
+    <>
       <LegalSection title="1. Who we are">
         <p>
           CYG Finance ("we", "us") provides bookkeeping services through cygfinance.com. This policy
@@ -90,6 +101,6 @@ export function PrivacyPage() {
       <LegalSection title="10. Contact">
         <LegalContact />
       </LegalSection>
-    </LegalLayout>
+    </>
   )
 }

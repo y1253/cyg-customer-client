@@ -1,15 +1,27 @@
 import type { AccountType, ChartAccount } from '@/api/bookkeeping'
 import type { useCreateAccount } from '@/hooks/useCreateAccount'
+import i18n from '@/i18n'
 
 /** The Select's value for "type in a category of my own". Never a real account name. */
 export const NEW_CATEGORY = '__new__'
 
+// Getters, so each read is in the language shown now.
 export const TYPE_LABEL: Record<AccountType, string> = {
-  INCOME: 'Income',
-  EXPENSE: 'Expense',
-  ASSET: 'Asset',
-  LIABILITY: 'Liability',
-  EQUITY: 'Equity',
+  get INCOME() {
+    return i18n.t('common:accountType.INCOME')
+  },
+  get EXPENSE() {
+    return i18n.t('common:accountType.EXPENSE')
+  },
+  get ASSET() {
+    return i18n.t('common:accountType.ASSET')
+  },
+  get LIABILITY() {
+    return i18n.t('common:accountType.LIABILITY')
+  },
+  get EQUITY() {
+    return i18n.t('common:accountType.EQUITY')
+  },
 }
 
 /** A chosen category — or, with `category === NEW_CATEGORY`, one being typed in with its type. */

@@ -10,6 +10,7 @@ import { useExportLedger } from '@/hooks/useExportLedger'
 import { useStuck } from '@/hooks/useStuck'
 import { useBookView, type BookView } from '@/hooks/useBookView'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { OPEN_TRANSACTION_EVENT, useFloatingChatBook } from '@/lib/floating-chat'
 import { cn } from '@/lib/utils'
 import { useReports } from '@/hooks/useReports'
@@ -53,6 +54,7 @@ export function BookkeepingPage({
   /** step12c: the company switcher (`BookkeepingRoute`). */
   switcher?: ReactNode
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const statements = useStatements()
   const assistant = useAssistantEnabled()
   const exporter = useExportLedger()
@@ -184,9 +186,9 @@ export function BookkeepingPage({
     if (!done.length) {
       return (
         <div className="rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-black/5">
-          <p className="font-medium text-[#0B1C2C]">No figures yet</p>
+          <p className="font-medium text-[#0B1C2C]">{t('page.noFigures')}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upload a bank statement — the reports fill in once it has been read.
+            {t('page.noFiguresHint')}
           </p>
         </div>
       )
@@ -200,18 +202,18 @@ export function BookkeepingPage({
     <>
       {embedded ? (
         <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
-          {exportButton('xlsx', 'Download Excel', FileSpreadsheet)}
-          {exportButton('pdf', 'Download PDF', FileText)}
+          {exportButton('xlsx', t('page.downloadExcel'), FileSpreadsheet)}
+          {exportButton('pdf', t('page.downloadPdf'), FileText)}
         </div>
       ) : (
         <PageHeader
           above={switcher}
-          title="Bookkeeping"
-          description="Upload your bank statements — we post every transaction as a debit and a credit."
+          title={t('page.title')}
+          description={t('page.description')}
           actions={
             <>
-              {exportButton('xlsx', 'Download Excel', FileSpreadsheet)}
-              {exportButton('pdf', 'Download PDF', FileText)}
+              {exportButton('xlsx', t('page.downloadExcel'), FileSpreadsheet)}
+              {exportButton('pdf', t('page.downloadPdf'), FileText)}
             </>
           }
         />
@@ -241,39 +243,39 @@ export function BookkeepingPage({
         >
         <TabsList className="h-auto! w-full flex-wrap justify-start gap-1 rounded-xl bg-white p-1.5 ring-1 ring-black/5 sm:w-fit">
           <TabsTrigger value="statements" className="h-9 flex-none gap-1.5 px-4">
-            Bank feeds
+            {t('tabs.statements')}
             {unread > 0 && (
               <span
                 className="rounded-full bg-red-600 px-1.5 text-[11px] leading-[18px] font-semibold text-white"
-                title={`${unread} statement${unread === 1 ? '' : 's'} with a problem`}
+                title={t('page.problemCount', { count: unread })}
               >
                 {unread}
               </span>
             )}
           </TabsTrigger>
           <TabsTrigger value="ledger" className="h-9 flex-none px-4">
-            Ledger
+            {t('tabs.ledger')}
           </TabsTrigger>
           <TabsTrigger value="communications" className="h-9 flex-none px-4">
-            Communications
+            {t('tabs.communications')}
           </TabsTrigger>
           <TabsTrigger value="accounts" className="h-9 flex-none px-4">
-            Chart of accounts
+            {t('tabs.accounts')}
           </TabsTrigger>
           <TabsTrigger value="income" className="h-9 flex-none px-4">
-            Income statement
+            {t('tabs.income')}
           </TabsTrigger>
           <TabsTrigger value="balance" className="h-9 flex-none px-4">
-            Balance sheet
+            {t('tabs.balance')}
           </TabsTrigger>
           <TabsTrigger value="names" className="h-9 flex-none px-4">
-            Names
+            {t('tabs.names')}
           </TabsTrigger>
           <TabsTrigger value="products" className="h-9 flex-none px-4">
-            Products
+            {t('tabs.products')}
           </TabsTrigger>
           <TabsTrigger value="schedules" className="h-9 flex-none px-4">
-            Schedules
+            {t('tabs.schedules')}
           </TabsTrigger>
         </TabsList>
         </div>
@@ -282,18 +284,18 @@ export function BookkeepingPage({
           <GenerateBar statements={list} />
           <div className="mb-8 grid gap-6 lg:grid-cols-5">
             <section className="lg:col-span-2">
-              <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Upload</h2>
+              <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">{t('page.upload')}</h2>
               <UploadDropzone />
               <BankConnectionsCard className="mt-4" />
               {busy && (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Reading takes about a minute per statement — you can leave this page; it continues in the background.
+                  {t('page.readingTakes')}
                 </p>
               )}
             </section>
             <section className="lg:col-span-3">
               <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                Bank feeds {list.length > 0 && <span className="text-foreground">· {list.length}</span>}
+                {t('tabs.statements')} {list.length > 0 && <span className="text-foreground">· {list.length}</span>}
               </h2>
               <StatementsList statements={list} loading={statements.isLoading} onOpenInLedger={openInLedgerTab} />
               {statements.error && <p className="mt-2 text-sm text-destructive">{statements.error.message}</p>}

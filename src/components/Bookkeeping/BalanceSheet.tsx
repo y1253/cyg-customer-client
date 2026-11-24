@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AccountType, Reports } from '@/api/bookkeeping'
 import { openFloatingChat } from '@/components/Assistant/FloatingChat'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ export function BalanceSheet({
   unread?: number
   onOpenStatements?: () => void
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const bs = reports.balanceSheet
   const move = useMoveAccount()
   const merge = useAccountMerge()
@@ -46,41 +48,44 @@ export function BalanceSheet({
     moved: new Set(reports.moved ?? []),
   }
   return (
-    <ReportCard title="Balance sheet" subtitle={bs.asOf ? `As of ${fmtDay(bs.asOf)}` : 'As of the latest statement'}>
+    <ReportCard
+      title={t('tabs.balance')}
+      subtitle={bs.asOf ? t('reports.asOf', { date: fmtDay(bs.asOf) }) : t('reports.asOfLatest')}
+    >
       <UncategorizedNote reports={reports} />
       <div className="grid gap-8 lg:grid-cols-2">
         <div>
           <ReportSection
-            title="Assets"
+            title={t('reports.section.ASSET')}
             type="ASSET"
             lines={bs.assets}
             total={bs.totalAssets}
-            totalLabel="Total assets"
-            empty="None"
+            totalLabel={t('reports.total.ASSET')}
+            empty={t('common:status.none')}
             {...section}
           />
         </div>
         <div>
           <ReportSection
-            title="Liabilities"
+            title={t('reports.section.LIABILITY')}
             type="LIABILITY"
             lines={bs.liabilities}
             total={bs.totalLiabilities}
-            totalLabel="Total liabilities"
-            empty="None"
+            totalLabel={t('reports.total.LIABILITY')}
+            empty={t('common:status.none')}
             {...section}
           />
           <ReportSection
-            title="Equity"
+            title={t('reports.section.EQUITY')}
             type="EQUITY"
             lines={bs.equity}
             total={bs.totalEquity}
-            totalLabel="Total equity"
-            empty="None"
+            totalLabel={t('reports.total.EQUITY')}
+            empty={t('common:status.none')}
             {...section}
           />
           <ReportRow
-            label="Total liabilities & equity"
+            label={t('reports.totalLiabEquity')}
             amount={bs.totalLiabilitiesAndEquity}
             strong
             className="mt-2 rounded-lg border-0 bg-muted/50 px-3 py-2.5"
@@ -109,37 +114,27 @@ function OffBy({
   unread: number
   onOpenStatements?: () => void
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const assistant = useAssistantEnabled()
   const bs = reports.balanceSheet
   const off = bs.totalAssets - bs.totalLiabilitiesAndEquity
   const lines = [...bs.assets, ...bs.liabilities, ...bs.equity]
   const broken = lines.filter((l) => (l.starts?.length ?? 0) > 1).map((l) => l.name)
   const causes: string[] = []
-  if (unread)
-    causes.push(
-      `${unread} statement${unread === 1 ? '' : 's'} could not be read, so ${unread === 1 ? 'its' : 'their'} transactions are missing from the books.`,
-    )
-  if (broken.length)
-    causes.push(
-      `${broken.join(', ')} ${broken.length === 1 ? 'has' : 'have'} more than one starting date — a statement is missing in between, or one balance does not carry over to the next statement.`,
-    )
-  if (reports.uncategorized.count)
-    causes.push(
-      `${reports.uncategorized.count} transaction${reports.uncategorized.count === 1 ? ' is' : 's are'} not categorized yet.`,
-    )
+  if (unread) causes.push(t('offBy.unread', { count: unread }))
+  if (broken.length) causes.push(t('offBy.broken', { count: broken.length, names: broken.join(', ') }))
+  if (reports.uncategorized.count) causes.push(t('offBy.uncategorized', { count: reports.uncategorized.count }))
   return (
     <div className="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">
       <p className="font-semibold">
-        Assets and liabilities + equity are off by {money(Math.abs(off))}
-        {off > 0 ? ' (assets are higher)' : ' (liabilities + equity are higher)'}.
+        {t(off > 0 ? 'offBy.titleAssets' : 'offBy.titleLiabilities', { amount: money(Math.abs(off)) })}
       </p>
       <p className="mt-1">
-        Every transaction has two equal sides, so the two totals always match when the books are complete. A
-        difference means part of an account's history is missing or a starting balance was read wrong.
+        {t('offBy.why')}
       </p>
       {causes.length ? (
         <>
-          <p className="mt-2 font-medium">Most likely in your books:</p>
+          <p className="mt-2 font-medium">{t('offBy.likely')}</p>
           <ul className="mt-0.5 list-disc pl-5">
             {causes.map((c) => (
               <li key={c}>{c}</li>
@@ -147,12 +142,12 @@ function OffBy({
           </ul>
         </>
       ) : (
-        <p className="mt-2">We could not find the cause from here — ask the AI or let us know and we will check it.</p>
+        <p className="mt-2">{t('offBy.noCause')}</p>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
         {!!unread && onOpenStatements && (
           <Button size="sm" variant="outline" onClick={onOpenStatements}>
-            See the statements
+            {t('offBy.seeStatements')}
           </Button>
         )}
         {assistant && (
@@ -161,11 +156,13 @@ function OffBy({
             variant="outline"
             onClick={() =>
               openFloatingChat(
-                `My balance sheet is off by ${money(Math.abs(off))}${bs.asOf ? ` as of ${fmtDay(bs.asOf)}` : ''}. Can you find out why?`,
+                bs.asOf
+                  ? t('offBy.askAsOf', { amount: money(Math.abs(off)), date: fmtDay(bs.asOf) })
+                  : t('offBy.ask', { amount: money(Math.abs(off)) }),
               )
             }
           >
-            <Sparkles className="size-4" /> Ask AI
+            <Sparkles className="size-4" /> {t('offBy.askAi')}
           </Button>
         )}
       </div>

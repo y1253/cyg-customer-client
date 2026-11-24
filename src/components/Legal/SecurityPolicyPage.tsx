@@ -1,8 +1,19 @@
+import { useTranslation } from 'react-i18next'
 import { LegalContact, LegalLayout, LegalList, LegalSection } from './LegalLayout'
+import { SecurityPolicyPageFr } from './SecurityPolicyPageFr'
 
 export function SecurityPolicyPage() {
+  const { t, i18n } = useTranslation('legal')
   return (
-    <LegalLayout title="Information Security Policy" updated="October 20, 2026">
+    <LegalLayout title={t('securityTitle')} updated="2026-10-20">
+      {i18n.resolvedLanguage === 'en' ? <SecurityPolicyPageEn /> : <SecurityPolicyPageFr />}
+    </LegalLayout>
+  )
+}
+
+function SecurityPolicyPageEn() {
+  return (
+    <>
       <LegalSection title="1. Purpose and scope">
         <p>
           This policy describes how CYG Finance protects the information our customers trust us
@@ -92,6 +103,6 @@ export function SecurityPolicyPage() {
       <LegalSection title="10. Contact">
         <LegalContact />
       </LegalSection>
-    </LegalLayout>
+    </>
   )
 }

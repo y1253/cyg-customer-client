@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Mail, ShieldCheck } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { CodeInput, ResendButton } from '@/components/Auth/CodeInput'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +13,7 @@ import { useSendPortalCode, useVerifyPortalCode } from '@/hooks/usePortal'
  * server's own sentence.
  */
 export function UnlockGate() {
+  const { t } = useTranslation(['portal', 'common'])
   const send = useSendPortalCode()
   const verify = useVerifyPortalCode()
   const [code, setCode] = useState('')
@@ -23,8 +25,8 @@ export function UnlockGate() {
 
   useEffect(() => {
     if (expiresAt === null) return
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
   }, [expiresAt])
 
   function requestCode() {
@@ -53,10 +55,9 @@ export function UnlockGate() {
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#3BBFB4]/20 text-[#1f8f86]">
           <ShieldCheck className="h-7 w-7" />
         </div>
-        <h2 className="text-xl font-semibold text-[#0B1C2C]">Confirm it's you</h2>
+        <h2 className="text-xl font-semibold text-[#0B1C2C]">{t('unlock.title')}</h2>
         <p className="text-sm text-muted-foreground">
-          Your messages and saved logins are private. We'll email you a 6-digit code to open
-          them.
+          {t('unlock.hint')}
         </p>
       </div>
       <CardContent className="flex flex-col gap-5 pt-4 pb-8">
@@ -64,7 +65,7 @@ export function UnlockGate() {
           <>
             <Button size="lg" className="gap-2" onClick={requestCode} disabled={send.isPending}>
               {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              {send.isPending ? 'Sending…' : 'Email me a code'}
+              {send.isPending ? t('common:actions.sending') : t('unlock.emailMe')}
             </Button>
             {send.error && <p className="text-center text-sm text-destructive">{send.error.message}</p>}
           </>
@@ -77,11 +78,16 @@ export function UnlockGate() {
             }}
           >
             <p className="text-center text-sm text-muted-foreground">
-              We sent a code to <span className="font-medium text-foreground">{send.data?.sentTo}</span>.
+              <Trans
+                t={t}
+                i18nKey="unlock.sentTo"
+                values={{ email: send.data?.sentTo }}
+                components={{ b: <span className="font-medium text-foreground" /> }}
+              />
             </p>
             <CodeInput
               id="portal-code"
-              label="Code"
+              label={t('unlock.code')}
               value={code}
               onChange={(v) => {
                 setCode(v)
@@ -89,15 +95,15 @@ export function UnlockGate() {
               }}
             />
             <Button type="submit" size="lg" disabled={code.length !== 6 || verify.isPending || expired}>
-              {verify.isPending ? 'Checking…' : 'Open'}
+              {verify.isPending ? t('unlock.checking') : t('common:actions.open')}
             </Button>
             {verify.error && <p className="text-center text-sm text-destructive">{verify.error.message}</p>}
             {send.error && <p className="text-center text-sm text-destructive">{send.error.message}</p>}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span className={expired ? 'font-medium text-destructive' : undefined}>
                 {expired
-                  ? 'This code has expired.'
-                  : `Expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`}
+                  ? t('unlock.expired')
+                  : t('unlock.expiresIn', { time: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` })}
               </span>
               <ResendButton wait={resend.left} pending={send.isPending} onClick={requestCode} />
             </div>

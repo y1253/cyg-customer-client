@@ -1,30 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Inbox, Loader2, PlugZap, Search, SearchX } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { PortalOverview } from '@/api/portal'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { currentLocale } from '@/i18n'
 import { formatPhone } from '@/lib/portal-format'
 import { Notice, PortalRow } from './ChannelLists'
 import type { Selection } from './portal-types'
 import { ThreadSheet } from './ThreadSheet'
-import { CHAT_NOTICE, itemKey, type KindFilter, type SourceKind, type StatusFilter } from './unified-inbox'
+import { chatNotice, itemKey, type KindFilter, type SourceKind, type StatusFilter } from './unified-inbox'
 import { useUnifiedPortalInbox } from './useUnifiedPortalInbox'
 
-const STATUS_LABEL: Record<StatusFilter, string> = {
-  all: 'Any status',
-  unread: 'Unread',
-  uncompleted: 'Not completed',
-}
-
-const FAILED_LABEL: Record<SourceKind, string> = {
-  email: 'emails',
-  chat: 'chat messages',
-  phone: 'calls and texts',
-  whatsapp: 'WhatsApp messages',
-}
+const STATUS_FILTERS: StatusFilter[] = ['all', 'unread', 'uncompleted']
 
 type Saved = { kind: KindFilter; status: StatusFilter }
 
@@ -43,20 +34,23 @@ function loadSaved(companyId: number): Saved | null {
  * Read-only: each message carries a Read / Completed tag and nothing here changes either.
  */
 export function CommunicationsView({ companyId, overview }: { companyId: number; overview: PortalOverview }) {
+  const { t } = useTranslation(['portal', 'common'])
   const [selection, setSelection] = useState<Selection | null>(null)
+  const statusLabel = (s: StatusFilter) => t(`comm.status.${s}`)
+  const failedLabel = (k: SourceKind) => t(`comm.failed.${k}`)
 
-  const chatLabel = overview.mailbox?.provider === 'MICROSOFT' ? 'Teams' : 'Chat'
+  const chatLabel = overview.mailbox?.provider === 'MICROSOFT' ? 'Teams' : t('comm.kind.chat')
   const kindOptions = (
     [
-      ['all', 'Everything', true],
-      ['email', 'Emails', !!overview.mailbox],
-      ['sent', 'Sent emails', !!overview.mailbox],
+      ['all', t('comm.kind.all'), true],
+      ['email', t('comm.kind.email'), !!overview.mailbox],
+      ['sent', t('comm.kind.sent'), !!overview.mailbox],
       ['chat', chatLabel, !!overview.mailbox],
-      ['calls', 'Calls', !!overview.supportNumber],
-      ['voicemail', 'Voicemails', !!overview.supportNumber],
-      ['texts', 'Texts', !!overview.supportNumber],
+      ['calls', t('comm.kind.calls'), !!overview.supportNumber],
+      ['voicemail', t('comm.kind.voicemail'), !!overview.supportNumber],
+      ['texts', t('comm.kind.texts'), !!overview.supportNumber],
       ['whatsapp', 'WhatsApp', !!overview.whatsappNumber],
-    ] as const
+    ] as [KindFilter, string, boolean][]
   ).filter(([, , shown]) => shown)
   const kindLabel = Object.fromEntries(kindOptions.map(([k, l]) => [k, l])) as Partial<Record<KindFilter, string>>
 
@@ -66,13 +60,13 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
   })
   const [status, setStatus] = useState<StatusFilter>(() => {
     const s = loadSaved(companyId)?.status
-    return s && s in STATUS_LABEL ? s : 'all'
+    return s && STATUS_FILTERS.includes(s) ? s : 'all'
   })
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput), 250)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setSearch(searchInput), 250)
+    return () => clearTimeout(timer)
   }, [searchInput])
   useEffect(() => {
     try {
@@ -89,7 +83,7 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
       <Card className="flex flex-col items-center gap-3 py-12 text-center">
         <PlugZap className="h-10 w-10 text-muted-foreground" />
         <p className="max-w-sm text-sm text-muted-foreground">
-          No mailbox, phone line or WhatsApp is connected to this business yet.
+          {t('comm.nothingConnected')}
         </p>
       </Card>
     )
@@ -97,7 +91,7 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
 
   const identities = [
     overview.mailbox?.emailAddress,
-    overview.supportNumber && `Line ${formatPhone(overview.supportNumber)}`,
+    overview.supportNumber && t('comm.line', { number: formatPhone(overview.supportNumber) }),
     overview.whatsappNumber && `WhatsApp ${formatPhone(overview.whatsappNumber)}`,
   ].filter(Boolean)
   const filtered = kind !== 'all' || status !== 'all' || search.trim() !== ''
@@ -111,14 +105,14 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
             <Input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search names, subjects, messages…"
+              placeholder={t('comm.searchPlaceholder')}
               className="pl-8"
             />
           </div>
           <div className="flex gap-2">
             <Select value={kind} onValueChange={(v) => setKind((v as KindFilter | null) ?? 'all')}>
               <SelectTrigger className="flex-1 sm:w-40">
-                <SelectValue>{(v: KindFilter) => kindLabel[v] ?? 'Everything'}</SelectValue>
+                <SelectValue>{(v: KindFilter) => kindLabel[v] ?? t('comm.kind.all')}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {kindOptions.map(([k, label]) => (
@@ -130,12 +124,12 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
             </Select>
             <Select value={status} onValueChange={(v) => setStatus((v as StatusFilter | null) ?? 'all')}>
               <SelectTrigger className="flex-1 sm:w-40">
-                <SelectValue>{(v: StatusFilter) => STATUS_LABEL[v]}</SelectValue>
+                <SelectValue>{(v: StatusFilter) => statusLabel(v)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(STATUS_LABEL) as StatusFilter[]).map((s) => (
+                {STATUS_FILTERS.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {STATUS_LABEL[s]}
+                    {statusLabel(s)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -144,13 +138,15 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
         </div>
         {identities.length > 0 && <p className="text-xs text-muted-foreground">{identities.join(' · ')}</p>}
 
-        {inbox.needsReconnect && <Notice>We can't reach this mailbox right now. Our team has been notified.</Notice>}
-        {inbox.chatStatus && inbox.chatStatus !== 'ok' && CHAT_NOTICE[inbox.chatStatus] && (
-          <Notice>{CHAT_NOTICE[inbox.chatStatus]}</Notice>
+        {inbox.needsReconnect && <Notice>{t('comm.mailboxUnreachable')}</Notice>}
+        {inbox.chatStatus && inbox.chatStatus !== 'ok' && chatNotice(inbox.chatStatus) && (
+          <Notice>{chatNotice(inbox.chatStatus)}</Notice>
         )}
         {inbox.failed.length > 0 && (
           <Notice>
-            We could not load your {inbox.failed.map((k) => FAILED_LABEL[k]).join(' or ')} right now.
+            {t('comm.failedLoad', {
+              what: new Intl.ListFormat(currentLocale(), { type: 'disjunction' }).format(inbox.failed.map(failedLabel)),
+            })}
           </Notice>
         )}
 
@@ -172,13 +168,13 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
               <>
                 <SearchX className="h-10 w-10 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Nothing matches {inbox.hasMore ? 'in what is loaded so far' : 'these filters'}.
+                  {inbox.hasMore ? t('comm.noMatchLoaded') : t('comm.noMatch')}
                 </p>
               </>
             ) : (
               <>
                 <Inbox className="h-10 w-10 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">No messages yet.</p>
+                <p className="text-sm text-muted-foreground">{t('comm.noMessages')}</p>
               </>
             )}
           </Card>
@@ -193,7 +189,7 @@ export function CommunicationsView({ companyId, overview }: { companyId: number;
         {!inbox.isPending && inbox.hasMore && (
           <Button variant="outline" className="self-center" onClick={inbox.loadMore} disabled={inbox.loadingMore}>
             {inbox.loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
-            {inbox.loadingMore ? 'Loading…' : 'Load more'}
+            {inbox.loadingMore ? t('common:status.loading') : t('comm.loadMore')}
           </Button>
         )}
       </div>

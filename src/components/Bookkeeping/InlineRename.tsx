@@ -3,6 +3,7 @@ import { Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import i18n from '@/i18n'
 
 /**
  * step2 (2026-11-08): rename right where the name is shown — the reports' accounts, a Bank
@@ -44,7 +45,7 @@ export function InlineRename({
       setEditing(false)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not rename it')
+      setError(e instanceof Error ? e.message : i18n.t('ledger:rename.failed'))
     } finally {
       setBusy(false)
     }

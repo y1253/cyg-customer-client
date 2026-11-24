@@ -1,0 +1,278 @@
+{
+  "api": {
+    "unreachable": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez."
+  },
+  "mailbox": {
+    "popupBlocked": "Votre navigateur a bloqué la fenêtre de connexion. Autorisez les fenêtres contextuelles pour ce site et réessayez.",
+    "notConnected": "La boîte de courriel n’a pas pu être connectée.",
+    "couldNotStart": "Impossible de lancer la connexion."
+  },
+  "list": {
+    "title": "Mes entreprises",
+    "description": "Inscrivez votre entreprise auprès de CYG Finance. Vos réponses sont enregistrées au fur et à mesure.",
+    "starting": "Démarrage…",
+    "register": "Inscrire une entreprise",
+    "empty": "Vous n’avez encore inscrit aucune entreprise.",
+    "start": "Commencer votre demande",
+    "newApplication": "Nouvelle demande",
+    "inProgress": "En cours",
+    "submitted": "Envoyée",
+    "started": "Commencée le {{date}}",
+    "numberSettingUp": "Votre numéro de téléphone est en cours de configuration.",
+    "messagesLinks": "Messages et liens",
+    "deleteTitle": "Supprimer cette demande ?",
+    "deleteBody": "Vos réponses seront perdues, et toute adresse courriel associée sera déconnectée.",
+    "deleting": "Suppression…"
+  },
+  "steps": {
+    "location": {
+      "label": "Emplacement",
+      "title": "Emplacement de l’entreprise",
+      "description": "Où votre entreprise est-elle établie ?"
+    },
+    "business": {
+      "label": "Entreprise",
+      "title": "Renseignements sur l’entreprise",
+      "description": "Votre nom commercial et vos activités."
+    },
+    "contact": {
+      "label": "Coordonnées",
+      "title": "Coordonnées",
+      "description": "Comment vous joindre."
+    },
+    "legal": {
+      "label": "Juridique",
+      "title": "Renseignements juridiques",
+      "description": "Obligatoire pour les entreprises immatriculées au Québec."
+    },
+    "communication": {
+      "label": "Communication",
+      "title": "Nos communications",
+      "description": "Connectez votre courriel pour que nous puissions travailler avec vous, et obtenez votre propre ligne téléphonique."
+    },
+    "reconciliation": {
+      "label": "Rapprochement",
+      "title": "Comptes bancaires à rapprocher",
+      "description": "Ajoutez les comptes que vous souhaitez nous confier pour le rapprochement. Chacun suivra un cycle de 30 jours."
+    },
+    "payables": {
+      "label": "Factures",
+      "title": "Factures (comptes fournisseurs)",
+      "description": "Comment devons-nous traiter vos factures ?"
+    },
+    "receivables": {
+      "label": "Comptes clients",
+      "title": "Comptes clients",
+      "description": "Comment devons-nous gérer vos comptes clients ?"
+    },
+    "payroll": {
+      "label": "Paie",
+      "title": "Gestion de la paie",
+      "description": "Configurez les services liés à la paie."
+    },
+    "general": {
+      "label": "Général",
+      "title": "Services généraux",
+      "description": "Services supplémentaires et gestion des documents."
+    },
+    "secretarial": {
+      "label": "Secrétariat",
+      "title": "Services de secrétariat",
+      "description": "Configurez le suivi des flux de trésorerie, des cartes de crédit et des reçus."
+    },
+    "terms": {
+      "label": "Conditions",
+      "title": "Conditions générales",
+      "description": "Lisez et acceptez les conditions d’utilisation."
+    }
+  },
+  "location": {
+    "question": "Où votre entreprise est-elle située ?",
+    "usa": "États-Unis",
+    "canada": "Canada",
+    "canadaNote": "Des renseignements juridiques supplémentaires seront demandés aux entreprises canadiennes à une étape ultérieure."
+  },
+  "business": {
+    "name": "Nom commercial de l’entreprise",
+    "namePlaceholder": "Le nom sous lequel vos clients vous connaissent",
+    "activity": "Activité de l’entreprise",
+    "activityPlaceholder": "Décrivez brièvement les activités de votre entreprise…"
+  },
+  "contact": {
+    "name": "Nom de la personne-ressource",
+    "namePlaceholder": "Jean Tremblay",
+    "email": "Courriel",
+    "emailPlaceholder": "jean@exemple.com",
+    "emailInvalid": "Veuillez entrer une adresse courriel valide.",
+    "phone": "Téléphone"
+  },
+  "legal": {
+    "neq": "NEQ",
+    "neqPlaceholder": "Numéro d’entreprise du Québec (NEQ)"
+  },
+  "communication": {
+    "connectTitle": "Connectez votre courriel",
+    "connectHint": "Nous lirons vos courriels d’affaires et y répondrons avec vous, à partir de votre propre adresse.",
+    "connected": "{{provider}} connecté",
+    "disconnecting": "Déconnexion…",
+    "disconnect": "Déconnecter",
+    "connectGmail": "Connecter Gmail",
+    "connectOutlook": "Connecter Outlook",
+    "personalOutlook": "Vous utilisez un compte personnel Outlook.com ou Hotmail ?",
+    "fallbackLink": "Impossible de connecter votre compte ? Entrez plutôt votre adresse courriel et votre mot de passe",
+    "fallbackHint": "Si la connexion ne fonctionne pas, donnez-nous votre adresse courriel et son mot de passe. Le mot de passe est stocké chiffré (AES-256) et seul votre comptable peut le voir.",
+    "emailAddress": "Adresse courriel",
+    "emailPlaceholder": "facturation@votreentreprise.com",
+    "password": "Mot de passe",
+    "passwordSaved": "Enregistré — laissez vide pour le conserver",
+    "passwordPlaceholder": "Mot de passe de cette adresse",
+    "hidePassword": "Masquer le mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "phoneLine": "<b>Votre propre numéro de téléphone.</b> À la fin de cette demande, après les renseignements de votre carte, vous obtiendrez votre propre numéro de téléphone pour nous appeler ou nous écrire par texto ou WhatsApp."
+  },
+  "reconciliation": {
+    "cycle": "Cycle de 30 jours",
+    "cycleHint": "Chaque compte sera rapproché selon un calendrier récurrent de 30 jours.",
+    "account": "Compte {{n}}",
+    "removeAccount": "Retirer le compte",
+    "accountName": "Nom du compte",
+    "accountNamePlaceholder": "ex. Compte chèques principal",
+    "accountType": "Type de compte",
+    "selectType": "Choisir le type",
+    "types": {
+      "Checking": "Compte chèques",
+      "Savings": "Compte d’épargne",
+      "Credit Card": "Carte de crédit",
+      "Line of Credit": "Marge de crédit",
+      "Other": "Autre"
+    },
+    "addAccount": "Ajouter un autre compte"
+  },
+  "schedule": {
+    "startDate": "Date de début",
+    "backfill": "Une date passée crée toutes les tâches jusqu’à aujourd’hui.",
+    "repeat": "Répétition",
+    "types": {
+      "DAYS": "Tous les N jours",
+      "MONTHLY_DATE": "Mensuel — date précise",
+      "WEEKLY_DAY": "Hebdomadaire — jour précis",
+      "MONTHLY_WEEKDAY": "Mensuel — ex. 2e lundi",
+      "QUARTERLY": "Trimestriel — date précise",
+      "YEARLY": "Annuel — date précise"
+    },
+    "everyDays": "Intervalle (jours)",
+    "firstDue_one": "Première tâche due dans {{count}} jour.",
+    "firstDue_many": "Première tâche due dans {{count}} jours.",
+    "firstDue_other": "Première tâche due dans {{count}} jours.",
+    "firstDueFromStart_one": "Première tâche due {{count}} jour après la date de début.",
+    "firstDueFromStart_many": "Première tâche due {{count}} jours après la date de début.",
+    "firstDueFromStart_other": "Première tâche due {{count}} jours après la date de début.",
+    "dayOfMonth": "Jour du mois",
+    "dayOfWeek": "Jour de la semaine",
+    "which": "Lequel",
+    "weekday": "Jour de la semaine",
+    "month": "Mois",
+    "day": "Jour",
+    "repeatsMonthly": "Se répète {{day}} de chaque mois.",
+    "repeatsWeekly": "Se répète chaque {{weekday}}.",
+    "repeatsNthWeekday": "Se répète le {{nth}} {{weekday}} de chaque mois.",
+    "repeatsQuarterly": "Se répète tous les 3 mois, {{day}}.",
+    "repeatsYearly": "Se répète chaque année en {{month}} ({{day}}).",
+    "note": "Note",
+    "optionalParen": "(facultatif)",
+    "notePlaceholder": "Instructions supplémentaires…",
+    "optionalNote": "Note facultative…"
+  },
+  "payables": {
+    "question": "Devons-nous saisir vos factures ?",
+    "openHint": "Lorsqu’une facture ne porte aucune mention indiquant qu’elle a été payée, nous la considérerons comme <b>ouverte (impayée)</b> jusqu’à avis contraire de votre part."
+  },
+  "receivables": {
+    "invoicing": "Devons-nous nous occuper de la facturation ?",
+    "statements": "Devons-nous envoyer les relevés de compte et les avis ?",
+    "collection": "Devons-nous nous occuper du recouvrement ?",
+    "report": "Devons-nous produire un rapport des factures impayées ?"
+  },
+  "payroll": {
+    "question": "Devons-nous préparer les chèques de paie ?",
+    "taxQuestion": "Devons-nous produire les déclarations de retenues à la source ?",
+    "whichType": "Quel palier ?",
+    "selectOneOrBoth": "(choisissez l’un ou les deux)",
+    "canadian": "Fédéral (ARC)",
+    "quebec": "Québec (Revenu Québec)",
+    "canadianSchedule": "Calendrier fédéral",
+    "quebecSchedule": "Calendrier du Québec",
+    "yearEndQuestion": "Devons-nous produire les déclarations de fin d’année de la paie ?",
+    "yearEndHint": "Cochez tout ce qui s’applique. Les tâches de fin d’année sont prévues chaque année le 15 janvier.",
+    "yearEnd": {
+      "rl1": "Relevé 1 (RL-1) et sommaire",
+      "t4": "Feuillets T4 et T4A et sommaires",
+      "cnesst": "Déclaration des salaires (CNESST)"
+    }
+  },
+  "general": {
+    "nothing": "Rien d’autre à répondre ici. Cliquez sur Suivant pour continuer.",
+    "qcDocs": "Devons-nous gérer vos documents gouvernementaux de Revenu Québec ?",
+    "craDocs": "Devons-nous gérer vos documents gouvernementaux de l’Agence du revenu du Canada (ARC) ?",
+    "salesTax": "Devons-nous produire vos déclarations de taxes de vente (TPS/TVQ) ?",
+    "notePlaceholder": "Instructions supplémentaires… (facultatif)"
+  },
+  "secretarial": {
+    "cashFlowTitle": "Service de gestion de la trésorerie",
+    "cashFlowHint": "Par défaut, nous mettons le compte à jour chaque jour et suivons les chèques en circulation ainsi que les opérations à venir et récurrentes des 5 prochains jours. Nous vous envoyons chaque jour un rapport du solde disponible avec la liste des opérations non compensées et à venir. Si le compte risque de devenir négatif, nous communiquerons avec vous.",
+    "noCashAccounts": "Aucun compte chèques ou d’épargne n’a été trouvé à l’étape Rapprochement.",
+    "creditCardTitle": "Gestion des cartes de crédit",
+    "creditCardHint": "Par défaut, nous commençons à effectuer des paiements sur la carte de crédit 5 jours après la date du relevé, jusqu’à ce que le solde soit entièrement payé. S’il ne l’est pas, nous vous aviserons à partir de 5 jours avant la date d’échéance.",
+    "noCardAccounts": "Aucune carte de crédit ni marge de crédit n’a été trouvée à l’étape Rapprochement.",
+    "statementDay": "Date du relevé — le ___ de chaque mois",
+    "statementDayPlaceholder": "ex. 15",
+    "scheduledCheck": "Vérification prévue : le {{day}} de chaque mois.",
+    "limitQuestion": "Veiller à ce que la limite de crédit soit toujours disponible ?",
+    "amount": "Montant",
+    "amountPlaceholder": "ex. 1000",
+    "checkFrequency": "Fréquence de vérification",
+    "everyDay": "Chaque jour",
+    "everyNthDay": "Tous les {{n}} jours",
+    "receiptTitle": "Service de suivi des reçus",
+    "receiptHint": "Par défaut, nous vous envoyons une fois par mois un rapport des opérations sans reçu."
+  },
+  "terms": {
+    "cardOnFile": "Carte au dossier",
+    "chargedMonday": "La carte sera débitée chaque lundi pour la semaine précédente.",
+    "cardHolder": "Nom du titulaire",
+    "cardNumber": "Numéro de carte",
+    "expiry": "Expiration",
+    "expiryPlaceholder": "MM/AA",
+    "cvv": "CVV",
+    "pleaseAgree": "Veuillez accepter les conditions générales",
+    "rate": "Le taux horaire est de 55 $ l’heure.",
+    "advertise": "Voici ce que nous faisons pour promouvoir notre entreprise :",
+    "adSignature": "Nous ajouterons un lien vers notre site Web dans la signature des courriels de facturation.",
+    "adCalls": "Les appels au poste direct de votre représentant comprendront une annonce enregistrée de notre entreprise.",
+    "adLogo": "Nous pourrions afficher votre logo sur notre site Web.",
+    "whiteLabel": "Un taux horaire plus élevé s’applique aux services en marque blanche, lorsque l’intervention d’un tiers n’est pas divulguée.",
+    "detailed": "Les conditions générales détaillées sont accessibles au lien suivant : <link>Consulter les conditions complètes</link>",
+    "iAgree": "J’accepte les conditions générales"
+  },
+  "wizard": {
+    "notFound": "Cette demande est introuvable.",
+    "myBusinesses": "Mes entreprises",
+    "title": "Inscrivez votre entreprise",
+    "savedHint": "Vos réponses sont enregistrées chaque fois que vous cliquez sur Suivant : vous pouvez vous arrêter et revenir à tout moment.",
+    "submitting": "Envoi…",
+    "submit": "Envoyer la demande",
+    "confidential": "Vos renseignements demeurent confidentiels et servent uniquement à la tenue de livres."
+  },
+  "submitted": {
+    "receivedTitle": "Demande reçue !",
+    "submittedTitle": "Demande envoyée",
+    "thanks": "Merci, <b>{{name}}</b>.",
+    "inTouch": "Nous avons bien reçu vos renseignements et communiquerons avec vous sous peu.",
+    "yourNumber": "Votre numéro",
+    "callUs": "Appelez-nous ou écrivez-nous par texto ou WhatsApp à ce numéro.",
+    "settingUp": "Votre nouveau numéro est en cours de configuration. Nous vous l’enverrons sous peu."
+  },
+  "indicator": {
+    "stepOf": "Étape {{n}} sur {{total}}"
+  }
+}

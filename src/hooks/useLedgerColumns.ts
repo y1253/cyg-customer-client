@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
  */
 
 export const FIXED_COLUMNS = ['date', 'name', 'description', 'product', 'amount', 'debit', 'credit', 'statement'] as const
+export type FixedColumn = (typeof FIXED_COLUMNS)[number]
 
 /** Starting widths in px (the old fixed layout, wider description). */
 export const DEFAULT_WIDTHS: Record<string, number> = {

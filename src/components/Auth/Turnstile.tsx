@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import i18n, { currentLang } from '@/i18n'
 
 type TurnstileApi = {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string
@@ -25,7 +26,7 @@ function loadTurnstile(): Promise<void> {
     s.onload = () => resolve()
     s.onerror = () => {
       scriptPromise = null
-      reject(new Error('Could not load the security check'))
+      reject(new Error(i18n.t('auth:errors.turnstileLoad')))
     }
     document.head.appendChild(s)
   })
@@ -56,6 +57,7 @@ export function TurnstileWidget({
         widgetId.current = window.turnstile.render(el, {
           sitekey: siteKey,
           appearance: 'interaction-only',
+          language: currentLang(),
           callback: (t: string) => onToken(t),
           'expired-callback': () => onToken(null),
           'error-callback': () => onToken(null),

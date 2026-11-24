@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,6 +23,7 @@ import { combinedAccountName } from '@/lib/account-names'
  * "TD 4562 & BMO 5352" for two banks — `combinedAccountName`), which the customer may change.
  */
 export function useAccountMerge() {
+  const { t } = useTranslation(['books', 'common'])
   const merge = useMergeAccounts()
   const [pair, setPair] = useState<{ from: string; into: string; bank: boolean } | null>(null)
   const [name, setName] = useState('')
@@ -30,18 +32,14 @@ export function useAccountMerge() {
     <Dialog open={!!pair} onOpenChange={(o) => !o && setPair(null)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            Merge {pair?.from} into {pair?.into}?
-          </DialogTitle>
+          <DialogTitle>{t('merge.title', { from: pair?.from, into: pair?.into })}</DialogTitle>
           <DialogDescription>
-            Every transaction and rule of {pair?.from} moves to {pair?.into}
-            {pair?.bank ? ', and their Bank feeds folders become one (statements and connected bank included)' : ''}.{' '}
-            {pair?.into} keeps its own section and settings. Dragging back cannot split them again.
+            {t(pair?.bank ? 'merge.textBank' : 'merge.text', { from: pair?.from, into: pair?.into })}
           </DialogDescription>
         </DialogHeader>
         {pair?.bank && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="merged-account-name">Name of the merged account</Label>
+            <Label htmlFor="merged-account-name">{t('merge.name')}</Label>
             <Input
               id="merged-account-name"
               value={name}
@@ -52,7 +50,7 @@ export function useAccountMerge() {
           </div>
         )}
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
           <Button
             disabled={merge.isPending}
             onClick={() =>
@@ -63,7 +61,7 @@ export function useAccountMerge() {
               )
             }
           >
-            {merge.isPending ? 'Merging…' : 'Merge'}
+            {merge.isPending ? t('merge.merging') : t('merge.merge')}
           </Button>
         </DialogFooter>
       </DialogContent>

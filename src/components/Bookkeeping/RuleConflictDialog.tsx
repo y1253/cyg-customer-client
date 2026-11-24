@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -18,6 +19,7 @@ import type { RuleConflictState } from '@/hooks/useRuleConflict'
  * asks, so it is the way to rename one transaction without moving the link.
  */
 export function RuleConflictDialog({ conflict }: { conflict: RuleConflictState }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const shown = useClosingValue(conflict.pending)
   const names = shown ? [...new Set(shown.links.map((l) => l.name))] : []
   const from = names.join(', ')
@@ -27,27 +29,35 @@ export function RuleConflictDialog({ conflict }: { conflict: RuleConflictState }
         {shown && (
           <>
             <DialogHeader>
-              <DialogTitle>Already linked to {names.length > 1 ? 'other names' : from}</DialogTitle>
+              <DialogTitle>
+                {names.length > 1 ? t('conflict.titleMany') : t('conflict.titleOne', { name: from })}
+              </DialogTitle>
               <DialogDescription>
-                Take it away from {from} and link it to <strong>{shown.name}</strong>?
+                <Trans
+                  t={t}
+                  i18nKey="conflict.question"
+                  values={{ from, name: shown.name }}
+                  components={{ strong: <strong /> }}
+                />
               </DialogDescription>
             </DialogHeader>
             <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto text-sm">
               {shown.links.map((l) => (
                 <li key={`${l.matchType}:${l.text}`} className="rounded-md bg-muted px-3 py-2">
-                  {l.matchType === 'CONTAINS' ? 'Every description containing ' : ''}
-                  <span className="font-medium">“{l.text}”</span> is linked to{' '}
-                  <span className="font-medium">{l.name}</span>
+                  <Trans
+                    t={t}
+                    i18nKey={l.matchType === 'CONTAINS' ? 'conflict.linkContains' : 'conflict.linkExact'}
+                    values={{ text: l.text, name: l.name }}
+                    components={{ b: <span className="font-medium" /> }}
+                  />
                 </li>
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              Taking it away moves every transaction it reaches — now and on later statements — from{' '}
-              {from} to {shown.name}. To rename only one transaction without moving the link, cancel and
-              choose “Only this row”.
+              {t('conflict.help', { from, name: shown.name })}
             </p>
             <DialogFooter>
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
               <Button
                 type="button"
                 className="bg-brand text-white hover:bg-brand/85"
@@ -56,7 +66,7 @@ export function RuleConflictDialog({ conflict }: { conflict: RuleConflictState }
                   shown.retry()
                 }}
               >
-                {names.length > 1 ? 'Take it away from them' : `Take it away from ${from}`}
+                {names.length > 1 ? t('conflict.takeAwayMany') : t('conflict.takeAwayOne', { name: from })}
               </Button>
             </DialogFooter>
           </>

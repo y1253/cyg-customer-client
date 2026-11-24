@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Camera, CheckCircle2, FileUp, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   ATTACHMENT_ACCEPT,
   fetchPhoneUpload,
@@ -8,6 +9,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   phoneUpload,
 } from '@/api/attachments'
+import { LanguageSwitch } from '@/components/LanguageSwitch'
 import { Progress } from '@/components/ui/progress'
 
 /**
@@ -16,6 +18,7 @@ import { Progress } from '@/components/ui/progress'
  * each is read and filed under its name like anything else.
  */
 export function PhoneUploadPage() {
+  const { t } = useTranslation(['dashboard', 'common'])
   const { token = '' } = useParams()
   const [book, setBook] = useState<{ bookName: string; name: string | null } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +36,7 @@ export function PhoneUploadPage() {
     const all = Array.from(list ?? [])
     const ok = all.filter((f) => isAcceptedAttachment(f) && f.size <= MAX_ATTACHMENT_BYTES)
     if (!ok.length) {
-      if (all.length) setError('Those files cannot be read — send photos, PDFs, audio or spreadsheets under 25 MB.')
+      if (all.length) setError(t('phoneUpload.badFiles'))
       return
     }
     setError(null)
@@ -53,14 +56,19 @@ export function PhoneUploadPage() {
     <div className="flex min-h-dvh flex-col bg-[#F5F7F7] px-4 py-8">
       <div className="mx-auto flex w-full max-w-md flex-col gap-5">
         <div>
-          <p className="text-sm font-semibold tracking-wide text-brand uppercase">CYG Finance</p>
-          <h1 className="mt-1 text-2xl font-bold text-[#0B1C2C]">Send your documents</h1>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold tracking-wide text-brand uppercase">CYG Finance</p>
+            <LanguageSwitch />
+          </div>
+          <h1 className="mt-1 text-2xl font-bold text-[#0B1C2C]">{t('phoneUpload.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {book
-              ? `They go to ${book.bookName}${book.name ? `, under ${book.name}` : ''} — we read each one and file it.`
+              ? book.name
+                ? t('phoneUpload.goesToUnder', { book: book.bookName, name: book.name })
+                : t('phoneUpload.goesTo', { book: book.bookName })
               : error
                 ? ''
-                : 'Loading…'}
+                : t('common:status.loading')}
           </p>
         </div>
 
@@ -73,7 +81,7 @@ export function PhoneUploadPage() {
               className="flex flex-col items-center gap-3 rounded-2xl bg-brand px-6 py-10 text-white shadow-lg active:scale-[0.99] disabled:opacity-70"
             >
               {busy ? <Loader2 className="size-10 animate-spin" /> : <Camera className="size-10" />}
-              <span className="text-lg font-semibold">{busy ? 'Sending…' : 'Take a photo'}</span>
+              <span className="text-lg font-semibold">{busy ? t('common:actions.sending') : t('phoneUpload.takePhoto')}</span>
             </button>
             <button
               type="button"
@@ -81,7 +89,7 @@ export function PhoneUploadPage() {
               onClick={() => picker.current?.click()}
               className="flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 font-medium text-[#0B1C2C] ring-1 ring-black/10 disabled:opacity-70"
             >
-              <FileUp className="size-5 text-brand" /> Choose files
+              <FileUp className="size-5 text-brand" /> {t('phoneUpload.chooseFiles')}
             </button>
             <input
               ref={camera}
@@ -114,7 +122,7 @@ export function PhoneUploadPage() {
         {sent.length > 0 && (
           <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
             <p className="mb-2 text-sm font-semibold text-[#0B1C2C]">
-              Sent · {sent.length} — you can see them on your computer
+              {t('phoneUpload.sent', { count: sent.length })}
             </p>
             <ul className="flex flex-col gap-1.5">
               {sent.map((f, i) => (

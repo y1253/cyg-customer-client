@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Link2, ListChecks, Lock, MessagesSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { BookkeepingPage } from '@/components/Bookkeeping/BookkeepingPage'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -35,14 +36,15 @@ const PORTAL_TABS = ['communications', 'tasks', 'bookkeeping', 'links'] as const
 function PortalPage() {
   const id = Number(useParams().id)
   const navigate = useNavigate()
+  const { t } = useTranslation(['portal', 'common'])
   const [params, setParams] = useSearchParams()
-  const tab = PORTAL_TABS.find((t) => t === params.get('tab')) ?? 'communications'
+  const tab = PORTAL_TABS.find((k) => k === params.get('tab')) ?? 'communications'
   const companies = usePortalCompanies()
   const { unlockToken, lock } = usePortalUnlock()
   const overview = usePortalOverview(id)
 
   const name =
-    overview.data?.businessName ?? companies.data?.find((c) => c.id === id)?.businessName ?? 'Your business'
+    overview.data?.businessName ?? companies.data?.find((c) => c.id === id)?.businessName ?? t('page.yourBusiness')
   const list = companies.data ?? []
 
   return (
@@ -52,11 +54,11 @@ function PortalPage() {
         to="/dashboard/register"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> My businesses
+        <ArrowLeft className="h-4 w-4" /> {t('page.myBusinesses')}
       </Link>
       <PageHeader
         title={name}
-        description="Everything our team receives and sends for your business."
+        description={t('page.description')}
         actions={
           <>
             {list.length > 1 && (
@@ -78,7 +80,7 @@ function PortalPage() {
             )}
             {unlockToken && (
               <Button variant="outline" className="gap-1.5" onClick={lock}>
-                <Lock className="h-4 w-4" /> Lock
+                <Lock className="h-4 w-4" /> {t('page.lock')}
               </Button>
             )}
           </>
@@ -101,16 +103,16 @@ function PortalPage() {
           } className="gap-6">
           <TabsList className="h-auto! flex-wrap justify-start">
             <TabsTrigger value="communications" className="px-4">
-              <MessagesSquare /> Communications
+              <MessagesSquare /> {t('page.tabs.communications')}
             </TabsTrigger>
             <TabsTrigger value="tasks" className="px-4">
-              <ListChecks /> Tasks
+              <ListChecks /> {t('page.tabs.tasks')}
             </TabsTrigger>
             <TabsTrigger value="bookkeeping" className="px-4">
-              <BookOpen /> Bookkeeping
+              <BookOpen /> {t('page.tabs.bookkeeping')}
             </TabsTrigger>
             <TabsTrigger value="links" className="px-4">
-              <Link2 /> Links
+              <Link2 /> {t('page.tabs.links')}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="communications">

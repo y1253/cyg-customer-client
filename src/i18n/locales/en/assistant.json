@@ -1,0 +1,139 @@
+{
+  "channel": {
+    "BOT": "Web",
+    "SMS": "Text",
+    "WHATSAPP": "WhatsApp",
+    "EMAIL": "Email",
+    "VOICE": "Phone"
+  },
+  "conversation": {
+    "aboutAttachment": "About an attachment",
+    "chat": "Chat"
+  },
+  "intake": {
+    "sendVerb": "text",
+    "sendVerbWhatsapp": "text or WhatsApp"
+  },
+  "mic": {
+    "blocked": "Microphone access is blocked. Allow it in the browser to record a voice message.",
+    "notFound": "No microphone was found.",
+    "inUse": "The microphone is in use by another app.",
+    "failed": "Could not start recording."
+  },
+  "panel": {
+    "conversations": "Conversations",
+    "newChat": "New chat",
+    "empty": "Ask anything about your books — “show my transactions from March”, “what did I spend at Costco?”, “move Uber to Travel”. Add a receipt, a cheque or a letter with the paperclip and the AI will read it. You can also text or WhatsApp our receipt number.",
+    "readOnly": {
+      "SMS": "This conversation happened by text — reply from your phone to continue it.",
+      "WHATSAPP": "This conversation happened on WhatsApp — reply there to continue it.",
+      "VOICE": "These were phone calls — call our receipt number to talk to the AI again.",
+      "EMAIL": "This conversation happened by email — reply to that email to continue it.",
+      "attachment": "This chat is about one file — continue it from its folder on the Names tab → Ask AI.",
+      "statement": "This chat is about one statement — continue it from Bank feeds → Ask AI to fix it."
+    },
+    "learnedTitle": "What the AI learned",
+    "learnedHelp": "Rules the AI saved from your chats. It follows them every time it reads your statements and receipts.",
+    "nothingYet": "Nothing yet.",
+    "forgetRule": "Forget this rule"
+  },
+  "attachmentChat": {
+    "placeholder": "e.g. “It’s the Amazon charge on March 3” or “There are two cheques in this image”",
+    "empty": "Tell the AI where this belongs, or what is wrong with it — or press the phone to talk it through."
+  },
+  "statementChat": {
+    "placeholder": "e.g. “The withdrawals on page 3 were read as deposits”",
+    "empty": "Tell the AI what is wrong with this statement, or press the phone to talk it through — it can read it again or fix its balances."
+  },
+  "attachmentConversation": {
+    "loading": "Loading the conversation…",
+    "title": "Conversation about this file"
+  },
+  "callMe": {
+    "calling": "Calling you…",
+    "about": "Call me about this",
+    "aboutAddPhone": "Call me about this — add your phone first",
+    "whatNumber": "What number should we call?",
+    "savedNote": "It is saved on your account, so next time we just call.",
+    "phonePlaceholder": "514 555 1234",
+    "callMe": "Call me"
+  },
+  "chat": {
+    "openFile": "Open the file",
+    "fileRemovedTitle": "This file was removed since",
+    "removed": "(removed)",
+    "aiAssistant": "AI assistant",
+    "aiDid": "AI did:",
+    "refused_one": "{{count}} file was not added — use a photo (JPG, PNG), a PDF, a spreadsheet (XLSX, CSV) or a voice note under 25 MB.",
+    "refused_other": "{{count}} files were not added — use a photo (JPG, PNG), a PDF, a spreadsheet (XLSX, CSV) or a voice note under 25 MB.",
+    "couldNotAnswer": "The assistant could not answer.",
+    "readingFiles": "Reading your files… this can take a minute.",
+    "thinking": "The AI is thinking…",
+    "removeFile": "Remove {{name}}",
+    "addFileTitle": "Add a file (receipt, cheque, letter…)",
+    "addFile": "Add a file",
+    "placeholder": "Ask about your books…"
+  },
+  "dictate": {
+    "tooShort": "That was too short — hold it while you speak.",
+    "nothingHeard": "Nothing was picked up. Try again a little closer to the mic.",
+    "failed": "That recording could not be turned into text.",
+    "stopTitle": "Stop and insert the text",
+    "stopLabel": "Stop dictating",
+    "speak": "Speak your message"
+  },
+  "floating": {
+    "newConversation": "New conversation",
+    "latestConversation": "Your latest conversation",
+    "empty": "Ask anything about your books, or ask for a change — type it, or press the mic and say it.",
+    "title": "Your AI bookkeeper",
+    "subtitle": "Ask anything, any way you like — it answers right away.",
+    "chatWeb": "Chat on the web",
+    "chatWebHint": "Type your question",
+    "dictateTitle": "Open the chat and start speaking",
+    "dictate": "Dictate",
+    "reach": {
+      "text": "Text the AI at",
+      "textWhatsapp": "Text or WhatsApp the AI at",
+      "callText": "Call or text the AI at",
+      "callTextWhatsapp": "Call, text or WhatsApp the AI at"
+    },
+    "call": "Call",
+    "text": "Text",
+    "callMe": "Call me",
+    "callMeHintPhone": "The AI calls you now at {{phone}}",
+    "callMeHint": "The AI calls you now",
+    "pickUp": "{{message}} — pick up!",
+    "welcomeTitle": "Text me a welcome",
+    "welcomeHint": "Get our number by SMS — save it for later",
+    "phonePrompt": "Your phone number — saved on your account:",
+    "openLabel": "Talk to the AI assistant",
+    "sheetTitle": "AI assistant"
+  },
+  "documents": {
+    "openLabel": "Your documents, and how to send them",
+    "title": "Your documents",
+    "subtitle": "Every file is kept under its name on the Names tab.",
+    "reading_one": "Reading {{count}} file…",
+    "reading_other": "Reading {{count}} files…",
+    "sendUs": "Send us documents",
+    "text": "Text",
+    "emailTitle": "Email {{email}}",
+    "emailHint": "Forward receipts, invoices, statements, contracts",
+    "fromPhone": "From your phone",
+    "fromPhoneHint": "Scan a QR code and take photos",
+    "copyAddress": "Copy the address",
+    "welcomeText": "Send a welcome email from {{inbox}} — reply to it or forward documents to it, from that address:",
+    "emailPlaceholder": "name@example.com",
+    "uploading": "Uploading… {{pct}}%",
+    "fromComputer": "From this computer",
+    "fromComputerHint": "Photos, PDFs, spreadsheets, voice notes",
+    "cannotRead": "Those files cannot be read here.",
+    "added_one": "{{count}} file added — we're reading it",
+    "added_other": "{{count}} files added — we're reading them",
+    "qrAlt": "QR code to send files from your phone",
+    "qrHelp": "Scan with your phone's camera, then take photos or pick files. The code works for 30 minutes.",
+    "received_one": "{{count}} file received",
+    "received_other": "{{count}} files received"
+  }
+}

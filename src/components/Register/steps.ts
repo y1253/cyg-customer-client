@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { EMPTY_FORM, type FormData } from './types'
 
 /**
@@ -31,24 +32,29 @@ export interface StepConfig {
   description: string
 }
 
-const ALL_STEPS: StepConfig[] = [
-  { key: 'location', label: 'Location', title: 'Business Location', description: 'Where is your business based?' },
-  { key: 'business', label: 'Business', title: 'Business Information', description: 'Your operating name and what you do.' },
-  { key: 'contact', label: 'Contact', title: 'Contact Information', description: 'How we can reach you.' },
-  { key: 'legal', label: 'Legal', title: 'Legal Information', description: 'Required for businesses registered in Québec.' },
-  { key: 'communication', label: 'Communication', title: 'How We Communicate', description: 'Connect your email so we can work with you, and get your own phone line.' },
-  { key: 'reconciliation', label: 'Reconciliation', title: 'Bank Accounts to Reconcile', description: 'Add the accounts you would like us to reconcile. Each will be on a 30-day cycle.' },
-  { key: 'payables', label: 'Bills', title: 'Bills (Accounts Payable)', description: 'How should we handle your bills?' },
-  { key: 'receivables', label: 'Receivables', title: 'Accounts Receivable', description: 'How should we handle your accounts receivable?' },
-  { key: 'payroll', label: 'Payroll', title: 'Payroll Management', description: 'Configure payroll-related services.' },
-  { key: 'general', label: 'General', title: 'General Services', description: 'Additional services and document management.' },
-  { key: 'secretarial', label: 'Secretarial', title: 'Secretarial Management', description: 'Configure cash flow, credit card, and receipt tracking services.' },
-  { key: 'terms', label: 'Terms', title: 'Terms & Conditions', description: 'Review and accept the terms of service.' },
+const ALL_STEP_KEYS: StepKey[] = [
+  'location',
+  'business',
+  'contact',
+  'legal',
+  'communication',
+  'reconciliation',
+  'payables',
+  'receivables',
+  'payroll',
+  'general',
+  'secretarial',
+  'terms',
 ]
 
-/** The steps this business sees. Legal is for Canadian businesses only. */
+/** The steps this business sees. Legal is for Canadian businesses only. Text resolved now, in the shown language. */
 export function visibleSteps(country: string | null): StepConfig[] {
-  return ALL_STEPS.filter((s) => s.key !== 'legal' || country === 'CANADA')
+  return ALL_STEP_KEYS.filter((key) => key !== 'legal' || country === 'CANADA').map((key) => ({
+    key,
+    label: i18n.t(`register:steps.${key}.label`),
+    title: i18n.t(`register:steps.${key}.title`),
+    description: i18n.t(`register:steps.${key}.description`),
+  }))
 }
 
 export interface StepContext {

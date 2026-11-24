@@ -1,0 +1,276 @@
+{
+  "api": {
+    "unreachable": "Could not reach the server. Please check your connection and try again."
+  },
+  "mailbox": {
+    "popupBlocked": "Your browser blocked the sign-in window. Allow pop-ups for this site and try again.",
+    "notConnected": "The mailbox could not be connected.",
+    "couldNotStart": "Could not start the connection."
+  },
+  "list": {
+    "title": "My businesses",
+    "description": "Register your business with CYG Finance. Your answers are saved as you go.",
+    "starting": "Starting…",
+    "register": "Register a business",
+    "empty": "You have not registered a business yet.",
+    "start": "Start your application",
+    "newApplication": "New application",
+    "inProgress": "In progress",
+    "submitted": "Submitted",
+    "started": "Started {{date}}",
+    "numberSettingUp": "Your phone number is being set up.",
+    "messagesLinks": "Messages & links",
+    "deleteTitle": "Delete this application?",
+    "deleteBody": "Your answers will be lost, and any email you connected to it will be disconnected.",
+    "deleting": "Deleting…"
+  },
+  "steps": {
+    "location": {
+      "label": "Location",
+      "title": "Business Location",
+      "description": "Where is your business based?"
+    },
+    "business": {
+      "label": "Business",
+      "title": "Business Information",
+      "description": "Your operating name and what you do."
+    },
+    "contact": {
+      "label": "Contact",
+      "title": "Contact Information",
+      "description": "How we can reach you."
+    },
+    "legal": {
+      "label": "Legal",
+      "title": "Legal Information",
+      "description": "Required for businesses registered in Québec."
+    },
+    "communication": {
+      "label": "Communication",
+      "title": "How We Communicate",
+      "description": "Connect your email so we can work with you, and get your own phone line."
+    },
+    "reconciliation": {
+      "label": "Reconciliation",
+      "title": "Bank Accounts to Reconcile",
+      "description": "Add the accounts you would like us to reconcile. Each will be on a 30-day cycle."
+    },
+    "payables": {
+      "label": "Bills",
+      "title": "Bills (Accounts Payable)",
+      "description": "How should we handle your bills?"
+    },
+    "receivables": {
+      "label": "Receivables",
+      "title": "Accounts Receivable",
+      "description": "How should we handle your accounts receivable?"
+    },
+    "payroll": {
+      "label": "Payroll",
+      "title": "Payroll Management",
+      "description": "Configure payroll-related services."
+    },
+    "general": {
+      "label": "General",
+      "title": "General Services",
+      "description": "Additional services and document management."
+    },
+    "secretarial": {
+      "label": "Secretarial",
+      "title": "Secretarial Management",
+      "description": "Configure cash flow, credit card, and receipt tracking services."
+    },
+    "terms": {
+      "label": "Terms",
+      "title": "Terms & Conditions",
+      "description": "Review and accept the terms of service."
+    }
+  },
+  "location": {
+    "question": "Where is your business located?",
+    "usa": "United States",
+    "canada": "Canada",
+    "canadaNote": "Canadian businesses will be asked for additional legal information in a later step."
+  },
+  "business": {
+    "name": "Business operating name",
+    "namePlaceholder": "The name your customers know you by",
+    "activity": "Business activity",
+    "activityPlaceholder": "Briefly describe what your business does..."
+  },
+  "contact": {
+    "name": "Contact Name",
+    "namePlaceholder": "John Smith",
+    "email": "Email",
+    "emailPlaceholder": "john@example.com",
+    "emailInvalid": "Please enter a valid email address.",
+    "phone": "Phone"
+  },
+  "legal": {
+    "neq": "NEQ",
+    "neqPlaceholder": "Québec enterprise number (NEQ)"
+  },
+  "communication": {
+    "connectTitle": "Connect your email",
+    "connectHint": "We will read and answer your business email with you, from your own address.",
+    "connected": "{{provider}} connected",
+    "disconnecting": "Disconnecting…",
+    "disconnect": "Disconnect",
+    "connectGmail": "Connect Gmail",
+    "connectOutlook": "Connect Outlook",
+    "personalOutlook": "Using a personal Outlook.com / Hotmail account?",
+    "fallbackLink": "Can't connect your account? Enter your email and password instead",
+    "fallbackHint": "If connecting does not work, give us your email address and its password. The password is stored encrypted (AES-256) and only your accountant can see it.",
+    "emailAddress": "Email address",
+    "emailPlaceholder": "billing@yourcompany.com",
+    "password": "Password",
+    "passwordSaved": "Saved — leave blank to keep it",
+    "passwordPlaceholder": "Password for that email",
+    "hidePassword": "Hide password",
+    "showPassword": "Show password",
+    "phoneLine": "<b>Your own phone number.</b> At the end of this application, after your card details, you will get your own new phone number that you can call, text or WhatsApp us on."
+  },
+  "reconciliation": {
+    "cycle": "30-day cycle",
+    "cycleHint": "Each account will be reconciled on a 30-day recurring schedule.",
+    "account": "Account {{n}}",
+    "removeAccount": "Remove account",
+    "accountName": "Account Name",
+    "accountNamePlaceholder": "e.g. Main Business Checking",
+    "accountType": "Account Type",
+    "selectType": "Select type",
+    "types": {
+      "Checking": "Checking",
+      "Savings": "Savings",
+      "Credit Card": "Credit Card",
+      "Line of Credit": "Line of Credit",
+      "Other": "Other"
+    },
+    "addAccount": "Add Another Account"
+  },
+  "schedule": {
+    "startDate": "Starting Date",
+    "backfill": "Past dates will backfill all todos up to today.",
+    "repeat": "Repeat",
+    "types": {
+      "DAYS": "Every N days",
+      "MONTHLY_DATE": "Monthly — specific date",
+      "WEEKLY_DAY": "Weekly — specific day",
+      "MONTHLY_WEEKDAY": "Monthly — Nth weekday",
+      "QUARTERLY": "Quarterly — specific date",
+      "YEARLY": "Yearly — specific date"
+    },
+    "everyDays": "Every (days)",
+    "firstDue_one": "First todo due in {{count}} day.",
+    "firstDue_other": "First todo due in {{count}} days.",
+    "firstDueFromStart_one": "First todo due in {{count}} day from the starting date.",
+    "firstDueFromStart_other": "First todo due in {{count}} days from the starting date.",
+    "dayOfMonth": "Day of month",
+    "dayOfWeek": "Day of week",
+    "which": "Which",
+    "weekday": "Weekday",
+    "month": "Month",
+    "day": "Day",
+    "repeatsMonthly": "Repeats on {{day}} of each month.",
+    "repeatsWeekly": "Repeats every {{weekday}}.",
+    "repeatsNthWeekday": "Repeats on the {{nth}} {{weekday}} of each month.",
+    "repeatsQuarterly": "Repeats every 3 months on {{day}}.",
+    "repeatsYearly": "Repeats every year on {{month}} ({{day}}).",
+    "note": "Note",
+    "optionalParen": "(optional)",
+    "notePlaceholder": "Any additional instructions...",
+    "optionalNote": "Optional note..."
+  },
+  "payables": {
+    "question": "Should we enter your bills?",
+    "openHint": "When a bill has nothing written on it saying it was paid, we will treat it as <b>open (unpaid)</b> until you tell us otherwise."
+  },
+  "receivables": {
+    "invoicing": "Should we handle invoicing?",
+    "statements": "Should we send statements and notices?",
+    "collection": "Should we handle collections?",
+    "report": "Should we produce an open invoices report?"
+  },
+  "payroll": {
+    "question": "Should we prepare payroll checks?",
+    "taxQuestion": "Should we handle payroll tax filing?",
+    "whichType": "Which type?",
+    "selectOneOrBoth": "(select one or both)",
+    "canadian": "Canadian",
+    "quebec": "Quebec",
+    "canadianSchedule": "Canadian schedule",
+    "quebecSchedule": "Quebec schedule",
+    "yearEndQuestion": "Should we handle payroll year-end filing?",
+    "yearEndHint": "Select all that apply. Year-end tasks are scheduled annually on January 15.",
+    "yearEnd": {
+      "rl1": "RL-1 and Summary",
+      "t4": "T4 and T4A and Summaries",
+      "cnesst": "CNESST Statement of Wages"
+    }
+  },
+  "general": {
+    "nothing": "Nothing more to answer here. Click Next to continue.",
+    "qcDocs": "Should we manage Revenu Québec government documents?",
+    "craDocs": "Should we manage CRA government documents?",
+    "salesTax": "Should we handle sales tax filing?",
+    "notePlaceholder": "Any additional instructions… (optional)"
+  },
+  "secretarial": {
+    "cashFlowTitle": "Cash Flow Management Service",
+    "cashFlowHint": "By default we update the account every day and we keep track on outstanding checks and upcoming and recurring transactions of the next 5 days, and we send available balance report each day showing list of uncleared and upcoming transactions. If the account is at risk of going negative, we will contact you.",
+    "noCashAccounts": "No checking or savings accounts found from the Reconciliation step.",
+    "creditCardTitle": "Credit Card Management",
+    "creditCardHint": "By default we start sending payments to the credit card starting 5 days after statement date until it's fully paid. If not fully paid, we will notify you starting 5 days before the due date.",
+    "noCardAccounts": "No credit card or line of credit accounts found from the Reconciliation step.",
+    "statementDay": "Statement date — every ___th of the month",
+    "statementDayPlaceholder": "e.g. 15",
+    "scheduledCheck": "Scheduled check: every {{nth}} of the month.",
+    "limitQuestion": "Make sure credit limit is always available?",
+    "amount": "Amount",
+    "amountPlaceholder": "e.g. 1000",
+    "checkFrequency": "Check frequency",
+    "everyDay": "Every day",
+    "everyNthDay": "Every {{nth}} day",
+    "receiptTitle": "Receipt Tracking Service",
+    "receiptHint": "By default we send once a month a report of missing receipt transactions."
+  },
+  "terms": {
+    "cardOnFile": "Card on File",
+    "chargedMonday": "The card will be charged every Monday for the week before.",
+    "cardHolder": "Cardholder Name",
+    "cardNumber": "Card Number",
+    "expiry": "Expiry",
+    "expiryPlaceholder": "MM/YY",
+    "cvv": "CVV",
+    "pleaseAgree": "Please agree to the terms and conditions",
+    "rate": "The hourly rate is $55/hour.",
+    "advertise": "Things we do to advertise our company are:",
+    "adSignature": "We will paste link to our website in billing email signature.",
+    "adCalls": "Calls to your representative's direct extension will include a recorded advertisement for our business.",
+    "adLogo": "We might display your logo on our website.",
+    "whiteLabel": "A higher hourly rate applies for white-label services where third-party involvement remains undisclosed.",
+    "detailed": "Detailed Terms and Conditions are available at the following link: <link>View full terms</link>",
+    "iAgree": "I agree to the terms and conditions"
+  },
+  "wizard": {
+    "notFound": "This application could not be found.",
+    "myBusinesses": "My businesses",
+    "title": "Register your business",
+    "savedHint": "Your answers are saved each time you click Next, so you can stop and come back any time.",
+    "submitting": "Submitting…",
+    "submit": "Submit application",
+    "confidential": "Your information is kept confidential and used only for bookkeeping purposes."
+  },
+  "submitted": {
+    "receivedTitle": "Application received!",
+    "submittedTitle": "Application submitted",
+    "thanks": "Thank you, <b>{{name}}</b>.",
+    "inTouch": "We have your information and will be in touch shortly.",
+    "yourNumber": "Your number",
+    "callUs": "Call, text or WhatsApp us on this number.",
+    "settingUp": "Your new number is being set up. We will send it to you shortly."
+  },
+  "indicator": {
+    "stepOf": "Step {{n}} of {{total}}"
+  }
+}

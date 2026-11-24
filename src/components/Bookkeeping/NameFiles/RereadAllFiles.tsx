@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, RotateCw } from 'lucide-react'
 import { rereadableFile, type Attachment } from '@/api/attachments'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ import { useAttachmentActions } from '@/hooks/useAttachments'
  * at once — on the error list (the paperclip's red total) and in Unsorted. Hidden when none.
  */
 export function RereadAllFiles({ files }: { files: Attachment[] }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const { retryAll } = useAttachmentActions()
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState<string | null>(null)
@@ -34,7 +36,7 @@ export function RereadAllFiles({ files }: { files: Attachment[] }) {
           onClick={() => setOpen(true)}
         >
           {retryAll.isPending ? <Loader2 className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
-          Read all again ({ids.length})
+          {t('reread.button', { count: ids.length })}
         </Button>
       )}
       {note && <span className="text-xs text-muted-foreground">{note}</span>}
@@ -43,16 +45,11 @@ export function RereadAllFiles({ files }: { files: Attachment[] }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              Read {ids.length} file{ids.length === 1 ? '' : 's'} again?
-            </DialogTitle>
-            <DialogDescription>
-              Every file here we could not read or link to a transaction is read again, and we look
-              for its transaction once more. Files already linked are not touched.
-            </DialogDescription>
+            <DialogTitle>{t('reread.title', { count: ids.length })}</DialogTitle>
+            <DialogDescription>{t('reread.description')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" type="button" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" type="button" />}>{t('common:actions.cancel')}</DialogClose>
             <Button
               disabled={retryAll.isPending}
               onClick={() =>
@@ -60,15 +57,13 @@ export function RereadAllFiles({ files }: { files: Attachment[] }) {
                   onSuccess: ({ queued }) => {
                     setOpen(false)
                     setNote(
-                      queued
-                        ? `${queued} file${queued === 1 ? ' is' : 's are'} being read again.`
-                        : 'Nothing to read again right now.',
+                      queued ? t('reread.queued', { count: queued }) : t('reread.nothing'),
                     )
                   },
                 })
               }
             >
-              {retryAll.isPending ? 'Starting…' : 'Read all again'}
+              {retryAll.isPending ? t('reread.starting') : t('reread.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

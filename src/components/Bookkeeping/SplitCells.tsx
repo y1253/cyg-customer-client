@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
 import { type LedgerTransaction, type SplitEdit } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import { useDeleteSplit, useEditSplit, useSetProduct } from '@/hooks/useSplits'
 import { useEditTransaction } from '@/hooks/useEditTransaction'
 import { categoryChoice, choiceReady, NEW_CATEGORY, resolveChoice } from '@/lib/categoryChoice'
 import { cn } from '@/lib/utils'
+import i18n from '@/i18n'
 import { CategoryField } from './CategoryField'
 
 /**
@@ -17,7 +19,7 @@ import { CategoryField } from './CategoryField'
  * to more than the transaction, and the error shows under the cell.
  */
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Could not save')
+const errorText = (e: unknown) => (e instanceof Error ? e.message : i18n.t('ledger:cells.couldNotSave'))
 
 function CellError({ error }: { error: unknown }) {
   if (!error) return null
@@ -26,6 +28,7 @@ function CellError({ error }: { error: unknown }) {
 
 /** Two buttons under a cell: which way to save the change. Esc / ✕ cancels. */
 function ScopeStrip({ children, onCancel }: { children: ReactNode; onCancel: () => void }) {
+  const { t } = useTranslation(['ledger', 'common'])
   return (
     <span
       className="mt-1.5 flex flex-col gap-1 rounded-md bg-amber-50 p-1.5 text-[11px] font-normal text-amber-900 ring-1 ring-amber-600/20"
@@ -33,7 +36,7 @@ function ScopeStrip({ children, onCancel }: { children: ReactNode; onCancel: () 
     >
       {children}
       <button type="button" onClick={onCancel} className="self-start text-muted-foreground hover:underline">
-        Cancel
+        {t('common:actions.cancel')}
       </button>
     </span>
   )
@@ -44,6 +47,7 @@ function ScopeStrip({ children, onCancel }: { children: ReactNode; onCancel: () 
  * Saved on Enter or when the field is left; a refused amount goes back to the saved one.
  */
 export function SplitAmountCell({ t, autoFocus }: { t: LedgerTransaction; autoFocus?: boolean }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const edit = useEditSplit()
   const saved = Math.abs(t.amount).toFixed(2)
   const [text, setText] = useState(saved)
@@ -68,8 +72,8 @@ export function SplitAmountCell({ t, autoFocus }: { t: LedgerTransaction; autoFo
         <Input
           value={text}
           inputMode="decimal"
-          aria-label="Split amount"
-          title="This split's amount. The splits together may not be more than the transaction."
+          aria-label={tr('cells.splitAmount')}
+          title={tr('cells.splitAmountTitle')}
           onChange={(e) => setText(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
@@ -93,6 +97,7 @@ export function SplitAmountCell({ t, autoFocus }: { t: LedgerTransaction; autoFo
  * "<name> - <category>", still counted under the name.
  */
 export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const edit = useEditSplit()
   const create = useCreateAccount()
   const names = useNames()
@@ -118,7 +123,7 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          title="Change this split's category"
+          title={tr('cells.changeSplitCategory')}
           className="inline-flex max-w-full truncate rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand ring-brand/40 hover:bg-brand/15 hover:ring-1"
         >
           {t.offsetAccount}
@@ -134,11 +139,11 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
         <ScopeStrip onCancel={close}>
           {plain ? (
             <Button type="button" size="xs" className="self-start" disabled={edit.isPending} onClick={() => void save()}>
-              Save
+              {tr('common:actions.save')}
             </Button>
           ) : (
             <>
-              <span>Put it in “{choice.category === NEW_CATEGORY ? choice.newName : choice.category}” for:</span>
+              <span>{tr('cells.putItIn', { category: choice.category === NEW_CATEGORY ? choice.newName : choice.category })}</span>
               <span className="flex flex-col gap-1">
                 <Button
                   type="button"
@@ -148,7 +153,7 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
                   disabled={edit.isPending}
                   onClick={() => void save('ALL')}
                 >
-                  All {owner} rows — the transaction too
+                  {tr('cells.allRowsToo', { name: owner })}
                 </Button>
                 <Button
                   type="button"
@@ -157,7 +162,9 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
                   disabled={edit.isPending}
                   onClick={() => void save('SUB')}
                 >
-                  Only this — as “{owner} - {choice.category === NEW_CATEGORY ? choice.newName : choice.category}”
+                  {tr('cells.onlyThisAs', {
+                    sub: `${owner} - ${choice.category === NEW_CATEGORY ? choice.newName : choice.category}`,
+                  })}
                 </Button>
               </span>
             </>
@@ -165,7 +172,7 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
         </ScopeStrip>
       ) : (
         <button type="button" onClick={close} className="mt-1 self-start text-[11px] text-muted-foreground hover:underline">
-          Cancel
+          {tr('common:actions.cancel')}
         </button>
       )}
       <CellError error={edit.error ?? create.error} />
@@ -180,6 +187,7 @@ export function SplitCategoryCell({ t }: { t: LedgerTransaction }) {
  * 2026-11-23: under the sub-name "<name> - <category>").
  */
 export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const edit = useEditTransaction()
   const create = useCreateAccount()
   const names = useNames()
@@ -206,7 +214,7 @@ export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          title="Change the category"
+          title={tr('table.changeCategory')}
           className="inline-flex max-w-full truncate rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand ring-brand/40 hover:bg-brand/15 hover:ring-1"
         >
           {t.offsetAccount}
@@ -222,11 +230,11 @@ export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
         <ScopeStrip onCancel={close}>
           {plain ? (
             <Button type="button" size="xs" className="self-start" disabled={edit.isPending} onClick={() => void save('ALWAYS')}>
-              Save
+              {tr('common:actions.save')}
             </Button>
           ) : (
             <>
-              <span>Put it in “{shown}” for:</span>
+              <span>{tr('cells.putItIn', { category: shown })}</span>
               <span className="flex flex-col gap-1">
                 <Button
                   type="button"
@@ -236,7 +244,7 @@ export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
                   disabled={edit.isPending}
                   onClick={() => void save('ALWAYS')}
                 >
-                  All {owner} rows
+                  {tr('cells.allRows', { name: owner })}
                 </Button>
                 <Button
                   type="button"
@@ -245,7 +253,7 @@ export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
                   disabled={edit.isPending}
                   onClick={() => void save('ONCE')}
                 >
-                  Only this transaction — as “{owner} - {shown}”
+                  {tr('cells.onlyThisTransactionAs', { sub: `${owner} - ${shown}` })}
                 </Button>
               </span>
             </>
@@ -253,7 +261,7 @@ export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
         </ScopeStrip>
       ) : (
         <button type="button" onClick={close} className="mt-1 self-start text-[11px] text-muted-foreground hover:underline">
-          Cancel
+          {tr('common:actions.cancel')}
         </button>
       )}
       <CellError error={edit.error ?? create.error} />
@@ -263,6 +271,7 @@ export function TransactionCategoryCell({ t }: { t: LedgerTransaction }) {
 
 /** The Product column, typed in place: a split's receipt line, or a whole transaction's. */
 export function ProductCell({ t }: { t: LedgerTransaction }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const editSplit = useEditSplit()
   const setProduct = useSetProduct()
   const saved = t.itemName ?? ''
@@ -284,8 +293,8 @@ export function ProductCell({ t }: { t: LedgerTransaction }) {
         value={text}
         maxLength={191}
         placeholder="—"
-        aria-label="Product"
-        title="The product this line is for"
+        aria-label={tr('columns.product')}
+        title={tr('cells.productTitle')}
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
@@ -301,17 +310,18 @@ export function ProductCell({ t }: { t: LedgerTransaction }) {
 
 /** Remove a split: what it took goes back to its transaction. */
 export function DeleteSplitButton({ t }: { t: LedgerTransaction }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const remove = useDeleteSplit()
   return (
     <button
       type="button"
       onClick={() => remove.mutate(t.id)}
       disabled={remove.isPending}
-      title="Remove this split — its amount goes back to the transaction"
+      title={tr('cells.removeSplitTitle')}
       className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-red-600 opacity-0 ring-1 ring-red-600/30 transition-opacity group-hover:opacity-100 hover:bg-red-50 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
     >
       <Trash2 className="size-3.5" />
-      Remove
+      {tr('common:actions.remove')}
     </button>
   )
 }

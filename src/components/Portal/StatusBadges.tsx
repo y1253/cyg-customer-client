@@ -1,4 +1,5 @@
 import { CheckCircle2, Circle, Eye, EyeOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +16,7 @@ export function StatusBadges({
   isCompleted: boolean
   className?: string
 }) {
+  const { t } = useTranslation(['portal', 'common'])
   return (
     <div className={cn('flex flex-wrap gap-1.5', className)}>
       <Badge
@@ -27,7 +29,7 @@ export function StatusBadges({
         )}
       >
         {isRead ? <Eye /> : <EyeOff />}
-        {isRead ? 'Read' : 'Unread'}
+        {isRead ? t('status.read') : t('status.unread')}
       </Badge>
       <Badge
         variant="outline"
@@ -39,7 +41,7 @@ export function StatusBadges({
         )}
       >
         {isCompleted ? <CheckCircle2 /> : <Circle />}
-        {isCompleted ? 'Completed' : 'Open'}
+        {isCompleted ? t('status.completed') : t('status.open')}
       </Badge>
     </div>
   )

@@ -7,6 +7,8 @@
  * `/plaid/oauth`; the link token and the book are kept in sessionStorage so that page can
  * resume the same Link session (`receivedRedirectUri`).
  */
+import i18n from '@/i18n'
+
 const SCRIPT = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js'
 const PENDING_KEY = 'plaid-link-pending'
 
@@ -34,10 +36,10 @@ function loadPlaid(): Promise<PlaidGlobal> {
     const tag = document.createElement('script')
     tag.src = SCRIPT
     tag.async = true
-    tag.onload = () => (window.Plaid ? resolve(window.Plaid) : reject(new Error('Plaid did not load')))
+    tag.onload = () => (window.Plaid ? resolve(window.Plaid) : reject(new Error(i18n.t('books:plaid.notLoaded'))))
     tag.onerror = () => {
       loading = null
-      reject(new Error('Could not load the bank connection window. Check your connection and try again.'))
+      reject(new Error(i18n.t('books:plaid.loadFailed')))
     }
     document.head.appendChild(tag)
   })

@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 /** localStorage keys for the signed-in customer. */
 export const TOKEN_KEY = 'customerToken'
 export const CUSTOMER_KEY = 'customer'
@@ -26,7 +27,7 @@ export async function fetchWithAuth(
   return res
 }
 
-const FALLBACK = 'Something went wrong. Please try again.'
+const fallback = () => i18n.t('auth:errors.fallback')
 
 /** A failed API call: the message to show, plus the HTTP status and the body it came with. */
 export class ApiError extends Error {
@@ -52,7 +53,7 @@ export async function errorFrom(res: Response): Promise<ApiError> {
   } | null
   const message = Array.isArray(body?.message) ? body.message[0] : body?.message
   const shown = res.status < 500 || res.status === 503
-  return new ApiError(shown ? (message ?? FALLBACK) : FALLBACK, res.status, shown ? body : null)
+  return new ApiError(shown ? (message ?? fallback()) : fallback(), res.status, shown ? body : null)
 }
 
 /** A network failure (offline, proxy) becomes the generic message rather than a TypeError. */
@@ -60,6 +61,6 @@ export async function safeFetch(url: string, init?: RequestInit): Promise<Respon
   try {
     return await fetch(url, init)
   } catch {
-    throw new Error(FALLBACK)
+    throw new Error(fallback())
   }
 }

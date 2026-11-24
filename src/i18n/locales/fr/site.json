@@ -1,0 +1,113 @@
+{
+  "nav": {
+    "howItWorks": "Comment ça marche",
+    "features": "Fonctionnalités",
+    "contactUs": "Nous joindre",
+    "dashboard": "Tableau de bord",
+    "myAccount": "Mon compte",
+    "goToDashboard": "Aller au tableau de bord"
+  },
+  "hero": {
+    "title": "Votre tenue de livres, confiée à un agent IA à qui vous écrivez.",
+    "body": "Écrivez par texto, WhatsApp ou courriel à l’assistant de CYG Finance, ou appelez-le. Il lit vos relevés bancaires, classe vos reçus, tient vos livres à jour et vous envoie vos rapports — avec, derrière lui, de vrais comptables de CYG Finance.",
+    "goToDashboard": "Aller à votre tableau de bord",
+    "getStarted": "Commencer",
+    "seeHow": "Voir comment ça marche"
+  },
+  "whatWeDo": {
+    "eyebrow": "Comment ça marche",
+    "title": "Une tenue de livres <hl>qui vous répond</hl>",
+    "lead": "Un seul assistant qui connaît vos livres, sur tous les canaux que vous utilisez déjà — et une équipe de comptables qui veille à ce que tout soit exact.",
+    "tabs": {
+      "agent": {
+        "title": "Agent IA",
+        "body": "Posez-lui toutes vos questions sur vos livres par texto, WhatsApp, courriel, téléphone ou clavardage sur le site — « Combien ai-je dépensé en essence le mois dernier ? », « Classe ce reçu », « Envoie-moi mon bilan ». Il se souvient de la conversation d’un canal à l’autre et peut même appeler quelqu’un ou lui écrire pour vous, à votre demande."
+      },
+      "bank": {
+        "title": "Flux bancaires et relevés",
+        "body": "Connectez votre banque en quelques clics (Canada et États-Unis) et vos opérations arrivent d’elles-mêmes, ou téléversez vos relevés bancaires en PDF. Chaque opération est lue et inscrite en partie double, nommée et classée selon les règles que vous fixez pour chaque bénéficiaire."
+      },
+      "receipts": {
+        "title": "Reçus et pièces jointes",
+        "body": "Prenez votre reçu en photo et envoyez-le-nous par texto, WhatsApp ou courriel. L’assistant le lit, comprend de quoi il s’agit et le joint à la bonne opération — tout est conservé dans un dossier par compte bancaire, que vous pouvez consulter en tout temps."
+      },
+      "reports": {
+        "title": "Rapports et envois planifiés",
+        "body": "Téléchargez votre grand livre, votre état des résultats et votre bilan quand vous le voulez, ou laissez l’assistant vous les envoyer selon un calendrier — un état de compte hebdomadaire, un rapport financier mensuel ou tout autre message demandé — par texto, courriel ou appel téléphonique."
+      }
+    }
+  },
+  "services": {
+    "eyebrow": "Fonctionnalités",
+    "titleTop": "Tout ce dont vos livres ont besoin,",
+    "titleBottom": "en <hl>une seule conversation</hl>",
+    "lead": "Envoyez-lui vos relevés et vos reçus — il s’occupe du reste et vous avise quand il a besoin de vous.",
+    "items": {
+      "channels": {
+        "label": "Un assistant sur tous les canaux",
+        "body": "Texto, WhatsApp, courriel, appel ou clavardage sur le site."
+      },
+      "statements": {
+        "label": "Vos relevés bancaires, lus pour vous",
+        "body": "Téléversez vos PDF et chaque opération est inscrite."
+      },
+      "feeds": {
+        "label": "Flux bancaires automatiques",
+        "body": "Connectez vos banques canadiennes et américaines au moyen de Plaid."
+      },
+      "ledger": {
+        "label": "Grand livre en partie double",
+        "body": "Chaque ligne avec son débit et son crédit, prête pour votre comptable."
+      },
+      "receipts": {
+        "label": "Reçus jumelés aux opérations",
+        "body": "Envoyez-les par texto ou par courriel — l’assistant les classe."
+      },
+      "rules": {
+        "label": "Vos propres règles par bénéficiaire",
+        "body": "Fixez un nom et une catégorie une seule fois; ils s’appliquent partout."
+      },
+      "reports": {
+        "label": "Rapports financiers",
+        "body": "Grand livre, état des résultats et bilan à télécharger."
+      },
+      "schedules": {
+        "label": "Mises à jour planifiées",
+        "body": "Rapports et rappels par texto, courriel ou appel téléphonique."
+      },
+      "calls": {
+        "label": "Appels et textos à votre place",
+        "body": "Demandez à l’assistant d’appeler quelqu’un ou de lui écrire un message."
+      },
+      "companies": {
+        "label": "Plusieurs entreprises",
+        "body": "Tenez des livres distincts pour chacune de vos entreprises."
+      },
+      "currency": {
+        "label": "Plusieurs devises",
+        "body": "Opérations en devises étrangères converties dans votre devise de base."
+      },
+      "accountants": {
+        "label": "De vrais comptables derrière",
+        "body": "L’équipe de CYG Finance vérifie le travail et reste à un message de vous."
+      }
+    }
+  },
+  "contact": {
+    "title": "Parler à une personne",
+    "body": "L’assistant s’occupe du quotidien, et nos comptables sont toujours là, derrière lui. Joignez directement le bureau de CYG Finance en tout temps.",
+    "emailUs": "Écrivez-nous",
+    "callUs": "Appelez-nous"
+  },
+  "footer": {
+    "tagline": "Nous travaillons dans les coulisses, <hl>pour que vous puissiez briller sur scène.</hl>",
+    "company": "Entreprise",
+    "home": "Accueil",
+    "contact": "Nous joindre",
+    "privacy": "Politique de confidentialité",
+    "security": "Politique de sécurité",
+    "siteMap": "Plan du site",
+    "phone": "Téléphone : 855-CYG-FINA",
+    "copyright": "© {{year}} CYG Finance. Tous droits réservés."
+  }
+}

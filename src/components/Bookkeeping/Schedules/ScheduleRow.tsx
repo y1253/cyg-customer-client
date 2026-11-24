@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ChevronDown, Loader2, MoreHorizontal, Send, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ type Props = {
  * on/off switch at a glance; click to open its settings and recent sends below it.
  */
 export function ScheduleRow(p: Props) {
+  const { t } = useTranslation(['books', 'common'])
   return (
     <li className={cn('transition-colors', p.open && 'bg-muted/30')}>
       <div
@@ -82,14 +84,14 @@ export function ScheduleRow(p: Props) {
           </p>
           {/* phone: the next send under the line */}
           <p className="text-xs text-muted-foreground md:hidden">
-            {p.on && p.nextRunAt ? `Next: ${fmtWhen(p.nextRunAt)}` : 'Off'}
+            {p.on && p.nextRunAt ? t('schedules.next', { when: fmtWhen(p.nextRunAt) }) : t('common:status.off')}
           </p>
         </div>
 
         <div className="hidden w-40 shrink-0 text-right md:block">
-          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Next send</p>
+          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">{t('schedules.nextSend')}</p>
           <p className="text-xs font-medium text-[#0B1C2C]">
-            {p.on && p.nextRunAt ? fmtWhen(p.nextRunAt) : <span className="text-muted-foreground">Off</span>}
+            {p.on && p.nextRunAt ? fmtWhen(p.nextRunAt) : <span className="text-muted-foreground">{t('common:status.off')}</span>}
           </p>
         </div>
 
@@ -97,25 +99,25 @@ export function ScheduleRow(p: Props) {
           <Switch
             checked={p.on}
             disabled={p.busy}
-            aria-label={p.on ? `Turn off ${p.title}` : `Turn on ${p.title}`}
+            aria-label={p.on ? t('schedules.turnOff', { title: p.title }) : t('schedules.turnOn', { title: p.title })}
             onCheckedChange={p.onSwitch}
           />
           <DropdownMenu>
             <DropdownMenuTrigger
-              aria-label={`More for ${p.title}`}
+              aria-label={t('schedules.more', { title: p.title })}
               className="ml-1 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {p.sending ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem disabled={!p.canSend || p.busy} onClick={p.onSendNow}>
-                <Send /> Send now
+                <Send /> {t('schedules.sendNow')}
               </DropdownMenuItem>
               {p.onDelete && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" disabled={p.busy} onClick={p.onDelete}>
-                    <Trash2 /> Delete
+                    <Trash2 /> {t('common:actions.delete')}
                   </DropdownMenuItem>
                 </>
               )}

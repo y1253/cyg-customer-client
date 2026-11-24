@@ -1,6 +1,7 @@
 import { Combobox } from '@base-ui/react/combobox'
 import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AccountType } from '@/api/bookkeeping'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -26,6 +27,7 @@ export function CategoryField({
   onChange: (value: CategoryChoice) => void
   className?: string
 }) {
+  const { t } = useTranslation('ledger')
   const accounts = useChartAccounts()
   const creating = value.category === NEW_CATEGORY
   const [query, setQuery] = useState(creating ? value.newName : (value.category ?? ''))
@@ -70,12 +72,12 @@ export function CategoryField({
       >
         <div className="relative">
           <Combobox.Input
-            placeholder="Type to find a category"
+            placeholder={t('category.find')}
             maxLength={191}
             className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent py-1 pr-8 pl-2.5 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
           />
           <Combobox.Trigger
-            aria-label="Show every category"
+            aria-label={t('category.showAll')}
             className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground"
           >
             <ChevronDown className="size-4" />
@@ -85,7 +87,7 @@ export function CategoryField({
           <Combobox.Positioner sideOffset={4} className="isolate z-50">
             <Combobox.Popup className="max-h-64 w-(--anchor-width) min-w-48 overflow-y-auto rounded-lg bg-popover p-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
               <Combobox.Empty>
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">No categories yet — type one</div>
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">{t('category.empty')}</div>
               </Combobox.Empty>
               <Combobox.List>
                 {(name: string) => (
@@ -98,7 +100,7 @@ export function CategoryField({
                     )}
                   >
                     {name === ADD ? (
-                      <>+ Add “{typed}” as a new category</>
+                      t('category.addNew', { name: typed })
                     ) : (
                       <>
                         {name}
@@ -119,7 +121,7 @@ export function CategoryField({
           <Input
             value={value.newName}
             maxLength={191}
-            placeholder="Your category, e.g. Groceries"
+            placeholder={t('category.newPlaceholder')}
             onChange={(e) => onChange({ ...value, newName: e.target.value })}
             className="sm:flex-1"
           />
@@ -128,12 +130,12 @@ export function CategoryField({
             onValueChange={(v) => onChange({ ...value, newType: v as AccountType | null })}
           >
             <SelectTrigger className="sm:w-36">
-              <SelectValue placeholder="Kind">{(v: AccountType | null) => (v ? TYPE_LABEL[v] : null)}</SelectValue>
+              <SelectValue placeholder={t('category.kind')}>{(v: AccountType | null) => (v ? TYPE_LABEL[v] : null)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(TYPE_LABEL) as AccountType[]).map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TYPE_LABEL[t]}
+              {(Object.keys(TYPE_LABEL) as AccountType[]).map((type) => (
+                <SelectItem key={type} value={type}>
+                  {TYPE_LABEL[type]}
                 </SelectItem>
               ))}
             </SelectContent>

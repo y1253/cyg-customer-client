@@ -1,5 +1,6 @@
 import type { Statement } from '@/api/bookkeeping'
 import type { StartingDate } from '@/lib/starting-dates'
+import i18n from '@/i18n'
 import { money } from '@/lib/money'
 
 /**
@@ -97,6 +98,14 @@ export function balanceLine(
   const open = s.openingBalance ?? (worked === undefined ? null : (card ? -worked : worked) || 0)
   const end = s.endingBalance ?? s.closingBalance ?? null
   if (open === null && end === null) return null
-  const at = (n: number | null) => (n === null ? 'not read' : `${card ? 'owes ' : ''}${money(n)}`)
-  return `Starts ${at(open)}${worked === undefined ? '' : ' (worked out)'} · ends ${at(end)}`
+  const at = (n: number | null) =>
+    n === null
+      ? i18n.t('books:statements.notRead')
+      : card
+        ? i18n.t('books:statements.owes', { amount: money(n) })
+        : money(n)
+  return i18n.t(worked === undefined ? 'books:statements.balanceLine' : 'books:statements.balanceLineWorked', {
+    open: at(open),
+    end: at(end),
+  })
 }

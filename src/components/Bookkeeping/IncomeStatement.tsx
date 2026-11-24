@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { AccountType, Reports } from '@/api/bookkeeping'
 import { useRenameAccount } from '@/hooks/useMerge'
 import { useMoveAccount } from '@/hooks/useMoveAccount'
@@ -13,6 +14,7 @@ import { ReportCard, ReportRow, ReportSection, UncategorizedNote } from './Repor
  * the two (step8).
  */
 export function IncomeStatement({ reports, onOpen }: { reports: Reports; onOpen?: (scope: LedgerScope) => void }) {
+  const { t } = useTranslation(['books', 'common'])
   const is = reports.incomeStatement
   const profit = is.netIncome >= 0
   const move = useMoveAccount()
@@ -27,19 +29,26 @@ export function IncomeStatement({ reports, onOpen }: { reports: Reports; onOpen?
     onMerge: merge.ask,
   }
   return (
-    <ReportCard title="Income statement" subtitle={periodLabel(reports.from, reports.to)}>
+    <ReportCard title={t('tabs.income')} subtitle={periodLabel(reports.from, reports.to)}>
       <UncategorizedNote reports={reports} />
-      <ReportSection title="Income" type="INCOME" lines={is.income} total={is.totalIncome} totalLabel="Total income" {...section} />
       <ReportSection
-        title="Expenses"
+        title={t('reports.section.INCOME')}
+        type="INCOME"
+        lines={is.income}
+        total={is.totalIncome}
+        totalLabel={t('reports.total.INCOME')}
+        {...section}
+      />
+      <ReportSection
+        title={t('reports.section.EXPENSE')}
         type="EXPENSE"
         lines={is.expenses}
         total={is.totalExpenses}
-        totalLabel="Total expenses"
+        totalLabel={t('reports.total.EXPENSE')}
         {...section}
       />
       <ReportRow
-        label={profit ? 'Net income' : 'Net loss'}
+        label={profit ? t('reports.netIncome') : t('reports.netLoss')}
         amount={is.netIncome}
         strong
         className={

@@ -1,0 +1,155 @@
+{
+  "nav": {
+    "services": "Services",
+    "businesses": "Mes entreprises",
+    "bookkeeping": "Tenue de livres",
+    "contacts": "Contacts",
+    "requests": "Mes demandes",
+    "account": "Mon compte",
+    "dashboard": "Tableau de bord"
+  },
+  "account": {
+    "title": "Mon compte",
+    "description": "Vos renseignements, tels que CYG Finance les a.",
+    "signedInWith": "Connecté avec <method>{{method}}</method>",
+    "method": {
+      "PASSWORD": "courriel et mot de passe",
+      "GOOGLE": "Google",
+      "PHONE": "un code envoyé par texto"
+    },
+    "fullName": "Nom complet",
+    "email": "Courriel",
+    "phone": "Téléphone",
+    "phoneHelp": "Les reçus que vous nous envoyez {{verb}} depuis ce numéro vont directement dans votre tenue de livres. Vous pouvez aussi vous connecter avec ce numéro : nous vous texterons un code.",
+    "contact": "Mode de communication préféré",
+    "contactMethod": {
+      "EMAIL": "Courriel",
+      "WHATSAPP": "WhatsApp",
+      "SMS": "Texto",
+      "CALL": "Appel téléphonique"
+    },
+    "noPreference": "Aucune préférence",
+    "contactHelp": "Comment vous souhaitez que nous vous joignions. Le texto et WhatsApp exigent le téléphone ci-dessus.",
+    "alerts": "Alertes de nouvelles opérations bancaires",
+    "alertsHelp": "Quand votre banque connectée envoie de nouvelles opérations, nous vous écrivons chacune avec la catégorie où nous l’avons classée, par votre mode de communication préféré (un texto si vous n’en avez pas choisi). Répondez pour changer une catégorie.",
+    "saved": "Enregistré.",
+    "saveChanges": "Enregistrer les modifications",
+    "language": {
+      "title": "Langue / Language",
+      "description": "La langue du site, de vos courriels et de nos messages.",
+      "label": "Langue"
+    }
+  },
+  "addEmail": {
+    "sentTo": "Nous avons envoyé un code à <b>{{email}}</b>.",
+    "code": "Code",
+    "add": "Ajouter le courriel",
+    "another": "Utiliser un autre courriel",
+    "placeholder": "vous@exemple.com",
+    "send": "Envoyer le code",
+    "help": "Vous avez ouvert votre compte par téléphone. Ajoutez un courriel pour aussi vous connecter avec celui-ci et recevoir vos rapports par courriel."
+  },
+  "password": {
+    "titleChange": "Changer le mot de passe",
+    "titleSet": "Créer un mot de passe",
+    "descChange": "Les autres appareils connectés à votre compte seront déconnectés.",
+    "descSet": "Vous vous connectez avec Google. Créez un mot de passe pour aussi vous connecter avec votre courriel.",
+    "changed": "Mot de passe changé.",
+    "sendingCode": "Envoi du code…",
+    "emailCode": "M’envoyer un code par courriel",
+    "current": "Mot de passe actuel",
+    "sentTo": "Nous avons envoyé un code à 6 chiffres à <b>{{email}}</b>. Il expire dans 10 minutes.",
+    "code": "Code",
+    "submitChange": "Changer le mot de passe",
+    "submitSet": "Créer le mot de passe",
+    "errCurrent": "Entrez votre mot de passe actuel",
+    "errCode": "Entrez le code à 6 chiffres reçu par courriel"
+  },
+  "pay": {
+    "title": "Lire vos relevés",
+    "description_one": "Nous lisons {{count}} nouveau relevé et inscrivons chaque opération dans votre grand livre.",
+    "description_other": "Nous lisons {{count}} nouveaux relevés et inscrivons chaque opération dans votre grand livre.",
+    "description_many": "Nous lisons {{count}} nouveaux relevés et inscrivons chaque opération dans votre grand livre.",
+    "notSetUp": "Les paiements ne sont pas encore configurés. Veuillez nous joindre.",
+    "cardLoading": "Le formulaire de carte est encore en chargement.",
+    "checkCard": "Vérifiez les détails de votre carte.",
+    "declined": "Votre carte a été refusée.",
+    "payWith": "Payer avec",
+    "newCard": "Utiliser une nouvelle carte",
+    "secured": "Sécurisé par Stripe. Votre carte est enregistrée pour la prochaine fois; nous ne voyons jamais son numéro.",
+    "processing": "Traitement…",
+    "generateFree": "Générer gratuitement",
+    "payAndGenerate": "Payer {{amount}} et générer",
+    "summary_one": "Génération · {{count}} relevé",
+    "summary_other": "Génération · {{count}} relevés",
+    "summary_many": "Génération · {{count}} relevés",
+    "total": "Total",
+    "free": "Gratuit",
+    "percentOff": "{{value}} % de rabais",
+    "specialPrice": "Prix spécial : {{price}}",
+    "promoApplied": "{{code}} appliqué",
+    "removePromo": "Retirer le code promo",
+    "havePromo": "Vous avez un code promo ?",
+    "promoCode": "Code promo",
+    "expires": "Expiration : {{date}}"
+  },
+  "cards": {
+    "title": "Cartes enregistrées",
+    "description": "Enregistrées de façon sécurisée par Stripe lors de votre paiement, pour que la prochaine génération se fasse en un clic. Nous ne voyons jamais le numéro de la carte.",
+    "empty": "Aucune carte enregistrée pour l’instant. Votre carte est enregistrée la première fois que vous payez."
+  },
+  "contacts": {
+    "title": "Contacts",
+    "description": "Les personnes que l’assistant IA peut appeler ou texter pour vous. Demandez-lui : « Appelle Jean et dis-lui… ».",
+    "add": "Ajouter un contact",
+    "emptyTitle": "Aucun contact pour l’instant",
+    "emptyText": "Quand vous demandez à l’assistant d’appeler ou de texter quelqu’un, il demande son nom et l’enregistre ici.",
+    "name": "Nom",
+    "phone": "Téléphone",
+    "email": "Courriel",
+    "lastReached": "Dernier contact",
+    "note": "Note",
+    "editTitle": "Modifier le contact",
+    "addTitle": "Ajouter un contact",
+    "formDescription": "L’assistant utilise le nom pour savoir de qui vous parlez.",
+    "phonePlaceholder": "(514) 555-1234",
+    "notePlaceholder": "p. ex. mon propriétaire",
+    "removeTitle": "Retirer {{name}} ?",
+    "removeDescription": "L’assistant ne saura plus qui est cette personne. Les appels et textos déjà faits restent dans votre historique."
+  },
+  "requests": {
+    "title": "Mes demandes",
+    "description": "Une chose que nous ne faisons pas encore ? Demandez-la ici ou par l’assistant IA. Notre équipe examine chaque demande.",
+    "new": "Nouvelle demande",
+    "emptyTitle": "Aucune demande pour l’instant",
+    "emptyText": "Demandez une chose que nous ne faisons pas encore, ici ou par l’assistant, et suivez-la sur cette page.",
+    "formDescription": "Dites-nous ce que vous aimeriez que nous ajoutions. Notre équipe examine chaque demande.",
+    "what": "Que souhaitez-vous ?",
+    "whatPlaceholder": "p. ex. Produire mes déclarations de TPS",
+    "details": "Détails (facultatif)",
+    "send": "Envoyer la demande",
+    "fromTeam": "De notre équipe :",
+    "asked": "Demandé le {{date}}",
+    "availableSince": "offert depuis le {{date}}",
+    "status": {
+      "OPEN": "Reçue",
+      "PLANNED": "Prévue",
+      "DONE": "Offert maintenant",
+      "DECLINED": "Non prévue"
+    }
+  },
+  "phoneUpload": {
+    "title": "Envoyez vos documents",
+    "goesTo": "Ils vont dans {{book}}. Nous lisons chacun et le classons.",
+    "goesToUnder": "Ils vont dans {{book}}, sous {{name}}. Nous lisons chacun et le classons.",
+    "badFiles": "Ces fichiers ne peuvent pas être lus. Envoyez des photos, des PDF, de l’audio ou des chiffriers de moins de 25 Mo.",
+    "takePhoto": "Prendre une photo",
+    "chooseFiles": "Choisir des fichiers",
+    "sent": "Envoyés · {{count}} : vous pouvez les voir sur votre ordinateur"
+  },
+  "connect": {
+    "connected": "{{name}} est connecté. Fermeture…",
+    "failed": "Impossible de connecter {{name}}.",
+    "hint": "Vous pouvez fermer cette fenêtre et réessayer, ou entrer plutôt votre courriel et votre mot de passe."
+  }
+}

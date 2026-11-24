@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getRegistration, mailboxAuthUrl, type Mailbox, type MailboxProvider } from '@/api/registrations'
 import { MAILBOX_CONNECT_MESSAGE } from '@/components/Connect/ConnectResultPage'
 import { useAuth } from '@/context/AuthContext'
+import i18n from '@/i18n'
 
 /**
  * Connects Gmail / Outlook to a draft application through a popup (the internal API's
@@ -37,7 +38,7 @@ export function useMailboxConnect(id: number, initial: Mailbox | null) {
       setError(null)
       const popup = window.open('', `${provider}-oauth`, 'width=500,height=650')
       if (!popup) {
-        setError('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.')
+        setError(i18n.t('register:mailbox.popupBlocked'))
         return
       }
       setConnecting(true)
@@ -52,7 +53,7 @@ export function useMailboxConnect(id: number, initial: Mailbox | null) {
       }
       const onMessage = (e: MessageEvent) => {
         if (e.origin !== window.location.origin || e.data?.type !== MAILBOX_CONNECT_MESSAGE) return
-        void finish(e.data.ok ? null : (e.data.reason ?? 'The mailbox could not be connected.'))
+        void finish(e.data.ok ? null : (e.data.reason ?? i18n.t('register:mailbox.notConnected')))
       }
       const onFocus = () => void refresh()
       const poll = window.setInterval(() => {
@@ -73,7 +74,7 @@ export function useMailboxConnect(id: number, initial: Mailbox | null) {
         })
         .catch((err: unknown) => {
           popup.close()
-          void finish(err instanceof Error ? err.message : 'Could not start the connection.')
+          void finish(err instanceof Error ? err.message : i18n.t('register:mailbox.couldNotStart'))
         })
     },
     [token, id, refresh],

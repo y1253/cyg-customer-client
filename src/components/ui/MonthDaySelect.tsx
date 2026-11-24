@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { LAST_DAY_OF_MONTH, MAX_MONTH_DAY } from "@/lib/cycle";
 
@@ -16,6 +17,7 @@ interface MonthDaySelectProps {
  * day of whatever month it is. Single source of truth for this control.
  */
 export function MonthDaySelect({ value, onChange, id, className }: MonthDaySelectProps) {
+  const { t } = useTranslation(["portal", "common"]);
   return (
     <select
       id={id}
@@ -31,7 +33,7 @@ export function MonthDaySelect({ value, onChange, id, className }: MonthDaySelec
           {d}
         </option>
       ))}
-      <option value={LAST_DAY_OF_MONTH}>Last day of month</option>
+      <option value={LAST_DAY_OF_MONTH}>{t("cycle.lastDayOption")}</option>
     </select>
   );
 }

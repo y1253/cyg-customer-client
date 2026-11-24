@@ -1,10 +1,11 @@
 import { Combobox } from '@base-ui/react/combobox'
 import { Check, ChevronDown, Plus, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { NameGroup } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useSaveNameGroup } from '@/hooks/useNameGroups'
+import { localGroup, useSaveNameGroup } from '@/hooks/useNameGroups'
 import { cn } from '@/lib/utils'
 
 /** The list item that turns what was typed into a new group. Never a real group key. */
@@ -16,7 +17,7 @@ const ADD = '\u0000add'
  * box. A new group is created at once and picked.
  */
 export function GroupPicker({
-  groups,
+  groups: rawGroups,
   value,
   onChange,
   disabled,
@@ -26,6 +27,9 @@ export function GroupPicker({
   onChange: (key: string) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation(['names', 'common'])
+  // The built-in groups in the site's language (the server sends their English labels).
+  const groups = useMemo(() => rawGroups.map(localGroup), [rawGroups])
   const saveGroup = useSaveNameGroup()
   const labelOf = (key: string | null) => groups.find((g) => g.key === key)?.label ?? ''
   const [query, setQuery] = useState(labelOf(value))
@@ -70,7 +74,7 @@ export function GroupPicker({
             autoFocus
             maxLength={64}
             value={newName}
-            placeholder="New group, e.g. Employees"
+            placeholder={t('groupPicker.newPlaceholder')}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -88,13 +92,13 @@ export function GroupPicker({
           <Button
             type="button"
             size="icon-sm"
-            title="Add this group"
+            title={t('groupPicker.addThis')}
             disabled={saveGroup.isPending || !newName.trim()}
             onClick={() => void create(newName)}
           >
             <Check />
           </Button>
-          <Button type="button" size="icon-sm" variant="ghost" title="Cancel" onClick={() => setAdding(false)}>
+          <Button type="button" size="icon-sm" variant="ghost" title={t('common:actions.cancel')} onClick={() => setAdding(false)}>
             <X />
           </Button>
         </div>
@@ -123,12 +127,12 @@ export function GroupPicker({
         >
           <div className="relative min-w-0 flex-1">
             <Combobox.Input
-              placeholder="Type to find or add a group"
+              placeholder={t('groupPicker.placeholder')}
               maxLength={64}
               className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent py-1 pr-8 pl-2.5 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 md:text-sm"
             />
             <Combobox.Trigger
-              aria-label="Show every group"
+              aria-label={t('groupPicker.showAll')}
               className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground"
             >
               <ChevronDown className="size-4" />
@@ -148,7 +152,7 @@ export function GroupPicker({
                       )}
                     >
                       {key === ADD ? (
-                        <>+ Add “{typed}” as a new group</>
+                        <>{t('groupPicker.addTyped', { name: typed })}</>
                       ) : (
                         <>
                           <span className="min-w-0 flex-1 truncate">{labelOf(key)}</span>
@@ -166,7 +170,7 @@ export function GroupPicker({
           type="button"
           size="icon-sm"
           variant="outline"
-          title="Make a new group"
+          title={t('groupPicker.make')}
           disabled={disabled}
           onClick={() => {
             setNewName('')

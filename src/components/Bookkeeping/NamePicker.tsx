@@ -1,5 +1,6 @@
 import { Autocomplete } from '@base-ui/react/autocomplete'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNames } from '@/hooks/useNames'
 import { byLabel } from '@/lib/sort'
 import { cn } from '@/lib/utils'
@@ -23,6 +24,7 @@ export function NamePicker({
   autoFocus?: boolean
   className?: string
 }) {
+  const { t } = useTranslation('ledger')
   const names = useNames()
   const items = useMemo(
     // "Unclarified name" is not a name you can give a row (the server refuses it).
@@ -49,10 +51,10 @@ export function NamePicker({
         <Autocomplete.Positioner sideOffset={4} className="isolate z-50">
           <Autocomplete.Popup className="max-h-64 w-(--anchor-width) min-w-48 overflow-y-auto rounded-lg bg-popover p-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
             {isNew && (
-              <div className="px-2 py-1.5 text-xs font-medium text-brand">+ Create “{typed}” as a new name</div>
+              <div className="px-2 py-1.5 text-xs font-medium text-brand">{t('namePicker.create', { name: typed })}</div>
             )}
             <Autocomplete.Empty>
-              {!isNew && <div className="px-2 py-1.5 text-xs text-muted-foreground">No names yet — type one</div>}
+              {!isNew && <div className="px-2 py-1.5 text-xs text-muted-foreground">{t('namePicker.empty')}</div>}
             </Autocomplete.Empty>
             <Autocomplete.List>
               {(name: string) => (

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useSendStatementChat, useStatementChat } from '@/hooks/useAssistant'
 import { CallMeButton } from './CallMeButton'
 import { ChatPanel } from './ChatPanel'
@@ -10,6 +11,7 @@ import { ChatPanel } from './ChatPanel'
  * (a read one too — wrong balances, starting dates that do not carry over), and "Call me".
  */
 export function StatementChat({ statementId, initialDraft }: { statementId: number; initialDraft?: string }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const chat = useStatementChat(statementId)
   const send = useSendStatementChat(statementId)
   return (
@@ -18,8 +20,8 @@ export function StatementChat({ statementId, initialDraft }: { statementId: numb
       messages={chat.data?.messages ?? []}
       loading={chat.isLoading}
       onSend={(text) => send.mutateAsync(text)}
-      placeholder="e.g. “The withdrawals on page 3 were read as deposits”"
-      empty="Tell the AI what is wrong with this statement, or press the phone to talk it through — it can read it again or fix its balances."
+      placeholder={t('statementChat.placeholder')}
+      empty={t('statementChat.empty')}
       initialDraft={initialDraft}
       extraAction={<CallMeButton target={{ statementId }} />}
     />

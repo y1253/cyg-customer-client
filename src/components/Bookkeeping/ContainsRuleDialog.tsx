@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CONTAINS_MIN as MIN_CHARS, ruleConflictOf, type ContainsRule } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import {
@@ -47,6 +48,7 @@ export function ContainsRuleDialog({
 }
 
 function ContainsRuleForm({ rule, onDone }: { rule: ContainsRule | null; onDone: () => void }) {
+  const { t } = useTranslation(['names', 'common'])
   const create = useCreateAccount()
   const save = useSaveNameRule()
   const conflict = useRuleConflict()
@@ -91,45 +93,40 @@ function ContainsRuleForm({ rule, onDone }: { rule: ContainsRule | null; onDone:
       className="flex flex-col gap-4"
     >
       <DialogHeader>
-        <DialogTitle>{rule ? 'Edit description rule' : 'New description rule'}</DialogTitle>
-        <DialogDescription>
-          Every transaction whose description contains this text gets the name and/or category below — in this
-          ledger and every statement from now on. A rule for one exact description still wins.
-        </DialogDescription>
+        <DialogTitle>{rule ? t('containsDialog.editTitle') : t('containsDialog.newTitle')}</DialogTitle>
+        <DialogDescription>{t('containsDialog.text')}</DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="contains-rule-text">Description contains</Label>
+        <Label htmlFor="contains-rule-text">{t('containsDialog.containsLabel')}</Label>
         <Input
           id="contains-rule-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={!!rule}
-          placeholder="e.g. AMZN"
+          placeholder={t('containsDialog.placeholder')}
           maxLength={191}
           autoFocus={!rule}
         />
         <p className="text-xs text-muted-foreground">
-          {rule
-            ? 'To look for different text, delete this rule and add a new one.'
-            : `At least ${MIN_CHARS} characters. Capital letters don't matter.`}
+          {rule ? t('containsDialog.editHelp') : t('containsDialog.minHelp', { min: MIN_CHARS })}
         </p>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="contains-rule-name">Name (optional)</Label>
-        <NamePicker id="contains-rule-name" value={name} placeholder="Keep each row's name" onChange={setName} />
+        <Label htmlFor="contains-rule-name">{t('containsDialog.nameLabel')}</Label>
+        <NamePicker id="contains-rule-name" value={name} placeholder={t('containsDialog.namePlaceholder')} onChange={setName} />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Category {name.trim() ? '(optional)' : ''}</Label>
+        <Label>{name.trim() ? t('containsDialog.categoryOptional') : t('containsDialog.category')}</Label>
         <CategoryField value={choice} onChange={setChoice} />
         <p className="text-xs text-muted-foreground">
           {name.trim()
-            ? `A name has one category: every transaction named “${name.trim()}” goes in it.`
+            ? t('containsDialog.oneCategory', { name: name.trim() })
             : choice.category === NEW_CATEGORY
-              ? 'The new category is created when you save.'
-              : 'Every matching transaction goes in it.'}
+              ? t('containsDialog.newCategory')
+              : t('containsDialog.everyMatching')}
         </p>
       </div>
 
@@ -137,9 +134,9 @@ function ContainsRuleForm({ rule, onDone }: { rule: ContainsRule | null; onDone:
       <RuleConflictDialog conflict={conflict} />
 
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
         <Button type="submit" disabled={!canSave} className="bg-brand text-white hover:bg-brand/85">
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? t('common:actions.saving') : t('common:actions.save')}
         </Button>
       </DialogFooter>
     </form>

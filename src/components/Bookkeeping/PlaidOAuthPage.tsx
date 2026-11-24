@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { exchangePublicToken, markReconnected } from '@/api/bankFeeds'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -12,6 +13,7 @@ import { clearPendingLink, openPlaidLink, readPendingLink } from '@/lib/plaid-li
  * to the page the customer connected from.
  */
 export function PlaidOAuthPage() {
+  const { t } = useTranslation(['books', 'common'])
   const { token } = useAuth()
   const navigate = useNavigate()
   const [pending] = useState(readPendingLink)
@@ -19,7 +21,7 @@ export function PlaidOAuthPage() {
   const started = useRef(false)
   const error = pending
     ? failed
-    : 'This bank connection expired. Please start it again from your bookkeeping page.'
+    : t('plaid.expired')
 
   useEffect(() => {
     if (started.current || !token || !pending) return
@@ -44,12 +46,12 @@ export function PlaidOAuthPage() {
           <>
             <p className="text-sm text-destructive">{error}</p>
             <Button className="mt-4" onClick={() => navigate('/dashboard/bookkeeping', { replace: true })}>
-              Back to bookkeeping
+              {t('plaid.back')}
             </Button>
           </>
         ) : (
           <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Finishing your bank connection…
+            <Loader2 className="size-4 animate-spin" /> {t('plaid.finishing')}
           </p>
         )}
       </div>

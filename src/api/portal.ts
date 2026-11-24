@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { errorFrom, fetchWithAuth } from './client'
 import { INTERNAL_API } from './registrations'
 
@@ -12,7 +13,7 @@ const base = `${INTERNAL_API}/customer-portal`
 /** Thrown on the server's 403 `portal_locked`: the gate should ask for a code again. */
 export class PortalLockedError extends Error {
   constructor() {
-    super('Enter the code we emailed you to view this.')
+    super(i18n.t('portal:api.locked'))
   }
 }
 
@@ -32,7 +33,7 @@ async function call<T>(
       },
     })
   } catch {
-    throw new Error('Could not reach the server. Please check your connection and try again.')
+    throw new Error(i18n.t('portal:api.unreachable'))
   }
   if (res.status === 403) {
     const body = (await res.clone().json().catch(() => null)) as { code?: string } | null

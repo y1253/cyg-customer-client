@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, Copy, ExternalLink, Eye, EyeOff, KeyRound, Link2, StickyNote, User } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { PortalLink } from '@/api/portal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,6 +9,7 @@ import { usePortalLinks } from '@/hooks/usePortal'
 
 /** The company's saved links and logins, as our team keeps them. Read-only. */
 export function LinksView({ companyId }: { companyId: number }) {
+  const { t } = useTranslation(['portal', 'common'])
   const links = usePortalLinks(companyId)
 
   if (links.isPending) {
@@ -25,7 +27,7 @@ export function LinksView({ companyId }: { companyId: number }) {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
           <Link2 className="h-10 w-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No links have been saved for this business yet.</p>
+          <p className="text-sm text-muted-foreground">{t('links.empty')}</p>
         </CardContent>
       </Card>
     )
@@ -40,6 +42,7 @@ export function LinksView({ companyId }: { companyId: number }) {
 }
 
 function LinkCard({ link }: { link: PortalLink }) {
+  const { t } = useTranslation(['portal', 'common'])
   const [show, setShow] = useState(false)
   const href = link.url && !/^https?:\/\//i.test(link.url) ? `https://${link.url}` : link.url
 
@@ -55,7 +58,7 @@ function LinkCard({ link }: { link: PortalLink }) {
               rel="noopener noreferrer"
               className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#1f8f86] hover:underline"
             >
-              Open <ExternalLink className="h-3 w-3" />
+              {t('common:actions.open')} <ExternalLink className="h-3 w-3" />
             </a>
           )}
         </div>
@@ -77,7 +80,7 @@ function LinkCard({ link }: { link: PortalLink }) {
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => setShow((s) => !s)}
-                    aria-label={show ? 'Hide password' : 'Show password'}
+                    aria-label={show ? t('links.hidePassword') : t('links.showPassword')}
                   >
                     {show ? <EyeOff /> : <Eye />}
                   </Button>
@@ -111,6 +114,7 @@ function Field({
   mono?: boolean
   extra?: React.ReactNode
 }) {
+  const { t } = useTranslation(['portal', 'common'])
   const [copied, setCopied] = useState(false)
   return (
     <div className="flex items-center gap-2 text-sm">
@@ -120,7 +124,7 @@ function Field({
       <Button
         variant="ghost"
         size="icon-xs"
-        aria-label="Copy"
+        aria-label={t('common:actions.copy')}
         onClick={() => {
           void navigator.clipboard.writeText(copy).then(() => {
             setCopied(true)

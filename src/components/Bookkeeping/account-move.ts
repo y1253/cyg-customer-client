@@ -1,13 +1,9 @@
 import { useState, type DragEvent } from 'react'
+import i18n from '@/i18n'
 import type { AccountType } from '@/api/bookkeeping'
 
-export const SECTION_LABEL: Record<AccountType, string> = {
-  ASSET: 'Assets',
-  LIABILITY: 'Liabilities',
-  EQUITY: 'Equity',
-  INCOME: 'Income',
-  EXPENSE: 'Expenses',
-}
+/** A report section's heading: Assets, Liabilities, Equity, Income, Expenses. */
+export const sectionLabel = (type: AccountType) => i18n.t(`books:reports.section.${type}`)
 export const ALL: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE']
 /** A bank / card account is cash or a debt — it can only move within the balance sheet. */
 export const SHEET: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY']

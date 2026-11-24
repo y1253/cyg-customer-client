@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n, { currentLang } from '@/i18n'
 import { useAuthConfig } from '@/hooks/useAuthConfig'
 import { useGoogleLogin } from '@/hooks/useGoogleLogin'
 
@@ -24,12 +26,13 @@ function loadGsi(): Promise<void> {
   gsiPromise ??= new Promise<void>((resolve, reject) => {
     if (window.google?.accounts?.id) return resolve()
     const s = document.createElement('script')
-    s.src = GSI_SRC
+    // `hl` sets the button's language; `locale` below alone is ignored by some versions.
+    s.src = `${GSI_SRC}?hl=${currentLang()}`
     s.async = true
     s.onload = () => resolve()
     s.onerror = () => {
       gsiPromise = null
-      reject(new Error('Could not load Google sign-in'))
+      reject(new Error(i18n.t('auth:errors.googleLoad')))
     }
     document.head.appendChild(s)
   })
@@ -48,6 +51,7 @@ export function GoogleButton({
   text?: 'signin_with' | 'signup_with' | 'continue_with'
   onSuccess: () => void
 }) {
+  const { t } = useTranslation('auth')
   const config = useAuthConfig()
   const google = useGoogleLogin()
   const ref = useRef<HTMLDivElement>(null)
@@ -82,6 +86,7 @@ export function GoogleButton({
           size: 'large',
           shape: 'rectangular',
           text,
+          locale: currentLang(),
           width: Math.min(el.offsetWidth || 352, 400),
         })
       })
@@ -99,7 +104,7 @@ export function GoogleButton({
     <div className="flex flex-col gap-2">
       <div ref={ref} className="flex min-h-11 w-full justify-center" />
       {google.isPending && (
-        <p className="text-center text-sm text-muted-foreground">Signing you in…</p>
+        <p className="text-center text-sm text-muted-foreground">{t('google.signingIn')}</p>
       )}
       {(google.error || loadError) && (
         <p role="alert" className="text-center text-sm text-destructive">

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -42,6 +43,7 @@ export function ResendButton({
   pending: boolean
   onClick: () => void
 }) {
+  const { t } = useTranslation('auth')
   return (
     <Button
       type="button"
@@ -50,7 +52,7 @@ export function ResendButton({
       disabled={wait > 0 || pending}
       onClick={onClick}
     >
-      {pending ? 'Sending…' : wait > 0 ? `Resend code in ${wait}s` : 'Resend code'}
+      {pending ? t('code.sending') : wait > 0 ? t('code.resendIn', { s: wait }) : t('code.resend')}
     </Button>
   )
 }

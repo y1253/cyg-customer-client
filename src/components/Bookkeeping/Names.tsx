@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useSearchState } from '@/hooks/useBookView'
 import {
   Check,
@@ -77,12 +78,13 @@ import {
   type BucketFilter,
 } from '@/lib/name-files'
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
-import { useDeleteNameGroup, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
+import { localGroup, useDeleteNameGroup, useSaveNameGroup, useSetNameGroup } from '@/hooks/useNameGroups'
 import { useSaveAgency } from '@/hooks/useSaveAgency'
 import { useDeleteSplitGroup, useSaveSplitGroup } from '@/hooks/useSplitGroups'
 import { useTax } from '@/hooks/useTax'
 import { useMergeNames } from '@/hooks/useMerge'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
+import i18n, { currentLocale } from '@/i18n'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { AgencyDialog } from './AgencyDialog'
@@ -90,7 +92,7 @@ import { AgencyPicker } from './AgencyPicker'
 import { ContainsRuleDialog } from './ContainsRuleDialog'
 import { InlineRename } from './InlineRename'
 import { exceptionCount } from '@/lib/name-exceptions'
-import { FIELD_KIND_ICON, FIELD_KIND_LABEL, fieldHref } from '@/lib/name-fields'
+import { FIELD_KIND_ICON, fieldHref, fieldKindLabel } from '@/lib/name-fields'
 import { NameRuleDialog, type NameRuleTarget } from './NameRuleDialog'
 import { RuleConflictDialog } from './RuleConflictDialog'
 import { UnclarifiedTable } from './UnclarifiedTable'
@@ -114,10 +116,11 @@ import { FilesDialog, type FilesTarget } from './NameFiles/FilesDialog'
 
 /** What a name's rows add up to, red when money went out — as the ledger colours amounts. */
 function Total({ total }: { total: number }) {
+  const { t } = useTranslation(['names', 'common'])
   return (
     <span
       className={cn('text-xs font-medium tabular-nums', total < 0 ? 'text-red-600' : 'text-emerald-700')}
-      title="Total of its transactions"
+      title={t('totalTitle')}
     >
       · {money(total)}
     </span>
@@ -127,14 +130,13 @@ function Total({ total }: { total: number }) {
 /** What the list shows: everything, the split rules, the nameless rows, or one group (its key). */
 type Filter = 'ALL' | 'AGENCY' | 'UNRECOGNIZED' | string
 
-const TYPE_LABEL: Record<NameType | 'AGENCY', string> = {
-  AGENCY: 'Split rule',
-  SUPPLIER: 'Supplier',
-  CUSTOMER: 'Customer',
-  OTHER: 'Other',
-}
+/** A type's label ("Supplier"), in the site's language. */
+const typeLabel = (type: NameType | 'AGENCY') => i18n.t(`names:type.${type}`)
 
-/** step9: the built-in groups, until the server's list arrives. */
+/** "12 rows", the count in the site's number format. */
+const rowsLabel = (n: number) => i18n.t('names:rows', { count: n, n: n.toLocaleString(currentLocale()) })
+
+/** step9: the built-in groups, until the server's list arrives (labels shown through `localGroup`). */
 const BUILTIN_GROUPS: NameGroup[] = [
   { key: 'CUSTOMER', label: 'Customers' },
   { key: 'OTHER', label: 'Other' },
@@ -226,6 +228,7 @@ export function Names({
   /** A statement clicked in a bank account's folder: its transactions. */
   onOpenStatement?: (statementId: number) => void
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const tax = useTax()
   // step2 (2026-11-11): every file lives in a name's folder — the counts per name.
   const attachments = useAttachments()
@@ -308,8 +311,9 @@ export function Names({
   const unrecognizedList = useUnrecognized(q, { enabled: filter === 'UNRECOGNIZED' })
 
   const allAgencies = tax.data?.agencies ?? []
-  const groups = head?.groups ?? BUILTIN_GROUPS
-  const groupLabel = (key: string) => groups.find((g) => g.key === key)?.label ?? TYPE_LABEL[key as NameType] ?? key
+  const groups = (head?.groups ?? BUILTIN_GROUPS).map(localGroup)
+  const groupLabel = (key: string) =>
+    groups.find((g) => g.key === key)?.label ?? (isBuiltin(key) ? typeLabel(key) : key)
   const groupOf = nameGroupOf
   /** A name that is a tax agency (or the nameless rows) is not a payee: it never merges. */
   const mergeable = (n: LedgerName) =>
@@ -418,14 +422,14 @@ export function Names({
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-[#0B1C2C]">{a.name}</p>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-          <Badge className={TYPE_BADGE.AGENCY}>{TYPE_LABEL.AGENCY}</Badge>
+          <Badge className={TYPE_BADGE.AGENCY}>{t('type.AGENCY')}</Badge>
           <span className="text-sm text-muted-foreground tabular-nums">
             {a.rates.map(rateLabel).join(' · ')}
             {a.category && <> → {a.category}</>}
           </span>
           {inGroup && (
-            <span className="rounded bg-amber-100 px-1.5 text-xs text-amber-800" title="Its group is changed in the group's window">
-              in {inGroup}
+            <span className="rounded bg-amber-100 px-1.5 text-xs text-amber-800" title={t('agency.inGroupTitle')}>
+              {t('agency.inGroup', { group: inGroup })}
             </span>
           )}
         </div>
@@ -433,28 +437,28 @@ export function Names({
       {inGroup ? (
         // step9 (2026-11-18): a rule in a group is switched on / off on its group.
         <span className="text-xs text-muted-foreground">
-          {a.active ? 'On' : 'Off'} with {inGroup}
+          {t(a.active ? 'agency.onWith' : 'agency.offWith', { group: inGroup })}
         </span>
       ) : (
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="hidden sm:inline">{a.active ? 'Active' : 'Off'}</span>
+          <span className="hidden sm:inline">{a.active ? t('active') : t('agency.off')}</span>
           <Switch
             checked={a.active}
             disabled={save.isPending}
             onCheckedChange={(active) => save.mutate({ id: a.id, active })}
             className="data-checked:bg-brand"
-            aria-label={`${a.name} active`}
+            aria-label={t('agency.activeAria', { name: a.name })}
           />
         </label>
       )}
       <div className="flex shrink-0 gap-1">
-        <Button variant="ghost" size="icon-sm" title="Edit" onClick={() => open(a)}>
+        <Button variant="ghost" size="icon-sm" title={t('common:actions.edit')} onClick={() => open(a)}>
           <Pencil />
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Delete"
+          title={t('common:actions.delete')}
           className="text-muted-foreground hover:text-destructive"
           onClick={() => setConfirm(a)}
         >
@@ -500,7 +504,7 @@ export function Names({
     <NameRow
       key={`n:${n.name}`}
       n={n}
-      label={n.unclarified ? 'Unrecognized' : groupLabel(groupOf(n))}
+      label={n.unclarified ? t('row.badgeUnrecognized') : groupLabel(groupOf(n))}
       group={groupOf(n)}
       groups={groups}
       groupPending={setGroup.isPending && setGroup.variables?.name === n.name}
@@ -611,37 +615,31 @@ export function Names({
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
       <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-[#0B1C2C]">Names</h2>
-          <p className="text-sm text-muted-foreground">
-            Every name on your ledger, in its group — click one for its transactions. Edit a name to change its
-            category or the bank descriptions it follows; it is saved for this ledger and every statement from now
-            on. Drag a name onto another to merge them, onto a group chip above to move it there — or click its
-            group tag — and drag a description onto another name; a sub-name dropped on a name can also move under it. A split rule picked for a name splits its
-            transactions once; you can change those splits like any other.
-          </p>
+          <h2 className="font-semibold text-[#0B1C2C]">{t('tab.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('tab.intro')}</p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={() => setAdding(true)}
             className="h-10 gap-2 rounded-lg px-4"
-            title="A name of your own — listed even with no transactions, ready for its files"
+            title={t('tab.addNameTitle')}
           >
             <UserRound className="size-4" />
-            Add name
+            {t('tab.addName')}
           </Button>
           <Button
             variant="outline"
             onClick={() => setGroupEdit({ name: '' })}
             className="h-10 gap-2 rounded-lg px-4"
-            title="A group of your own, e.g. Employees"
+            title={t('tab.addGroupTitle')}
           >
             <Users className="size-4" />
-            Add group
+            {t('tab.addGroup')}
           </Button>
           <Button onClick={() => open(null)} className="h-10 gap-2 rounded-lg bg-brand px-4 text-white hover:bg-brand/85">
             <Plus className="size-4" />
-            Add split rule
+            {t('tab.addSplitRule')}
           </Button>
         </div>
       </div>
@@ -652,16 +650,16 @@ export function Names({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, category or bank description"
+            placeholder={t('tab.search')}
             className="h-9 pl-9"
           />
         </div>
         <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
           {[
-            { id: 'ALL', label: 'All' },
+            { id: 'ALL', label: t('filter.all') },
             ...groups.map((g) => ({ id: g.key, label: g.label })),
-            { id: 'AGENCY', label: 'Split rules' },
-            { id: 'UNRECOGNIZED', label: 'Unrecognized' },
+            { id: 'AGENCY', label: t('filter.splitRules') },
+            { id: 'UNRECOGNIZED', label: t('filter.unrecognized') },
           ].map((f) => (
             <FilterChip
               key={f.id}
@@ -679,7 +677,7 @@ export function Names({
               <Button
                 variant="ghost"
                 size="icon-xs"
-                title={`Rename ${ownGroup.label}`}
+                title={t('tab.renameGroup', { group: ownGroup.label })}
                 onClick={() => setGroupEdit({ id: ownGroup.id, name: ownGroup.label })}
               >
                 <Pencil />
@@ -687,7 +685,7 @@ export function Names({
               <Button
                 variant="ghost"
                 size="icon-xs"
-                title={`Remove ${ownGroup.label} (its names go back to following their category)`}
+                title={t('tab.removeGroup', { group: ownGroup.label })}
                 className="text-muted-foreground hover:text-destructive"
                 disabled={deleteGroup.isPending}
                 onClick={() => deleteGroup.mutate(ownGroup.id!, { onSuccess: () => setFilter('ALL') })}
@@ -710,11 +708,9 @@ export function Names({
           <span className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-brand/10 text-brand">
             <Landmark className="size-5" />
           </span>
-          <p className="font-medium text-[#0B1C2C]">{q || filter !== 'ALL' ? 'Nothing matches' : 'No names yet'}</p>
+          <p className="font-medium text-[#0B1C2C]">{q || filter !== 'ALL' ? t('tab.nothingMatches') : t('tab.noNames')}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {q || filter !== 'ALL'
-              ? 'Try another search or group.'
-              : 'Names appear here once your statements are read. Add a split rule — e.g. “GST”, in 5%, out 5% — and pick it for a name to split its transactions.'}
+            {q || filter !== 'ALL' ? t('tab.tryAnother') : t('tab.emptyHelp')}
           </p>
         </div>
       ) : (
@@ -724,8 +720,8 @@ export function Names({
             <SpecialRow
               icon={<Inbox className="size-4" />}
               tone="red"
-              title="Unsorted"
-              subtitle="Files we could not file under a name yet — move each to its name, or ask the AI."
+              title={t('tab.unsorted')}
+              subtitle={t('tab.unsortedHelp')}
               counts={unsorted}
               onOpen={(filter) => setFiles({ kind: 'name', name: '', filter })}
             />
@@ -734,7 +730,7 @@ export function Names({
           {filter === 'ALL' && accounts.length > 0 && (
             <div className="border-b">
               <p className="bg-muted/40 px-5 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Bank accounts · {accounts.length}
+                {t('tab.bankAccounts', { count: accounts.length })}
               </p>
               <ul className="divide-y">
                 {accounts
@@ -745,7 +741,7 @@ export function Names({
                       icon={acc.card ? <CreditCard className="size-4" /> : <Landmark className="size-4" />}
                       tone="green"
                       title={acc.name}
-                      subtitle={`${acc.statements.length} statement${acc.statements.length === 1 ? '' : 's'} — click for the statements and their transactions`}
+                      subtitle={t('tab.statements', { count: acc.statements.length })}
                       counts={{ ...EMPTY_COUNTS, related: acc.statements.length }}
                       onOpen={() => setFiles({ kind: 'account', account: acc })}
                     />
@@ -763,33 +759,35 @@ export function Names({
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-[#0B1C2C]">{g.name}</p>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                        <Badge className={TYPE_BADGE.AGENCY}>Split group</Badge>
+                        <Badge className={TYPE_BADGE.AGENCY}>{t('splitGroup.badge')}</Badge>
                         <span className="text-sm text-muted-foreground">
                           {g.agencyIds.length
-                            ? `${g.agencyIds
-                                .map((id) => (tax.data?.agencies ?? []).find((a) => a.id === id)?.name)
-                                .filter(Boolean)
-                                .join(' · ')} — split the same amount together`
-                            : 'No rules yet'}
+                            ? t('splitGroup.rules', {
+                                rules: g.agencyIds
+                                  .map((id) => (tax.data?.agencies ?? []).find((a) => a.id === id)?.name)
+                                  .filter(Boolean)
+                                  .join(' · '),
+                              })
+                            : t('splitGroup.noRules')}
                         </span>
                       </div>
                     </div>
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className="hidden sm:inline">{g.active ? 'Active' : 'Off'}</span>
+                      <span className="hidden sm:inline">{g.active ? t('splitGroup.active') : t('common:status.off')}</span>
                       <Switch
                         checked={g.active}
                         disabled={saveSplitGroup.isPending}
                         onCheckedChange={(active) => saveSplitGroup.mutate({ id: g.id, active })}
                         className="data-checked:bg-brand"
-                        aria-label={`${g.name} active — all its rules`}
-                        title="Switches every rule of the group on or off"
+                        aria-label={t('splitGroup.activeAria', { name: g.name })}
+                        title={t('splitGroup.switchTitle')}
                       />
                     </label>
                     <div className="flex shrink-0 gap-1">
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        title="Edit group — its name, its rules and Active"
+                        title={t('splitGroup.edit')}
                         onClick={() => setSplitGroupEdit(g)}
                       >
                         <Pencil />
@@ -797,7 +795,7 @@ export function Names({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        title="Delete group"
+                        title={t('splitGroup.delete')}
                         className="text-muted-foreground hover:text-destructive"
                         onClick={() => setSplitGroupConfirm(g)}
                       >
@@ -818,8 +816,10 @@ export function Names({
                 {hasNextPage && (
                   // Keyed by the count, so each new page observes a fresh sentinel.
                   <li key={`more-${shownNames.length}`} ref={setSentinel} className="px-5 py-3 text-sm text-muted-foreground">
-                    Showing {shownNames.length.toLocaleString()} of{' '}
-                    {(pages.data?.pages[0]?.total ?? shownNames.length).toLocaleString()} names — loading more…
+                    {t('tab.loadingMore', {
+                      shown: shownNames.length.toLocaleString(currentLocale()),
+                      total: (pages.data?.pages[0]?.total ?? shownNames.length).toLocaleString(currentLocale()),
+                    })}
                   </li>
                 )}
               </ul>
@@ -827,8 +827,8 @@ export function Names({
               filter !== 'ALL' && (
                 <p className="border-t px-5 py-4 text-sm text-muted-foreground">
                   {q
-                    ? `Nothing in ${groupLabel(filter)} matches.`
-                    : `No names in ${groupLabel(filter)} yet — drag a name onto its chip above.`}
+                    ? t('tab.nothingInGroup', { group: groupLabel(filter) })
+                    : t('tab.emptyGroup', { group: groupLabel(filter) })}
                 </p>
               )
             ))}
@@ -839,7 +839,7 @@ export function Names({
                 actions={(u) => (
                   <>
                     <Button variant="outline" size="xs" onClick={() => setRuleTarget({ kind: 'unrecognized', view: u })}>
-                      Assign
+                      {t('assign')}
                     </Button>
                     {u.rule && <ResetButton onReset={() => resetRule.mutate(u.rule!)} resetting={resetting(u.rule)} />}
                   </>
@@ -855,7 +855,7 @@ export function Names({
                 className="flex w-full items-center gap-2 px-5 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-muted/40"
               >
                 <ChevronDown className={cn('size-4 transition-transform', categoryOnlyOpen && 'rotate-180')} />
-                Category-only description rules · {shownContains.length}
+                {t('tab.categoryOnly', { count: shownContains.length })}
               </button>
               {categoryOnlyOpen && (
                 <ul className="divide-y">
@@ -888,15 +888,12 @@ export function Names({
       <Dialog open={!!splitGroupConfirm} onOpenChange={(o) => !o && setSplitGroupConfirm(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete the group {splitGroupConfirm?.name}?</DialogTitle>
-            <DialogDescription>
-              Its rules become individual rules, and the names that use them keep them. From then on each one splits
-              what the rules before it left. The splits already made stay as they are.
-            </DialogDescription>
+            <DialogTitle>{t('splitGroup.confirmTitle', { name: splitGroupConfirm?.name })}</DialogTitle>
+            <DialogDescription>{t('splitGroup.confirmText')}</DialogDescription>
           </DialogHeader>
           {deleteSplitGroup.error && <p className="text-sm text-destructive">{deleteSplitGroup.error.message}</p>}
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             <Button
               variant="destructive"
               disabled={deleteSplitGroup.isPending}
@@ -905,7 +902,7 @@ export function Names({
                 deleteSplitGroup.mutate(splitGroupConfirm.id, { onSuccess: () => setSplitGroupConfirm(null) })
               }
             >
-              {deleteSplitGroup.isPending ? 'Deleting…' : 'Delete group'}
+              {deleteSplitGroup.isPending ? t('splitGroup.deleting') : t('splitGroup.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -949,28 +946,29 @@ export function Names({
             <DialogHeader>
               <DialogTitle>
                 {groupEdit?.id
-                  ? 'Rename group'
+                  ? t('groupDialog.rename')
                   : groupEdit?.assign || groupEdit?.assignSub
-                    ? `New group for ${groupEdit.assign ?? groupEdit.assignSub?.name}`
-                    : 'Add a group'}
+                    ? t('groupDialog.newFor', { name: groupEdit.assign ?? groupEdit.assignSub?.name })
+                    : t('groupDialog.add')}
               </DialogTitle>
-              <DialogDescription>
-                A group of your own next to Suppliers, Customers and Other — e.g. “Employees”. Drag names onto it.
-                It only changes where a name is listed: its categories and tax stay as they are.
-              </DialogDescription>
+              <DialogDescription>{t('groupDialog.text')}</DialogDescription>
             </DialogHeader>
             <Input
               autoFocus
               maxLength={64}
               value={groupEdit?.name ?? ''}
               onChange={(e) => setGroupEdit((g) => (g ? { ...g, name: e.target.value } : g))}
-              placeholder="Employees"
+              placeholder={t('groupDialog.placeholder')}
             />
             {saveGroup.error && <p className="text-sm text-destructive">{saveGroup.error.message}</p>}
             <DialogFooter>
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
               <Button type="submit" disabled={saveGroup.isPending || !groupEdit?.name.trim()}>
-                {saveGroup.isPending ? 'Saving…' : groupEdit?.id ? 'Rename' : 'Add group'}
+                {saveGroup.isPending
+                  ? t('common:actions.saving')
+                  : groupEdit?.id
+                    ? t('common:actions.rename')
+                    : t('groupDialog.submitAdd')}
               </Button>
             </DialogFooter>
           </form>
@@ -981,15 +979,15 @@ export function Names({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Put {subGroupMove?.sub.name} in {subGroupMove ? groupLabel(subGroupMove.key) : ''}?
+              {t('subGroupMove.title', {
+                sub: subGroupMove?.sub.name,
+                group: subGroupMove ? groupLabel(subGroupMove.key) : '',
+              })}
             </DialogTitle>
-            <DialogDescription>
-              Its group tag changes. It stays listed under {subGroupMove?.sub.parent}. To merge it, drop it on a name
-              or on another sub-name instead.
-            </DialogDescription>
+            <DialogDescription>{t('subGroupMove.text', { parent: subGroupMove?.sub.parent })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             <Button
               disabled={setSubSettings.isPending}
               onClick={() =>
@@ -1000,7 +998,7 @@ export function Names({
                 )
               }
             >
-              {setSubSettings.isPending ? 'Saving…' : 'Change group'}
+              {setSubSettings.isPending ? t('common:actions.saving') : t('subGroupMove.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1010,39 +1008,37 @@ export function Names({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {moving
-                ? `${merging?.from.name} onto ${merging?.into.name}: merge, or make it a sub-name?`
-                : `Merge ${merging?.from.name} into ${merging?.into.name}?`}
+              {t(moving ? 'merge.titleMove' : 'merge.title', { from: merging?.from.name, into: merging?.into.name })}
             </DialogTitle>
             <DialogDescription>
-              {merging?.into.wrapper
-                ? `Every transaction of ${merging.from.name} moves under ${merging.into.name}, into its sub-name of the same category (made if it has none), and new ones follow.`
-                : merging?.into.subId
-                ? `Every transaction of ${merging.from.name} moves under ${merging.into.name} and takes its category${merging.into.category ? ` (${merging.into.category})` : ''} and split rules, and new ones follow.`
-                : merging?.from.subId
-                ? `Every transaction of ${merging.from.name} takes the plain name ${merging.into.name} (no sub-name), its category and its split rules, and new ones follow.`
-                : `Every transaction of ${merging?.from.name} takes the name ${merging?.into.name}, its category and its split rules, and new ones follow.`}{' '}
-              {merging?.from.subId
-                ? `${merging.from.name} is removed — its files go along.`
-                : `${merging?.from.name}'s own category and split rules are dropped.`}{' '}
-              Dragging back cannot split them again.
+              {t(
+                merging?.into.wrapper
+                  ? 'merge.intoWrapper'
+                  : merging?.into.subId
+                    ? merging.into.category
+                      ? 'merge.intoSubCategory'
+                      : 'merge.intoSub'
+                    : merging?.from.subId
+                      ? 'merge.fromSub'
+                      : 'merge.plain',
+                { from: merging?.from.name, into: merging?.into.name, category: merging?.into.category },
+              )}{' '}
+              {t(merging?.from.subId ? 'merge.subRemoved' : 'merge.dropped', { from: merging?.from.name })}{' '}
+              {t('merge.noUndo')}
             </DialogDescription>
           </DialogHeader>
           {moving && merging && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-              <p className="font-medium text-[#0B1C2C]">Or make it a sub-name of {merging.into.name}</p>
+              <p className="font-medium text-[#0B1C2C]">{t('merge.orSub', { name: merging.into.name })}</p>
               <p className="mt-1 text-muted-foreground">
-                It moves under {merging.into.name} as “{moving.name}” with its transactions, category, rules, split
-                rules and files — only its parent changes.
-                {moving.clash &&
-                  ` ${merging.into.name} already has a sub-name in ${moving.category}, so this one stays separate.`}
-                {!merging.into.wrapper &&
-                  ` ${merging.into.name} has no sub-names yet — its own transactions go under sub-names of their categories.`}
+                {t('merge.orSubText', { into: merging.into.name, name: moving.name })}
+                {moving.clash && ` ${t('merge.clash', { into: merging.into.name, category: moving.category })}`}
+                {!merging.into.wrapper && ` ${t('merge.noSubs', { into: merging.into.name })}`}
               </p>
             </div>
           )}
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             {moving && (
               <Button
                 variant="outline"
@@ -1055,7 +1051,7 @@ export function Names({
                   )
                 }}
               >
-                {setSubParent.isPending ? 'Moving…' : `Make it a sub-name of ${merging?.into.name}`}
+                {setSubParent.isPending ? t('merge.moving') : t('merge.makeSub', { name: merging?.into.name })}
               </Button>
             )}
             <Button
@@ -1067,7 +1063,7 @@ export function Names({
                 if (merging.from.subId) setMerging(null)
               }}
             >
-              {merge.isPending ? 'Merging…' : 'Merge'}
+              {merge.isPending ? t('merge.merging') : t('merge.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1076,20 +1072,17 @@ export function Names({
       <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {confirm?.name}?</DialogTitle>
-            <DialogDescription>
-              The names it was picked for lose it; the splits it already made stay as they are. To pause it instead,
-              switch it off.
-            </DialogDescription>
+            <DialogTitle>{t('deleteRule.title', { name: confirm?.name })}</DialogTitle>
+            <DialogDescription>{t('deleteRule.text')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             <Button
               variant="destructive"
               disabled={remove.isPending}
               onClick={() => confirm && remove.mutate(confirm.id, { onSuccess: () => setConfirm(null) })}
             >
-              {remove.isPending ? 'Deleting…' : 'Delete split rule'}
+              {remove.isPending ? t('deleteRule.deleting') : t('deleteRule.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1118,13 +1111,14 @@ function FilterChip({
   /** step9 (2026-11-17, third request): a sub-name dropped here joins the group. */
   onDropSub?: (sub: DraggedSubName) => void
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const drop = useGroupDrop(onDropName, onDropSub)
   return (
     <button
       type="button"
       onClick={onClick}
       {...drop.props}
-      title={onDropName ? `Show ${label} — or drop a name here to move it into ${label}` : undefined}
+      title={onDropName ? t('filter.chipTitle', { label }) : undefined}
       className={cn(
         'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all',
         active ? 'bg-[#0B1C2C] text-white' : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
@@ -1157,25 +1151,26 @@ function GroupChip({
   onGroup: (key: string) => void
   onNewGroup: () => void
 }) {
+  const { t } = useTranslation(['names', 'common'])
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={pending}
         draggable={false}
         onMouseDown={(e) => e.stopPropagation()}
-        title={`${name} is in ${label} — click to move it`}
+        title={t('groupChip.title', { name, label })}
         className={cn(
           'inline-flex h-5 shrink-0 cursor-pointer items-center gap-0.5 rounded-4xl px-2 text-xs font-medium transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none',
           isBuiltin(group) ? TYPE_BADGE[group] : OWN_GROUP_BADGE,
         )}
       >
-        {pending ? 'Moving…' : label}
+        {pending ? t('groupChip.moving') : label}
         <ChevronDown className="size-3 opacity-70" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-72 w-52 overflow-y-auto">
         {/* base-ui throws when a GroupLabel (DropdownMenuLabel) is not inside a Group. */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Move {name} to</DropdownMenuLabel>
+          <DropdownMenuLabel>{t('groupChip.moveTo', { name })}</DropdownMenuLabel>
           {groups.map((g) => (
             <DropdownMenuItem key={g.key} onClick={() => onGroup(g.key)} className={cn(g.key === group && 'font-semibold')}>
               <TypeDot group={g.key} />
@@ -1186,7 +1181,7 @@ function GroupChip({
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onNewGroup} className="text-brand">
-          <Plus className="size-4" /> New group…
+          <Plus className="size-4" /> {t('groupChip.newGroup')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -1294,6 +1289,7 @@ function NameRow({
   highlight?: string | null
   onGoTo: (name: string) => void
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const [toggled, setOpen] = useState(false)
   const [exceptionsOf, setExceptionsOf] = useState<string | null>(null)
   // step9: a name with sub-names unfolds them under it (click the name or "N sub-names"); a
@@ -1342,12 +1338,14 @@ function NameRow({
   const exceptionTotal = exceptionCount(n.descriptions) + exceptionCount(subDescriptions)
   const [wrapperExceptions, setWrapperExceptions] = useState(false)
   const ownExceptions = n.descriptions.filter((d) => d.exceptions?.length)
+  // "Unclarified name" is the server's key for the nameless rows: only its display is translated.
+  const shownName = n.unclarified ? t('unclarifiedName') : n.name
   return (
     <li
       id={rowId(n.name)}
       {...(draggable ? nameDragProps(n.name) : {})}
       {...joinDragProps(joinDragProps(drop.props, refuse.props), hover.props)}
-      title={draggable ? 'Drag onto another name to merge them, or onto a group chip to move it' : undefined}
+      title={draggable ? t('row.dragTitle') : undefined}
       className={cn(
         'px-5 py-3 transition-colors',
         draggable && 'cursor-grab active:cursor-grabbing',
@@ -1372,28 +1370,24 @@ function NameRow({
             <button
               type="button"
               onClick={onOpen}
-              title={
-                subs.length > 0
-                  ? `See every transaction of ${n.name}, its sub-names' included`
-                  : `See every transaction of ${n.name}`
-              }
+              title={t(subs.length > 0 ? 'row.seeAllWithSubs' : 'row.seeAll', { name: shownName })}
               className={cn(
                 'inline-flex max-w-full items-center gap-1 text-left font-medium text-[#0B1C2C] hover:text-brand hover:underline',
                 n.unclarified && 'italic',
               )}
             >
-              <span className="truncate">{n.name}</span>
+              <span className="truncate">{shownName}</span>
             </button>
           ) : (
-            <p className="truncate font-medium text-[#0B1C2C]">{n.name}</p>
+            <p className="truncate font-medium text-[#0B1C2C]">{shownName}</p>
           )}
         </RenameName>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {n.unclarified ? (
-            <Badge className="bg-orange-100 text-orange-800">Unrecognized</Badge>
+            <Badge className="bg-orange-100 text-orange-800">{t('row.badgeUnrecognized')}</Badge>
           ) : wrapper ? (
-            <span className="text-xs text-muted-foreground" title="Its settings are on its sub-names">
-              Group of {subs.length} sub-name{subs.length === 1 ? '' : 's'}
+            <span className="text-xs text-muted-foreground" title={t('row.settingsOnSubs')}>
+              {t('row.groupOf', { count: subs.length })}
             </span>
           ) : (
             <GroupChip
@@ -1406,16 +1400,14 @@ function NameRow({
               onNewGroup={onNewGroup}
             />
           )}
-          {!wrapper && n.rule && <Badge className="bg-brand/10 text-brand">Edited</Badge>}
+          {!wrapper && n.rule && <Badge className="bg-brand/10 text-brand">{t('edited')}</Badge>}
           {!wrapper && (
             <span className="truncate text-sm text-muted-foreground">
               {n.category}
-              {n.otherCategories > 0 && ` +${n.otherCategories} more`}
+              {n.otherCategories > 0 && t('plusMore', { count: n.otherCategories })}
             </span>
           )}
-          <span className="text-xs text-muted-foreground/80 tabular-nums">
-            · {n.rows.toLocaleString()} row{n.rows === 1 ? '' : 's'}
-          </span>
+          <span className="text-xs text-muted-foreground/80 tabular-nums">· {rowsLabel(n.rows)}</span>
           <Total total={n.total} />
           {(wrapper ? [] : (n.fields ?? []))
             .filter((f) => f.kind === 'PHONE' || f.kind === 'EMAIL')
@@ -1427,7 +1419,7 @@ function NameRow({
                   key={`${i}:${f.value}`}
                   href={fieldHref(f) ?? undefined}
                   draggable={false}
-                  title={`${f.label || FIELD_KIND_LABEL[f.kind]}: ${f.value}`}
+                  title={t('fieldTitle', { label: f.label || fieldKindLabel(f.kind), value: f.value })}
                   className="inline-flex max-w-44 items-center gap-1 truncate text-xs text-muted-foreground hover:text-brand"
                 >
                   <Icon className="size-3 shrink-0" />
@@ -1444,13 +1436,9 @@ function NameRow({
                 if (!subsOpen) toggleSubs()
               }}
               className="text-xs font-medium text-amber-700 hover:underline"
-              title={
-                wrapper
-                  ? 'Rows of its descriptions changed one time — shown here and under each sub-name'
-                  : 'Rows of its descriptions that were changed one time'
-              }
+              title={t(wrapper ? 'row.exceptionsWrapperTitle' : 'row.exceptionsTitle')}
             >
-              · {exceptionTotal} exception{exceptionTotal === 1 ? '' : 's'}
+              · {t('exceptionCount', { count: exceptionTotal })}
             </button>
           )}
         </div>
@@ -1489,13 +1477,13 @@ function NameRow({
             className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
           >
             <CornerDownRight className="size-3.5" />
-            {subsOpen ? 'Hide sub-names' : `${subs.length} sub-name${subs.length === 1 ? '' : 's'}`}
+            {subsOpen ? t('row.hideSubs') : t('row.subNames', { count: subs.length })}
             <ChevronDown className={cn('size-3.5 transition-transform', subsOpen && 'rotate-180')} />
           </button>
         )}
         {refuse.over && (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {`It is already under ${n.name} — drop it on another sub-name or name.`}
+            {t('row.alreadyUnder', { name: n.name })}
           </p>
         )}
         {subsOpen && (
@@ -1533,7 +1521,7 @@ function NameRow({
           <Button
             variant="ghost"
             size="icon-sm"
-            title={open ? 'Hide descriptions' : 'Show the descriptions under this name'}
+            title={open ? t('row.hideDescriptions') : t('row.showDescriptions')}
             aria-expanded={open}
             onClick={() => setOpen(!open)}
           >
@@ -1541,7 +1529,7 @@ function NameRow({
           </Button>
         )}
         {!n.unclarified && (
-          <Button variant="ghost" size="icon-sm" title={`Edit ${n.name} — its category and descriptions`} onClick={onEdit}>
+          <Button variant="ghost" size="icon-sm" title={t('row.edit', { name: n.name })} onClick={onEdit}>
             <Pencil />
           </Button>
         )}
@@ -1556,10 +1544,15 @@ function NameRow({
             <li key={`c:${c.key}`} className="flex items-center gap-3 px-2 py-1 text-sm">
               <ListFilter className="size-3.5 shrink-0 text-brand" />
               <span className="min-w-0 flex-1 truncate text-[#0B1C2C]">
-                Every description containing “<span className="font-medium">{c.text}</span>”
+                <Trans
+                  t={t}
+                  i18nKey="row.containing"
+                  values={{ text: c.text }}
+                  components={{ b: <span className="font-medium" /> }}
+                />
               </span>
               <span className="w-14 shrink-0 text-right text-xs text-muted-foreground/80 tabular-nums">
-                {c.rows.toLocaleString()} row{c.rows === 1 ? '' : 's'}
+                {rowsLabel(c.rows)}
               </span>
             </li>
           ))}
@@ -1571,7 +1564,7 @@ function NameRow({
               <li key={id}>
                 <div
                   {...(d.key && onDescription ? descriptionDragProps(d.key, d.description) : {})}
-                  title={d.key ? 'Drag onto another name to move this description there' : undefined}
+                  title={d.key ? t('row.dragDescription') : undefined}
                   className={cn(
                     'flex items-center gap-3 rounded px-2 py-1 text-sm',
                     d.key && 'cursor-grab active:cursor-grabbing',
@@ -1586,13 +1579,9 @@ function NameRow({
                   {d.rule && (
                     <span
                       className="shrink-0 text-xs text-brand"
-                      title={
-                        d.rule.subName
-                          ? `Saved from a split: every transaction with this description goes under ${d.rule.subName}`
-                          : 'Your rule ties it to this name'
-                      }
+                      title={d.rule.subName ? t('row.ruleFromSplit', { sub: d.rule.subName }) : t('row.ruleTies')}
                     >
-                      {d.rule.matchType === 'CONTAINS' ? `contains “${d.rule.text}”` : 'your rule'}
+                      {d.rule.matchType === 'CONTAINS' ? t('contains', { text: d.rule.text }) : t('yourRule')}
                       {d.rule.subName && ` → ${d.rule.subName}`}
                     </span>
                   )}
@@ -1601,14 +1590,14 @@ function NameRow({
                       type="button"
                       onClick={() => setExceptionsOf(exceptionsOf === id ? null : id)}
                       className="shrink-0 text-xs font-medium text-amber-700 hover:underline"
-                      title="Rows of this description changed one time"
+                      title={t('row.descriptionExceptionsTitle')}
                     >
-                      {exRows} exception{exRows === 1 ? '' : 's'}
+                      {t('exceptionCount', { count: exRows })}
                     </button>
                   )}
                   <span className="shrink-0 text-xs text-muted-foreground">{d.category}</span>
                   <span className="w-14 shrink-0 text-right text-xs text-muted-foreground/80 tabular-nums">
-                    {d.rows.toLocaleString()} row{d.rows === 1 ? '' : 's'}
+                    {rowsLabel(d.rows)}
                   </span>
                 </div>
                 {exceptionsOf === id && <ExceptionList exceptions={exceptions} onGoTo={onGoTo} />}
@@ -1637,6 +1626,7 @@ function ContainsRuleRow({
   onDelete: () => void
   deleting: boolean
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const gives = [rule.name, rule.category].filter(Boolean).join(' · ')
   return (
     <li className="flex items-center gap-4 px-5 py-3">
@@ -1645,24 +1635,22 @@ function ContainsRuleRow({
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-[#0B1C2C]" title={rule.text}>
-          Description contains “{rule.text}”
+          {t('containsRule.title', { text: rule.text })}
         </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-          <Badge className="bg-brand/10 text-brand">Contains rule</Badge>
+          <Badge className="bg-brand/10 text-brand">{t('containsRule.badge')}</Badge>
           <span className="truncate text-sm text-muted-foreground">→ {gives}</span>
-          <span className="text-xs text-muted-foreground/80 tabular-nums">
-            · {rule.rows.toLocaleString()} row{rule.rows === 1 ? '' : 's'}
-          </span>
+          <span className="text-xs text-muted-foreground/80 tabular-nums">· {rowsLabel(rule.rows)}</span>
         </div>
       </div>
       <div className="flex shrink-0 gap-1">
-        <Button variant="ghost" size="icon-sm" title="Edit this rule" onClick={onEdit}>
+        <Button variant="ghost" size="icon-sm" title={t('containsRule.edit')} onClick={onEdit}>
           <Pencil />
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Delete this rule"
+          title={t('containsRule.delete')}
           disabled={deleting}
           onClick={onDelete}
           className="text-muted-foreground hover:text-destructive"
@@ -1676,11 +1664,12 @@ function ContainsRuleRow({
 
 /** Remove the customer's own change: the rows go back to the default. */
 function ResetButton({ onReset, resetting }: { onReset: () => void; resetting: boolean }) {
+  const { t } = useTranslation(['names', 'common'])
   return (
     <Button
       variant="ghost"
       size="icon-sm"
-      title="Reset to default"
+      title={t('resetToDefault')}
       disabled={resetting}
       onClick={onReset}
       className="text-muted-foreground"
@@ -1700,9 +1689,10 @@ function RenameName({
   onRename?: (to: string) => Promise<unknown>
   children: ReactNode
 }) {
+  const { t } = useTranslation(['names', 'common'])
   if (!onRename) return <>{children}</>
   return (
-    <InlineRename value={name} onSave={onRename} label={`Rename ${name}`}>
+    <InlineRename value={name} onSave={onRename} label={t('rename', { name })}>
       {children}
     </InlineRename>
   )
@@ -1755,6 +1745,7 @@ function AddNameDialog({
   groups: NameGroup[]
   onAdded: (name: string) => void
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const add = useAddName()
   const [name, setName] = useState('')
   const [group, setGroup] = useState<string | null>(null)
@@ -1791,18 +1782,15 @@ function AddNameDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Add a name</DialogTitle>
-            <DialogDescription>
-              A person or business you deal with — a landlord, a supplier, an employee. It is listed even before it has
-              transactions, so you can keep its contracts and other files in its folder.
-            </DialogDescription>
+            <DialogTitle>{t('addName.title')}</DialogTitle>
+            <DialogDescription>{t('addName.text')}</DialogDescription>
           </DialogHeader>
           <Input
             autoFocus
             value={name}
             maxLength={191}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Name, e.g. Main Street Landlord"
+            placeholder={t('addName.placeholder')}
           />
           <div className="flex flex-wrap gap-1.5">
             {groups.map((g) => (
@@ -1822,9 +1810,9 @@ function AddNameDialog({
           </div>
           {add.error && <p className="text-sm text-destructive">{add.error.message}</p>}
           <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             <Button type="submit" disabled={!name.trim() || add.isPending} className="bg-brand text-white hover:bg-brand/85">
-              Add name
+              {t('addName.submit')}
             </Button>
           </DialogFooter>
         </form>
@@ -1845,6 +1833,7 @@ function UnrecognizedRows({
   matched: (d: { key?: string; description: string }) => boolean
   onAssign: (u: UnrecognizedName) => void
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const list = useUnrecognized(query)
   return (
     <div className="mt-2 ml-13 rounded-lg bg-muted/40 p-2">
@@ -1856,7 +1845,7 @@ function UnrecognizedRows({
           highlighted={(u) => matched({ key: u.key, description: u.sampleDescription })}
           actions={(u) => (
             <Button variant="outline" size="xs" onClick={() => onAssign(u)}>
-              Assign
+              {t('assign')}
             </Button>
           )}
         />

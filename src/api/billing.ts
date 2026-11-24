@@ -1,3 +1,4 @@
+import { currentLocale } from '@/i18n'
 import { errorFrom, fetchWithAuth } from './client'
 import { bookFetch, type BookAuth } from './bookkeeping'
 
@@ -78,7 +79,7 @@ export async function completePayment(auth: BookAuth, paymentIntentId: string): 
 
 /** "$12.50" in the price's own currency. */
 export function money(cents: number, currency = 'cad'): string {
-  return new Intl.NumberFormat('en-CA', {
+  return new Intl.NumberFormat(currentLocale(), {
     style: 'currency',
     currency: currency.toUpperCase(),
     currencyDisplay: 'narrowSymbol',

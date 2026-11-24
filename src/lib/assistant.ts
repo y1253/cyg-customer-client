@@ -1,18 +1,16 @@
 import type { AssistantChannel, AssistantConversation, AssistantMessage } from '@/api/assistant'
+import i18n from '@/i18n'
 
 /** The badge a message or thread carries: where it was written. */
 export function channelLabel(channel: AssistantChannel): string {
   switch (channel) {
     case 'SMS':
-      return 'Text'
     case 'WHATSAPP':
-      return 'WhatsApp'
     case 'EMAIL':
-      return 'Email'
     case 'VOICE':
-      return 'Phone'
+      return i18n.t(`assistant:channel.${channel}`)
     default:
-      return 'Web'
+      return i18n.t('assistant:channel.BOT')
   }
 }
 
@@ -20,8 +18,8 @@ export function channelLabel(channel: AssistantChannel): string {
 export function conversationLabel(c: Pick<AssistantConversation, 'title' | 'channel' | 'peer' | 'attachmentId'>): string {
   if (c.title?.trim()) return c.title.trim()
   if (c.channel !== 'BOT') return `${channelLabel(c.channel)}${c.peer ? ` · ${c.peer}` : ''}`
-  if (c.attachmentId) return 'About an attachment'
-  return 'Chat'
+  if (c.attachmentId) return i18n.t('assistant:conversation.aboutAttachment')
+  return i18n.t('assistant:conversation.chat')
 }
 
 /** True when an answer changed something, so the books on screen must be refetched. */
@@ -43,7 +41,10 @@ export function optimisticMessage(text: string, now = new Date(), files: string[
   }
 }
 
-/** "[sent a file]" — the server's placeholder for a message with files and no words. */
+/**
+ * "[sent a file]" — the server's placeholder for a message with files and no words. Never
+ * translated: `isFileLabel` matches it and the bubble then shows only the file chips.
+ */
 export function fileLabel(n: number): string {
   return n === 1 ? '[sent a file]' : `[sent ${n} files]`
 }

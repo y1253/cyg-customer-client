@@ -1,6 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { HERO } from './content'
 import { ctaClass } from './cta'
 
 /**
@@ -12,6 +12,7 @@ import { ctaClass } from './cta'
  */
 export function HeroSection() {
   const { token } = useAuth()
+  const { t } = useTranslation('site')
   return (
     <section
       id="top"
@@ -42,16 +43,16 @@ export function HeroSection() {
       <div className="mx-auto w-full max-w-[1280px] px-4 sm:px-8">
         <div className="grid items-end gap-6 lg:grid-cols-2 lg:gap-x-20 xl:gap-x-40">
           <h1 className="text-[44px] font-bold leading-[1.1] tracking-[-0.03em] sm:text-6xl lg:text-[72px] xl:text-[84px]">
-            {HERO.title}
+            {t('hero.title')}
           </h1>
           <div className="flex flex-col gap-8">
-            <p className="text-lg leading-relaxed text-white/85 sm:text-xl">{HERO.body}</p>
+            <p className="text-lg leading-relaxed text-white/85 sm:text-xl">{t('hero.body')}</p>
             <div className="flex flex-wrap gap-4">
               <Link to={token ? '/dashboard' : '/signup'} className={ctaClass('light')}>
-                {token ? 'Go to your dashboard' : 'Get started'}
+                {token ? t('hero.goToDashboard') : t('hero.getStarted')}
               </Link>
               <a href="#what-we-do" className={ctaClass('brand')}>
-                See how it works
+                {t('hero.seeHow')}
               </a>
             </div>
           </div>

@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "title": "CYG Finance — Tenue de livres par IA",
+    "description": "CYG Finance aide les propriétaires d’entreprise à économiser temps et argent sur la tenue de livres et les impôts, grâce à un agent de tenue de livres IA à qui vous pouvez écrire, appuyé par de vrais comptables."
+  },
+  "lang": {
+    "label": "Langue",
+    "switch": "Changer de langue / Change language",
+    "fr": "Français",
+    "en": "English",
+    "frShort": "FR",
+    "enShort": "EN"
+  },
+  "unknown": "Inconnu",
+  "duration": {
+    "minSec": "{{m}} min {{s}} s",
+    "sec": "{{s}} s"
+  },
+  "bytes": {
+    "b": "{{n}} o",
+    "kb": "{{n}} Ko",
+    "mb": "{{n}} Mo"
+  },
+  "period": {
+    "from": "À partir du {{date}}",
+    "upTo": "Jusqu’au {{date}}",
+    "allTime": "Toute la période"
+  },
+  "kind": {
+    "RECEIPT": "Reçu",
+    "CHECK": "Chèque",
+    "AUDIO": "Note vocale",
+    "TEXT": "Message texte",
+    "OTHER": "Fichier",
+    "INVOICE": "Facture",
+    "DEPOSIT_SLIP": "Bordereau de dépôt",
+    "DOCUMENT": "Document"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "delete": "Supprimer",
+    "remove": "Retirer",
+    "edit": "Modifier",
+    "rename": "Renommer",
+    "back": "Retour",
+    "next": "Suivant",
+    "continue": "Continuer",
+    "done": "Terminé",
+    "add": "Ajouter",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "retry": "Réessayer",
+    "confirm": "Confirmer",
+    "yes": "Oui",
+    "no": "Non",
+    "search": "Rechercher",
+    "open": "Ouvrir",
+    "copy": "Copier",
+    "copied": "Copié",
+    "download": "Télécharger",
+    "upload": "Téléverser",
+    "refresh": "Actualiser",
+    "showMore": "Afficher plus",
+    "showLess": "Afficher moins",
+    "seeAll": "Tout voir",
+    "reset": "Réinitialiser",
+    "apply": "Appliquer",
+    "clear": "Effacer",
+    "ok": "OK",
+    "logOut": "Se déconnecter",
+    "logIn": "Se connecter",
+    "signUp": "S’inscrire"
+  },
+  "status": {
+    "loading": "Chargement…",
+    "error": "Une erreur s’est produite.",
+    "errorRetry": "Une erreur s’est produite. Veuillez réessayer.",
+    "none": "Aucun",
+    "on": "Activé",
+    "off": "Désactivé",
+    "new": "Nouveau",
+    "optional": "Facultatif",
+    "required": "Obligatoire"
+  },
+  "rows_one": "{{count}} ligne",
+  "rows_other": "{{count}} lignes",
+  "rows_many": "{{count}} lignes",
+  "nav": {
+    "home": "Accueil CYG Finance",
+    "openMenu": "Ouvrir le menu",
+    "menu": "Menu"
+  },
+  "accountType": {
+    "INCOME": "Produit",
+    "EXPENSE": "Charge",
+    "ASSET": "Actif",
+    "LIABILITY": "Passif",
+    "EQUITY": "Capitaux propres"
+  }
+}

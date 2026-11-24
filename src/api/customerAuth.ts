@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { errorFrom, fetchWithAuth, safeFetch } from './client'
 
 /** step12c: PHONE = opened by text / WhatsApp / call; signs in with a texted code. */
@@ -22,12 +23,21 @@ export type Customer = {
 }
 
 export type ContactMethod = 'EMAIL' | 'WHATSAPP' | 'SMS' | 'CALL'
+// Getters, so each read is in the language shown now.
 export const CONTACT_METHOD_LABEL: Record<ContactMethod, string> = {
-  EMAIL: 'Email',
-  WHATSAPP: 'WhatsApp',
-  SMS: 'Text message',
+  get EMAIL() {
+    return i18n.t('auth:contact.EMAIL')
+  },
+  get WHATSAPP() {
+    return i18n.t('auth:contact.WHATSAPP')
+  },
+  get SMS() {
+    return i18n.t('auth:contact.SMS')
+  },
   // step12: scheduled messages arrive as a call from the AI assistant.
-  CALL: 'Phone call',
+  get CALL() {
+    return i18n.t('auth:contact.CALL')
+  },
 }
 
 export type AuthResult = { access_token: string; customer: Customer }

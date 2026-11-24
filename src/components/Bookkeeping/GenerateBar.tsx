@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Loader2, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { money } from '@/api/billing'
 import type { Statement } from '@/api/bookkeeping'
 import { PayDialog } from '@/components/Billing/PayDialog'
@@ -17,6 +18,7 @@ import { useGenerate } from '@/hooks/useGenerate'
  * another currency is converted to the home one at each day's Bank of Canada rate.
  */
 export function GenerateBar({ statements }: { statements: Statement[] }) {
+  const { t } = useTranslation(['books', 'common'])
   const generate = useGenerate()
   const billing = useBillingConfig()
   const currency = useCurrency()
@@ -33,31 +35,29 @@ export function GenerateBar({ statements }: { statements: Statement[] }) {
   const canGenerate = !busy && waiting > 0 && !billing.isLoading
 
   const label = reading
-    ? 'Reading statements…'
+    ? t('generate.reading')
     : waiting
-      ? `Generate · ${waiting} new${mustPay ? ` · ${money(priceCents, priceCurrency)}` : ''}`
-      : 'Generate'
+      ? mustPay
+        ? t('generate.newPaid', { count: waiting, price: money(priceCents, priceCurrency) })
+        : t('generate.new', { count: waiting })
+      : t('generate.button')
 
   return (
     <div className="mb-6 rounded-2xl bg-white ring-1 ring-black/5">
       <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-[#0B1C2C]">
-            {waiting
-              ? `${waiting} statement${waiting === 1 ? '' : 's'} ready to read`
-              : 'Your ledger is up to date'}
+            {waiting ? t('generate.ready', { count: waiting }) : t('generate.upToDate')}
           </p>
           <p className="text-sm text-muted-foreground">
-            {waiting
-              ? 'Upload everything first, then click Generate — we read them and post every transaction.'
-              : 'Upload more statements any time, then click Generate.'}
+            {waiting ? t('generate.readyHint') : t('generate.upToDateHint')}
           </p>
         </div>
         <label
           className="flex items-center gap-2.5 rounded-lg bg-muted/50 px-3 py-1.5 text-sm font-medium text-[#0B1C2C]"
-          title="The currency your books are kept in. Statements in another currency are converted at each day's Bank of Canada rate."
+          title={t('generate.homeHint')}
         >
-          Home currency
+          {t('generate.home')}
           <Select
             value={currency.data?.home ?? null}
             onValueChange={(v) => v && v !== currency.data?.home && setCurrency.mutate(v)}

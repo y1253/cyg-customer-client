@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
+import i18n, { currentLocale } from '@/i18n'
 import { useSearchState } from '@/hooks/useBookView'
 import {
   AlertCircle,
@@ -68,11 +70,12 @@ import {
   startsByFolder,
   type StatementFolder,
 } from './statement-folders'
-import { STARTS_WARNING, startingNote, type StartingDate } from '@/lib/starting-dates'
+import { startingDatesList, startingNote, startsWarning, type StartingDate } from '@/lib/starting-dates'
 
 // The check against the bank's own totals happens on the server and is kept there; the
 // customer only sees the outcome — Done, or Needs review with the reason.
 function StatusBadge({ s }: { s: Statement }) {
+  const { t } = useTranslation(['books', 'common'])
   // step2: a problem is named instead of "Done" / "Needs review".
   if (s.problem) {
     const soft = s.problem.kind === 'NO_BALANCES' || s.problem.kind === 'OTHER'
@@ -91,41 +94,41 @@ function StatusBadge({ s }: { s: Statement }) {
   if (s.status === 'DONE') {
     return (
       <Badge className="gap-1 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20">
-        <CheckCircle2 className="size-3" /> Done
+        <CheckCircle2 className="size-3" /> {t('statements.status.done')}
       </Badge>
     )
   }
   if (s.status === 'NEEDS_REVIEW') {
     return (
       <Badge className="gap-1 bg-amber-50 text-amber-800 ring-1 ring-amber-600/25">
-        <AlertTriangle className="size-3" /> Needs review
+        <AlertTriangle className="size-3" /> {t('statements.status.needsReview')}
       </Badge>
     )
   }
   if (s.status === 'FAILED') {
     return (
       <Badge className="gap-1 bg-red-50 text-red-700 ring-1 ring-red-600/20">
-        <AlertCircle className="size-3" /> Failed
+        <AlertCircle className="size-3" /> {t('statements.status.failed')}
       </Badge>
     )
   }
   if (s.status === 'UPLOADED') {
     return (
       <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
-        <FileClock className="size-3" /> Not read yet
+        <FileClock className="size-3" /> {t('statements.status.notRead')}
       </Badge>
     )
   }
   if (s.status === 'PROCESSING') {
     return (
       <Badge className="gap-1 bg-brand/10 text-brand ring-1 ring-brand/25">
-        <Loader2 className="size-3 animate-spin" /> Reading…
+        <Loader2 className="size-3 animate-spin" /> {t('statements.status.reading')}
       </Badge>
     )
   }
   return (
     <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
-      <Clock className="size-3" /> Queued
+      <Clock className="size-3" /> {t('statements.status.queued')}
     </Badge>
   )
 }
@@ -135,39 +138,41 @@ function subtitle(s: Statement, home?: string): string {
   if (s.problem) return s.problem.text
   switch (s.status) {
     case 'FAILED':
-      return s.error ?? 'We could not read this statement.'
+      return s.error ?? i18n.t('books:statements.couldNotRead')
     case 'NEEDS_REVIEW':
-      return s.error ?? "This statement doesn't match the bank's totals."
+      return s.error ?? i18n.t('books:statements.noMatch')
     case 'DONE':
       return [
-        `${s.transactionCount} transactions`,
+        i18n.t('books:statements.txCount', { count: s.transactionCount }),
         // A foreign statement says which currency its amounts are in.
-        home && s.accountCurrency && s.accountCurrency !== home ? `in ${s.accountCurrency}` : null,
+        home && s.accountCurrency && s.accountCurrency !== home
+          ? i18n.t('books:statements.inCurrency', { currency: s.accountCurrency })
+          : null,
         s.filename,
       ]
         .filter(Boolean)
         .join(' · ')
     case 'PROCESSING':
-      return 'Reading every transaction…'
+      return i18n.t('books:statements.readingAll')
     case 'UPLOADED':
-      return [s.filename, 'click Generate to read it'].join(' · ')
+      return [s.filename, i18n.t('books:statements.clickGenerate')].join(' · ')
     default:
-      return 'Waiting to be read…'
+      return i18n.t('books:statements.waiting')
   }
 }
 
 
 type Filter = 'all' | 'done' | 'unread' | 'waiting'
 const isFilter = (v: string): v is Filter => ['all', 'done', 'unread', 'waiting'].includes(v)
-const FILTERS: Array<{ id: Filter; label: string; test: (s: Statement) => boolean }> = [
-  { id: 'all', label: 'All', test: () => true },
-  { id: 'done', label: 'Done', test: (s) => s.status === 'DONE' },
-  { id: 'unread', label: 'Problems', test: hasProblem },
-  { id: 'waiting', label: 'Waiting', test: (s) => s.status === 'UPLOADED' || isBusy(s) },
+const FILTERS: Array<{ id: Filter; test: (s: Statement) => boolean }> = [
+  { id: 'all', test: () => true },
+  { id: 'done', test: (s) => s.status === 'DONE' },
+  { id: 'unread', test: hasProblem },
+  { id: 'waiting', test: (s) => s.status === 'UPLOADED' || isBusy(s) },
 ]
 
 const day = (iso: string) =>
-  new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+  new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString(currentLocale(), { month: 'short', year: 'numeric' })
 
 function folderRange(f: StatementFolder): string | null {
   if (!f.from && !f.to) return null
@@ -192,6 +197,7 @@ export function StatementsList({
   /** step8 (2026-11-11): a read statement's name opens its transactions on the Ledger tab. */
   onOpenInLedger?: (statementId: number) => void
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const { auth } = useBook()
   // step11 (2026-11-23): in the URL (`?filter=`), so a refresh keeps it.
   const [filter, setFilter] = useSearchState<Filter>('filter', 'all', isFilter)
@@ -234,8 +240,8 @@ export function StatementsList({
     return (
       <div className="flex h-full min-h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-center">
         <FileText className="mb-2 size-7 text-muted-foreground/60" />
-        <p className="text-sm font-medium text-[#0B1C2C]">No statements yet</p>
-        <p className="text-sm text-muted-foreground">Uploaded statements appear here.</p>
+        <p className="text-sm font-medium text-[#0B1C2C]">{t('statements.empty')}</p>
+        <p className="text-sm text-muted-foreground">{t('statements.emptyHint')}</p>
       </div>
     )
   }
@@ -282,7 +288,7 @@ export function StatementsList({
                     : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
               )}
             >
-              {f.label} · {n}
+              {t(`statements.filter.${f.id}`)} · {n}
             </button>
           )
         })}
@@ -299,7 +305,7 @@ export function StatementsList({
             ) : (
               <RotateCcw className="size-4" />
             )}
-            Re-read all ({toReread})
+            {t('statements.rereadAllCount', { count: toReread })}
           </Button>
         )}
         {folders.length > 1 && (
@@ -310,14 +316,13 @@ export function StatementsList({
             onClick={() => setClosed(anyOpen ? new Set(folders.map(folderKey)) : new Set())}
           >
             {anyOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
-            {anyOpen ? 'Collapse all' : 'Expand all'}
+            {anyOpen ? t('statements.collapseAll') : t('statements.expandAll')}
           </Button>
         )}
       </div>
       {accounts.length > 1 && (
         <p className="mb-2 text-xs text-muted-foreground">
-          A statement in the wrong account? Drag it onto the right folder, or use its{' '}
-          <FolderInput className="inline size-3.5" /> menu.
+          <Trans t={t} i18nKey="statements.dragHint" components={{ icon: <FolderInput className="inline size-3.5" /> }} />
         </p>
       )}
       {move.error && <p className="mb-2 text-sm text-destructive">{move.error.message}</p>}
@@ -325,7 +330,7 @@ export function StatementsList({
       {allNote && <p className="mb-2 text-sm text-muted-foreground">{allNote}</p>}
       {!folders.length && (
         <p className="rounded-xl bg-white px-4 py-6 text-center text-sm text-muted-foreground ring-1 ring-black/5">
-          Nothing here.
+          {t('statements.nothing')}
         </p>
       )}
       <div className="flex max-h-[34rem] flex-col gap-3 overflow-y-auto pr-1">
@@ -351,13 +356,11 @@ export function StatementsList({
                         next.delete(key)
                         return next
                       })
-                      const note = startingNote(starts.get(f.account!) ?? [], f.from)
-                      const dates = note?.text.replace(/^Starting dates: /, '')
+                      const list = starts.get(f.account!) ?? []
+                      const note = startingNote(list, f.from)
+                      const dates = startingDatesList(list)
                       const why = note?.reasons?.length ? ` ${note.reasons.join('. ')}.` : ''
-                      ask(
-                        first.id,
-                        `${f.account} has more than one starting date (${dates}).${why} Why don't its balances carry over, and how do we fix it?`,
-                      )
+                      ask(first.id, t('statements.askStarts', { account: f.account, dates, why }))
                     }
                   : undefined
               }
@@ -394,7 +397,7 @@ export function StatementsList({
                           type="button"
                           onClick={() => onOpenInLedger(s.id)}
                           className="truncate text-left text-sm font-semibold text-[#0B1C2C] hover:text-brand hover:underline"
-                          title={`See its ${s.transactionCount} transaction${s.transactionCount === 1 ? '' : 's'} in the ledger — ${s.filename}`}
+                          title={t('statements.seeInLedger', { count: s.transactionCount, file: s.filename })}
                         >
                           {s.label}
                         </button>
@@ -406,7 +409,7 @@ export function StatementsList({
                       <StatusBadge s={s} />
                       {s.source === 'PLAID' && (
                         <Badge variant="outline" className="shrink-0 text-brand">
-                          Bank feed
+                          {t('statements.bankFeed')}
                         </Badge>
                       )}
                     </div>
@@ -423,7 +426,7 @@ export function StatementsList({
                       title={subtitle(s, home)}
                     >
                       {subtitle(s, home)}
-                      {s.movedByCustomer && ' · moved by you'}
+                      {s.movedByCustomer && ` · ${t('statements.movedByYou')}`}
                     </p>
                     {/* step9: the other errors too — every one, always shown. */}
                     <AccountErrors
@@ -441,7 +444,7 @@ export function StatementsList({
                             className="font-medium text-brand hover:underline"
                             onClick={() => setDetails(details === s.id ? null : s.id)}
                           >
-                            {details === s.id ? 'Hide details' : 'Details'}
+                            {details === s.id ? t('statements.hideDetails') : t('statements.details')}
                           </button>
                         )}
                         {assistant && (
@@ -451,7 +454,7 @@ export function StatementsList({
                             onClick={() => ask(s.id)}
                           >
                             <Sparkles className="size-3.5" />
-                            {asking === s.id ? 'Close the chat' : failed ? 'Ask AI to fix it' : 'Ask AI about it'}
+                            {asking === s.id ? t('statements.closeChat') : failed ? t('statements.askFix') : t('statements.askAbout')}
                           </button>
                         )}
                       </div>
@@ -461,7 +464,7 @@ export function StatementsList({
                     {isFiled(s) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger
-                          title="Move to another account"
+                          title={t('statements.moveTitle')}
                           className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-black/5 hover:text-foreground"
                         >
                           <FolderInput className="size-4" />
@@ -469,7 +472,7 @@ export function StatementsList({
                         <DropdownMenuContent align="end" className="w-56">
                           {/* base-ui throws when a GroupLabel is not inside a Group. */}
                           <DropdownMenuGroup>
-                            <DropdownMenuLabel>Move to account</DropdownMenuLabel>
+                            <DropdownMenuLabel>{t('statements.moveTo')}</DropdownMenuLabel>
                             {accounts
                               .filter((a) => a !== folderOf(s))
                               .map((a) => (
@@ -485,7 +488,7 @@ export function StatementsList({
                               setNewFor(s)
                             }}
                           >
-                            <FolderPlus className="size-4" /> New account…
+                            <FolderPlus className="size-4" /> {t('statements.newAccount')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -494,7 +497,7 @@ export function StatementsList({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        title="Try again"
+                        title={t('common:actions.retry')}
                         disabled={retry.isPending}
                         onClick={() => retry.mutate(s.id)}
                       >
@@ -504,7 +507,7 @@ export function StatementsList({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      title={s.source === 'PLAID' ? 'View statement PDF' : 'View original PDF'}
+                      title={s.source === 'PLAID' ? t('statements.viewPdf') : t('statements.viewOriginal')}
                       onClick={() => {
                         setOpenError(null)
                         openOriginal(auth, s.id).catch((e: Error) => setOpenError(e.message))
@@ -515,7 +518,7 @@ export function StatementsList({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      title="Delete statement"
+                      title={t('statements.delete')}
                       className="text-muted-foreground hover:text-destructive"
                       onClick={() => setConfirm(s)}
                     >
@@ -541,17 +544,11 @@ export function StatementsList({
       <Dialog open={confirmAll} onOpenChange={setConfirmAll}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              Re-read {toReread} statement{toReread === 1 ? '' : 's'}?
-            </DialogTitle>
-            <DialogDescription>
-              Every statement with a problem is read again from its PDF. While it is being read,
-              its transactions leave your books; they come back as soon as it is done. A missing
-              statement is not included — upload it to close the gap.
-            </DialogDescription>
+            <DialogTitle>{t('statements.rereadTitle', { count: toReread })}</DialogTitle>
+            <DialogDescription>{t('statements.rereadText')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" type="button" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" type="button" />}>{t('common:actions.cancel')}</DialogClose>
             <Button
               disabled={retryAll.isPending}
               onClick={() =>
@@ -560,14 +557,14 @@ export function StatementsList({
                     setConfirmAll(false)
                     setAllNote(
                       queued
-                        ? `${queued} statement${queued === 1 ? ' is' : 's are'} being read again.`
-                        : 'Nothing to read again right now.',
+                        ? t('statements.rereadQueued', { count: queued })
+                        : t('statements.rereadNone'),
                     )
                   },
                 })
               }
             >
-              {retryAll.isPending ? 'Starting…' : 'Re-read all'}
+              {retryAll.isPending ? t('statements.starting') : t('statements.rereadAll')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -585,23 +582,20 @@ export function StatementsList({
             }}
           >
             <DialogHeader>
-              <DialogTitle>Move to a new account</DialogTitle>
-              <DialogDescription>
-                {newFor?.label} gets its own folder. Name it the way you know the account, e.g. “TD
-                Chequing 5234”.
-              </DialogDescription>
+              <DialogTitle>{t('statements.newAccountTitle')}</DialogTitle>
+              <DialogDescription>{t('statements.newAccountText', { label: newFor?.label })}</DialogDescription>
             </DialogHeader>
             <Input
               autoFocus
               value={newName}
               maxLength={191}
-              placeholder="Account name"
+              placeholder={t('statements.accountName')}
               onChange={(e) => setNewName(e.target.value)}
             />
             <DialogFooter>
-              <DialogClose render={<Button variant="outline" type="button" />}>Cancel</DialogClose>
+              <DialogClose render={<Button variant="outline" type="button" />}>{t('common:actions.cancel')}</DialogClose>
               <Button type="submit" disabled={!newName.trim() || move.isPending}>
-                {move.isPending ? 'Moving…' : 'Move'}
+                {move.isPending ? t('statements.moving') : t('statements.move')}
               </Button>
             </DialogFooter>
           </form>
@@ -611,14 +605,13 @@ export function StatementsList({
       <Dialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete this statement?</DialogTitle>
+            <DialogTitle>{t('statements.deleteTitle')}</DialogTitle>
             <DialogDescription>
-              {confirm?.filename} and its {confirm?.transactionCount ?? 0} transactions will be removed
-              from your ledger and exports.
+              {t('statements.deleteText', { file: confirm?.filename, count: confirm?.transactionCount ?? 0 })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
             <Button
               variant="destructive"
               disabled={remove.isPending}
@@ -626,7 +619,7 @@ export function StatementsList({
                 confirm && remove.mutate(confirm.id, { onSuccess: () => setConfirm(null) })
               }
             >
-              {remove.isPending ? 'Deleting…' : 'Delete statement'}
+              {remove.isPending ? t('statements.deleting') : t('statements.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -659,6 +652,7 @@ function Folder({
   onAskStarts?: () => void
   children: ReactNode
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const drop = useFolderDrop(onDrop)
   const range = folderRange(folder)
   // Always say where the account starts; red only when it starts more than once.
@@ -707,8 +701,8 @@ function Folder({
             )}
             <span className="flex min-w-0 flex-col">
               <span className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? 'Not sorted yet'}</span>
-                {note?.warn && <span className="size-2 shrink-0 rounded-full bg-red-500" title={STARTS_WARNING} />}
+                <span className="truncate text-sm font-semibold text-[#0B1C2C]">{folder.account ?? t('statements.notSorted')}</span>
+                {note?.warn && <span className="size-2 shrink-0 rounded-full bg-red-500" title={startsWarning()} />}
               </span>
               {note && (
                 <span className={cn('text-xs', note.warn ? 'font-medium text-red-600' : 'truncate text-muted-foreground')}>
@@ -724,12 +718,12 @@ function Folder({
             </span>
             {folder.card && (
               <Badge className="gap-1 bg-slate-100 text-slate-600 ring-1 ring-slate-500/15">
-                <CreditCard className="size-3" /> Card
+                <CreditCard className="size-3" /> {t('statements.card')}
               </Badge>
             )}
             <span className="ml-auto shrink-0 text-xs text-muted-foreground">
               {range && <span className="hidden sm:inline">{range} · </span>}
-              {folder.statements.length} statement{folder.statements.length === 1 ? '' : 's'}
+              {t('statements.count', { count: folder.statements.length })}
             </span>
           </button>
         </FolderRename>
@@ -738,14 +732,14 @@ function Folder({
       {note?.warn && (
         // step2: the whole warning, never cut off or hidden in a hover — and a way to fix it.
         <p className="px-8 pb-1 text-xs text-red-600/80">
-          {STARTS_WARNING}
+          {startsWarning()}
           {onAskStarts && (
             <button
               type="button"
               className="ml-2 inline-flex items-center gap-1 font-medium text-brand hover:underline"
               onClick={onAskStarts}
             >
-              <Sparkles className="size-3.5" /> Ask AI to fix it
+              <Sparkles className="size-3.5" /> {t('statements.askFix')}
             </button>
           )}
         </p>
@@ -770,9 +764,10 @@ function FolderRename({
   onRename?: (to: string) => Promise<unknown>
   children: ReactNode
 }) {
+  const { t } = useTranslation(['books', 'common'])
   if (!account || !onRename) return <>{children}</>
   return (
-    <InlineRename value={account} onSave={onRename} label={`Rename ${account}`} className="flex-1">
+    <InlineRename value={account} onSave={onRename} label={t('statements.renameAccount', { name: account })} className="flex-1">
       {children}
     </InlineRename>
   )
@@ -790,18 +785,19 @@ function startsChatStatement(statements: Statement[]): Statement | undefined {
 
 /** step8: the full story of a statement we could not read — the checks, what it means, what to do. */
 function StatementDetails({ s }: { s: Statement }) {
+  const { t } = useTranslation(['books', 'common'])
   const help = statementHelp(s, s.problem?.kind)
   return (
     <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-[#0B1C2C]/90">
       {/* step9: every saved error. */}
       {(s.errors?.length ?? 0) > 0 && (
         <>
-          <p className="font-semibold">Every problem with this statement</p>
+          <p className="font-semibold">{t('statements.everyProblem')}</p>
           <ul className="mt-0.5 mb-2 list-disc space-y-1 pl-5">
             {s.errors!.map((e) => (
               <li key={e.id}>
                 <span className="font-medium">{e.title}</span>
-                {e.source === 'AI' && <span className="text-muted-foreground"> · noted by the AI</span>}
+                {e.source === 'AI' && <span className="text-muted-foreground"> · {t('statements.notedByAi')}</span>}
                 <span className="block text-[#0B1C2C]/75">{e.text}</span>
               </li>
             ))}
@@ -810,13 +806,13 @@ function StatementDetails({ s }: { s: Statement }) {
       )}
       {s.errorDetail && (
         <>
-          <p className="font-semibold">What went wrong, exactly</p>
+          <p className="font-semibold">{t('statements.whatWentWrong')}</p>
           <p className="mt-0.5 mb-2 font-mono text-[11px] break-words whitespace-pre-wrap">{s.errorDetail}</p>
         </>
       )}
       {!!s.checks?.length && (
         <>
-          <p className="font-semibold">What did not match the bank's totals</p>
+          <p className="font-semibold">{t('statements.whatDidNotMatch')}</p>
           <ul className="mt-0.5 mb-2 list-disc pl-5">
             {s.checks.map((c) => (
               <li key={c}>{c}</li>
@@ -826,19 +822,19 @@ function StatementDetails({ s }: { s: Statement }) {
       )}
       {help && (
         <>
-          <p className="font-semibold">What this means</p>
+          <p className="font-semibold">{t('statements.whatMeans')}</p>
           <p className="mt-0.5">{help.what}</p>
-          <p className="mt-2 font-semibold">What you can do</p>
+          <p className="mt-2 font-semibold">{t('statements.whatToDo')}</p>
           <ul className="mt-0.5 list-disc pl-5">
-            {help.todo.map((t) => (
-              <li key={t}>{t}</li>
+            {help.todo.map((line) => (
+              <li key={line}>{line}</li>
             ))}
           </ul>
         </>
       )}
       {s.customerNote && (
         <p className="mt-2">
-          <span className="font-semibold">What you told us: </span>
+          <span className="font-semibold">{t('statements.youTold')} </span>
           {s.customerNote}
         </p>
       )}

@@ -1,6 +1,7 @@
 import type { Attachment, FileBucket, NameFolder } from '@/api/attachments'
 import type { Statement } from '@/api/bookkeeping'
 import { groupByAccount } from '@/components/Bookkeeping/statement-folders'
+import i18n from '@/i18n'
 
 /**
  * step2 (2026-11-11): files live in the Names tab. Every file belongs to ONE name — the
@@ -51,10 +52,17 @@ export function totalCounts(files: Attachment[]): BucketCounts {
 /** The three filter chips of a folder; null = every file. */
 export type BucketFilter = 'RELATED' | 'DOCUMENT' | 'ERROR' | null
 
+/** Each chip's label, read in the shown language at the moment it is used. */
 export const BUCKET_LABEL: Record<Exclude<BucketFilter, null>, string> = {
-  RELATED: 'Linked to transactions',
-  DOCUMENT: 'Not transactions',
-  ERROR: 'Need attention',
+  get RELATED() {
+    return i18n.t('ledger:files.bucket.RELATED')
+  },
+  get DOCUMENT() {
+    return i18n.t('ledger:files.bucket.DOCUMENT')
+  },
+  get ERROR() {
+    return i18n.t('ledger:files.bucket.ERROR')
+  },
 }
 
 /** A file's date on its folder: what the AI read, else its transaction's, else when it came. */

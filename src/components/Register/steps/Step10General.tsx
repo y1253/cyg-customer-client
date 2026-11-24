@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { FormData } from '../types';
 
@@ -10,30 +11,31 @@ interface Props {
 }
 
 interface DocRule {
-  question: string;
+  id: "qcDocs" | "craDocs" | "salesTax";
   enabledKey: keyof FormData;
   noteKey: keyof FormData;
 }
 
 const CANADIAN_DOC_RULES: DocRule[] = [
   {
-    question: "Should we manage Revenue QC government documents?",
+    id: "qcDocs",
     enabledKey: "qcDocsEnabled",
     noteKey: "qcDocsNote",
   },
   {
-    question: "Should we manage CRA government documents?",
+    id: "craDocs",
     enabledKey: "craDocsEnabled",
     noteKey: "craDocsNote",
   },
   {
-    question: "Should we handle sales tax filing?",
+    id: "salesTax",
     enabledKey: "salesTaxEnabled",
     noteKey: "salesTaxNote",
   },
 ];
 
 export function Step10General({ data, onChange }: Props) {
+  const { t } = useTranslation(["register", "common"]);
   const isCanada = data.country === "CANADA";
 
   return (
@@ -41,7 +43,7 @@ export function Step10General({ data, onChange }: Props) {
       {/* The "come down to your location" question was removed (step2, 2026-10-15). */}
       {!isCanada && (
         <p className="text-sm text-muted-foreground">
-          Nothing more to answer here. Click Next to continue.
+          {t("general.nothing")}
         </p>
       )}
 
@@ -49,7 +51,7 @@ export function Step10General({ data, onChange }: Props) {
       {isCanada &&
         CANADIAN_DOC_RULES.map((rule) => (
           <div key={rule.enabledKey} className="flex flex-col gap-3">
-            <p className="text-sm font-medium text-foreground">{rule.question}</p>
+            <p className="text-sm font-medium text-foreground">{t(`general.${rule.id}`)}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
@@ -62,7 +64,7 @@ export function Step10General({ data, onChange }: Props) {
                 )}
               >
                 <span className="text-2xl">✓</span>
-                Yes
+                {t("common:actions.yes")}
               </button>
               <button
                 type="button"
@@ -77,7 +79,7 @@ export function Step10General({ data, onChange }: Props) {
                 )}
               >
                 <span className="text-2xl">✕</span>
-                No
+                {t("common:actions.no")}
               </button>
             </div>
 
@@ -88,7 +90,7 @@ export function Step10General({ data, onChange }: Props) {
                   onChange={(e) =>
                     onChange({ [rule.noteKey]: e.target.value } as Partial<FormData>)
                   }
-                  placeholder="Any additional instructions… (optional)"
+                  placeholder={t("general.notePlaceholder")}
                   className={TEXTAREA_CLASS}
                 />
               </div>

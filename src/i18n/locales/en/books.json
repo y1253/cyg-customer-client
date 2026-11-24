@@ -1,0 +1,578 @@
+{
+  "tabs": {
+    "statements": "Bank feeds",
+    "ledger": "Ledger",
+    "communications": "Communications",
+    "accounts": "Chart of accounts",
+    "income": "Income statement",
+    "balance": "Balance sheet",
+    "names": "Names",
+    "products": "Products",
+    "schedules": "Schedules"
+  },
+  "page": {
+    "title": "Bookkeeping",
+    "description": "Upload your bank statements — we post every transaction as a debit and a credit.",
+    "downloadExcel": "Download Excel",
+    "downloadPdf": "Download PDF",
+    "noFigures": "No figures yet",
+    "noFiguresHint": "Upload a bank statement — the reports fill in once it has been read.",
+    "problemCount_one": "{{count}} statement with a problem",
+    "problemCount_other": "{{count}} statements with a problem",
+    "upload": "Upload",
+    "readingTakes": "Reading takes about a minute per statement — you can leave this page; it continues in the background."
+  },
+  "switcher": {
+    "switch": "Switch company",
+    "yours": "Your companies",
+    "rename": "Rename “{{name}}”",
+    "new": "New company",
+    "renameTitle": "Rename company",
+    "newHint": "A separate set of books — its own statements, files, rules and reports.",
+    "renameHint": "The name shows on this page and heads your reports and exports.",
+    "nameLabel": "Company name",
+    "namePlaceholder": "e.g. Maple Street Rentals",
+    "create": "Create"
+  },
+  "starts": {
+    "date": "Starting date: {{date}}",
+    "balance": "Starting balance: {{amount}} on {{date}}",
+    "dates": "Starting dates: {{dates}}",
+    "dateAmount": "{{date}} ({{amount}})",
+    "dateAmountWorked": "{{date}} ({{amount}}, worked out)",
+    "derived": {
+      "CLOSING": "worked out from the closing balance",
+      "ZERO": "not printed — set at 0.00"
+    },
+    "undated": "an undated statement",
+    "undatedCap": "An undated statement",
+    "thisOne": "this one",
+    "missing": "{{at}}: missing statement {{from}} – {{to}}",
+    "missingJump": "{{at}}: missing statement {{from}} – {{to}}, and the balance went from {{before}} to {{after}}",
+    "statementEnding": "the statement ending {{date}}",
+    "statementBefore": "the statement before",
+    "review": "{{at}}: {{before}} needs review, so the books start again here",
+    "mismatch": "{{at}}: balances don't carry over — {{before}} closes at {{closing}}, this one opens at {{opening}}",
+    "mismatchNoClosing": "{{at}}: balances don't carry over — {{before}} has no closing balance read, this one opens at {{opening}}",
+    "warning": "More than one starting date: a statement is missing, or the balances do not carry over from one statement to the next."
+  },
+  "help": {
+    "ENDING": {
+      "what": "Its opening balance plus the money in and out we read doesn't come to the ending balance printed on it, so a transaction was read wrong or skipped. Its transactions are in your books as read until it is fixed.",
+      "todo": [
+        "Try again — it is read once more from scratch.",
+        "Ask AI and tell it the balances printed on the statement, or which transaction is wrong; it fixes how it is read and checks again."
+      ]
+    },
+    "RUNNING": {
+      "what": "The bank prints a running balance next to each transaction. The one on its last transaction should be the statement's ending balance, and it isn't — so a transaction was read wrong or skipped. Its transactions are in your books as read until it is fixed.",
+      "todo": [
+        "Try again — it is read once more from scratch.",
+        "Ask AI and tell it which transaction or amount is wrong; it fixes how it is read and checks again."
+      ]
+    },
+    "NO_OPENING": {
+      "what": "We couldn't read a starting balance on this statement, and there was no ending balance to work one out from, so your books start this account at $0.00 here and its balances may be off.",
+      "todo": [
+        "Try again — it is read once more with our strongest reader.",
+        "Ask AI and tell it the opening (starting) balance printed on the statement; it sets it and checks the transactions against it."
+      ]
+    },
+    "OTHER": {
+      "what": "Our AI noted this problem with the statement from what you told it. It stays here until it is fixed.",
+      "todo": [
+        "Ask AI to fix it, or try again — it is read once more from scratch."
+      ]
+    },
+    "MISMATCH": {
+      "what": "Each statement should start at the balance the one before it ended with. This one doesn't, so one of the two was read wrong or the bank changed something. We re-read both with our strongest reader. Until it is fixed, your books start again at this statement's opening balance.",
+      "todo": [
+        "Open both PDFs and compare the ending balance of the earlier one with the opening balance of this one.",
+        "Ask AI and tell it the right balance, or what was read wrong; it corrects it and checks again.",
+        "If a statement was put in the wrong account, move it to the right folder."
+      ]
+    },
+    "MISSING": {
+      "what": "There is a gap between the statement before this one and this one, so the transactions in that gap are missing from your books. Your books start again at this statement's opening balance.",
+      "todo": [
+        "Upload the missing statement(s) — the gap closes by itself once they are read.",
+        "If there was really no statement for that time, Ask AI and tell it."
+      ]
+    },
+    "NO_BALANCES": {
+      "what": "We read the transactions, but nothing on the statement we read (opening or closing balance, totals, running balance) could check them, so some may be missing or misread. They are in your books as read.",
+      "todo": [
+        "Try again — it is read once more with our strongest reader.",
+        "Ask AI and tell it the opening and closing balance printed on the statement; it checks the transactions against them.",
+        "If the PDF is a scan or a photo, upload a clearer copy, or the one downloaded from your bank."
+      ]
+    },
+    "NEEDS_REVIEW": {
+      "what": "We read every transaction, then added them up and compared them with the totals the bank prints on the statement. They don't match, so something was read wrong or skipped (often a page, a sign, or one amount). To keep your books right, nothing from this statement is in your ledger yet.",
+      "todo": [
+        "Try again — each read starts fresh and often fixes it.",
+        "Ask AI and tell it what is wrong (e.g. which page or which amount); it fixes how the statement is read and tries again.",
+        "If the PDF is a scan or a photo, upload a clearer copy, or the one downloaded from your bank."
+      ]
+    },
+    "PASSWORD": {
+      "what": "The PDF is locked with a password, so it cannot be opened.",
+      "todo": [
+        "Download the statement again from your bank without a password, or print it to a new PDF, and upload that."
+      ]
+    },
+    "NOT_STATEMENT": {
+      "what": "This file doesn't look like a bank or credit-card statement (it may be a receipt, an invoice or a summary).",
+      "todo": [
+        "If it is a receipt or invoice, upload it under Attachments instead.",
+        "If it really is a statement, Ask AI and tell it which bank and account it is."
+      ]
+    },
+    "DAMAGED": {
+      "what": "The file is damaged or is not a real PDF, so it cannot be opened.",
+      "todo": [
+        "Download the statement again from your bank and upload the new copy."
+      ]
+    },
+    "GENERIC": {
+      "what": "Something went wrong while reading this statement — usually a busy moment on our side or a hard-to-read file.",
+      "todo": [
+        "Try again.",
+        "Ask AI and tell it what the statement is; it tries again with that.",
+        "If it keeps failing, upload a clearer copy, or the one downloaded from your bank."
+      ]
+    }
+  },
+  "statements": {
+    "status": {
+      "done": "Done",
+      "needsReview": "Needs review",
+      "failed": "Failed",
+      "notRead": "Not read yet",
+      "reading": "Reading…",
+      "queued": "Queued"
+    },
+    "couldNotRead": "We could not read this statement.",
+    "noMatch": "This statement doesn't match the bank's totals.",
+    "txCount_one": "{{count}} transaction",
+    "txCount_other": "{{count}} transactions",
+    "inCurrency": "in {{currency}}",
+    "readingAll": "Reading every transaction…",
+    "clickGenerate": "click Generate to read it",
+    "waiting": "Waiting to be read…",
+    "filter": {
+      "all": "All",
+      "done": "Done",
+      "unread": "Problems",
+      "waiting": "Waiting"
+    },
+    "empty": "No statements yet",
+    "emptyHint": "Uploaded statements appear here.",
+    "rereadAllCount": "Re-read all ({{count}})",
+    "collapseAll": "Collapse all",
+    "expandAll": "Expand all",
+    "dragHint": "A statement in the wrong account? Drag it onto the right folder, or use its <icon></icon> menu.",
+    "nothing": "Nothing here.",
+    "askStarts": "{{account}} has more than one starting date ({{dates}}).{{why}} Why don't its balances carry over, and how do we fix it?",
+    "seeInLedger_one": "See its {{count}} transaction in the ledger — {{file}}",
+    "seeInLedger_other": "See its {{count}} transactions in the ledger — {{file}}",
+    "bankFeed": "Bank feed",
+    "movedByYou": "moved by you",
+    "details": "Details",
+    "hideDetails": "Hide details",
+    "closeChat": "Close the chat",
+    "askFix": "Ask AI to fix it",
+    "askAbout": "Ask AI about it",
+    "moveTitle": "Move to another account",
+    "moveTo": "Move to account",
+    "newAccount": "New account…",
+    "viewPdf": "View statement PDF",
+    "viewOriginal": "View original PDF",
+    "delete": "Delete statement",
+    "rereadTitle_one": "Re-read {{count}} statement?",
+    "rereadTitle_other": "Re-read {{count}} statements?",
+    "rereadText": "Every statement with a problem is read again from its PDF. While it is being read, its transactions leave your books; they come back as soon as it is done. A missing statement is not included — upload it to close the gap.",
+    "rereadQueued_one": "{{count}} statement is being read again.",
+    "rereadQueued_other": "{{count}} statements are being read again.",
+    "rereadNone": "Nothing to read again right now.",
+    "starting": "Starting…",
+    "rereadAll": "Re-read all",
+    "newAccountTitle": "Move to a new account",
+    "newAccountText": "{{label}} gets its own folder. Name it the way you know the account, e.g. “TD Chequing 5234”.",
+    "accountName": "Account name",
+    "moving": "Moving…",
+    "move": "Move",
+    "deleteTitle": "Delete this statement?",
+    "deleteText_one": "{{file}} and its {{count}} transaction will be removed from your ledger and exports.",
+    "deleteText_other": "{{file}} and its {{count}} transactions will be removed from your ledger and exports.",
+    "deleting": "Deleting…",
+    "notSorted": "Not sorted yet",
+    "card": "Card",
+    "count_one": "{{count}} statement",
+    "count_other": "{{count}} statements",
+    "renameAccount": "Rename {{name}}",
+    "everyProblem": "Every problem with this statement",
+    "notedByAi": "noted by the AI",
+    "whatWentWrong": "What went wrong, exactly",
+    "whatDidNotMatch": "What did not match the bank's totals",
+    "whatMeans": "What this means",
+    "whatToDo": "What you can do",
+    "youTold": "What you told us:",
+    "notRead": "not read",
+    "owes": "owes {{amount}}",
+    "balanceLine": "Starts {{open}} · ends {{end}}",
+    "balanceLineWorked": "Starts {{open}} (worked out) · ends {{end}}"
+  },
+  "upload": {
+    "notPdf_one": "{{count}} not a PDF ({{names}})",
+    "notPdf_other": "{{count}} not PDFs ({{names}})",
+    "tooBig_one": "{{count}} over 50 MB",
+    "tooBig_other": "{{count}} over 50 MB",
+    "skipped": "Skipped {{what}}.",
+    "skippedBoth": "Skipped {{a}} and {{b}}.",
+    "uploading_one": "Uploading {{count}} statement…",
+    "uploading_other": "Uploading {{count}} statements…",
+    "drop": "Drop bank statements here",
+    "browse": "or <link>browse your files</link> — PDF, as many as you like",
+    "done": "Uploaded — click Generate when you have added them all."
+  },
+  "generate": {
+    "reading": "Reading statements…",
+    "new": "Generate · {{count}} new",
+    "newPaid": "Generate · {{count}} new · {{price}}",
+    "button": "Generate",
+    "ready_one": "{{count}} statement ready to read",
+    "ready_other": "{{count}} statements ready to read",
+    "upToDate": "Your ledger is up to date",
+    "readyHint": "Upload everything first, then click Generate — we read them and post every transaction.",
+    "upToDateHint": "Upload more statements any time, then click Generate.",
+    "home": "Home currency",
+    "homeHint": "The currency your books are kept in. Statements in another currency are converted at each day's Bank of Canada rate."
+  },
+  "bank": {
+    "justNow": "just now",
+    "minAgo": "{{n}} min ago",
+    "hoursAgo": "{{n}} h ago",
+    "yesterday": "yesterday",
+    "signInNeeded": "Needs you to sign in again",
+    "stopped": "The connection stopped working",
+    "pickStarts": "Pick where each account starts — nothing is filed until you do",
+    "bringingIn": "Bringing in your history…",
+    "upToDate": "Up to date · {{ago}}",
+    "connect": "Connect your bank",
+    "connectAnother": "Connect another bank",
+    "intro": "No more uploading: you pick the accounts at your bank and how far back (up to 2 years), and we file each month as a statement automatically. Read-only — your bank password goes to Plaid, never to us.",
+    "yourBank": "Your bank",
+    "signInAgain": "Sign in again",
+    "refreshNow": "Refresh now",
+    "disconnect": "Disconnect",
+    "disconnecting": "Disconnecting…",
+    "dontDisconnect": "Don't disconnect — reconnecting restarts the wait.",
+    "newAccount": "Your bank has an account you have not shared yet.",
+    "addIt": "Add it",
+    "filedUnder": "Filed under “{{name}}”",
+    "from": "from {{date}}",
+    "allHistory": "all history",
+    "start": "starting balance {{amount}}",
+    "startOn": "starting balance {{amount}} on {{date}}",
+    "startOwed": "starting balance owed {{amount}}",
+    "startOwedOn": "starting balance owed {{amount}} on {{date}}",
+    "owed": "owed {{amount}}",
+    "changeAccounts": "Change accounts",
+    "startDates": "Start dates",
+    "disconnectTitle": "Disconnect {{name}}?",
+    "disconnectThis": "Disconnect this bank?",
+    "disconnectText": "We stop bringing in new transactions and delete our access to it. The statements already imported stay in your books."
+  },
+  "dates": {
+    "title": "Where should your books start?",
+    "intro": "Pick the first day to bring in for each {{bank}} account. Leave it blank for everything the bank gives us (up to 2 years).",
+    "introNoName": "Pick the first day to bring in for each bank account. Leave it blank for everything the bank gives us (up to 2 years).",
+    "later": "A later date takes the earlier months out of your books.",
+    "none": "No accounts are shared from this bank yet.",
+    "startFor": "Start date for {{name}}",
+    "useFirst": "Use the first account’s date for all",
+    "invalid": "Pick a day between {{date}} and today.",
+    "laterButton": "Later",
+    "bringIn": "Bring them in"
+  },
+  "plaid": {
+    "expired": "This bank connection expired. Please start it again from your bookkeeping page.",
+    "back": "Back to bookkeeping",
+    "finishing": "Finishing your bank connection…",
+    "notLoaded": "Plaid did not load",
+    "loadFailed": "Could not load the bank connection window. Check your connection and try again."
+  },
+  "startsChat": {
+    "title": "{{account}}: more than one starting date",
+    "none": "No read statement of this account yet."
+  },
+  "schedules": {
+    "run": {
+      "none": "not sent",
+      "sms": "by text",
+      "call": "by phone call",
+      "email": "by email"
+    },
+    "nothingSent": "Nothing sent yet.",
+    "sendNowLower": "send now",
+    "next": "Next: {{when}}",
+    "nextSend": "Next send",
+    "turnOff": "Turn off {{title}}",
+    "turnOn": "Turn on {{title}}",
+    "more": "More for {{title}}",
+    "sendNow": "Send now",
+    "freq": {
+      "DAILY": "Every day",
+      "WEEKLY": "Every week",
+      "MONTHLY": "Every month",
+      "ONCE": "Once"
+    },
+    "repeat": "Repeat",
+    "day": "Day",
+    "dayOfMonth": "Day of month",
+    "time": "Time",
+    "recent": "Recent sends",
+    "channel": {
+      "PREFERRED": "My preferred contact",
+      "SMS": "Text message",
+      "EMAIL": "Email",
+      "CALL": "Phone call"
+    },
+    "name": "Name",
+    "sendBy": "Send by",
+    "task": "What the assistant sends each time",
+    "builtin": {
+      "ACCOUNT_STATUS": {
+        "title": "Account Status Overview",
+        "what": "What still needs you: receipts we could not match, Uncategorized transactions, unrecognized names, statements to review. Nothing open = nothing sent."
+      },
+      "FINANCIAL_REPORT": {
+        "title": "Financial Report",
+        "what": "Last month's income statement and balance sheet — a PDF by email, or a summary and a link by text."
+      }
+    },
+    "to": {
+      "nowhere": "nowhere to send it",
+      "call": "by phone call to {{to}}",
+      "sms": "by text to {{to}}",
+      "email": "by email to {{to}}"
+    },
+    "delivery": {
+      "nowhere": "We have no email address or phone to send it to.",
+      "builtinCall": "The AI assistant <b>calls</b> {{to}}, says it, and answers your questions. No answer → a text, then email.",
+      "builtinSms": "Sends by <b>text message</b> to {{to}}.",
+      "builtinSmsWhatsapp": "Sends by <b>text message</b> to {{to}} (scheduled messages to WhatsApp users go by text).",
+      "builtinEmail": "Sends by <b>email</b> to {{to}}.",
+      "builtinEmailAddPhone": "Sends by <b>email</b> to {{to}} — add a mobile number to your account to get it by text or call.",
+      "changePreferred": "Change your preferred contact on the <link>Account page</link>.",
+      "aiPrepares": "Each time, the AI assistant looks up your books and prepares the message.",
+      "aiWrites": "Each time, the AI assistant looks up your books and writes the message.",
+      "aiCall": "It <b>calls</b> {{to}}, says it, and answers your questions. No answer → a text, then email{{why}}.",
+      "aiSms": "It goes by <b>text message</b> to {{to}}{{why}}.",
+      "aiEmail": "It goes by <b>email</b> to {{to}}{{why}}.",
+      "preferred": " — your preferred contact",
+      "noCalls": " (phone calls are not available right now)",
+      "changeContact": "Change your contact details on the <link>Account page</link>."
+    },
+    "title": "Scheduled messages",
+    "intro": "Regular updates about these books, sent to you by text or email. Click a row to change it.",
+    "builtIn": "Built-in",
+    "askedInChat": "Asked for in chat",
+    "noCustom": "No custom schedules yet",
+    "askHint": "Ask the AI assistant — by chat, text or email — for anything regular, like <i>“Text me my cash balance every day at 6am”</i> or <i>“Email me unmatched receipts every Friday”</i>. It shows up here.",
+    "askHintOff": "Schedules you ask the AI assistant for will show up here.",
+    "madeByAi": "Made by AI",
+    "yours": "Yours",
+    "deleteTitle": "Delete “{{title}}”?",
+    "deleteText": "It stops being sent. You can always ask the assistant for it again.",
+    "keep": "Keep it"
+  },
+  "comm": {
+    "channel": {
+      "WHATSAPP": {
+        "label": "WhatsApp",
+        "empty": "Nothing on WhatsApp yet."
+      },
+      "SMS": {
+        "label": "Text messages",
+        "empty": "No text messages yet."
+      },
+      "VOICE": {
+        "label": "Phone calls",
+        "empty": "No calls with the AI yet."
+      },
+      "EMAIL": {
+        "label": "Email",
+        "empty": "No emails yet."
+      },
+      "BOT": {
+        "label": "Website chat",
+        "empty": "No chats on the website yet."
+      },
+      "UPLOADS": {
+        "label": "Uploads",
+        "empty": "Nothing uploaded on the website yet."
+      }
+    },
+    "fileStatus": {
+      "MATCHED": "Filed",
+      "DONE": "Read",
+      "UNMATCHED": "Not matched yet",
+      "NEEDS_REVIEW": "Needs review",
+      "UPLOADED": "Waiting for Generate",
+      "PENDING": "Reading…",
+      "PROCESSING": "Reading…",
+      "FAILED": "Couldn't read",
+      "DOCUMENT": "Document",
+      "REMOVED": "Removed"
+    },
+    "pick": "Pick a conversation to see everything sent on it.",
+    "noCallsCall": "No calls with the AI yet. Call our receipt number to talk to it.",
+    "back": "Back to conversations",
+    "continue": "Continue on the Assistant tab",
+    "loadEarlier": "Load earlier",
+    "uploadedStatement": "Uploaded a statement",
+    "sentFile": "Sent a file",
+    "removed": "This file was removed since",
+    "openFile": "Open the file",
+    "purpose": {
+      "INBOUND": "You called us",
+      "ACCOUNT_STATUS": "We called with your account status",
+      "FINANCIAL_REPORT": "We called with your financial report",
+      "AI_SCHEDULE": "We called with a message you scheduled",
+      "REQUESTED": "We called you back, as you asked",
+      "THIRD_PARTY": "We called them for you"
+    },
+    "phoneCall": "Phone call",
+    "callStatus": {
+      "COMPLETED": "Completed",
+      "IN_PROGRESS": "In progress",
+      "RINGING": "Ringing",
+      "NO_ANSWER": "No answer",
+      "FAILED": "Failed"
+    },
+    "you": "you",
+    "callWith": "Call with {{who}}",
+    "theyCalled": "{{who}} called us",
+    "youCalled": "You called us",
+    "weCalledThem": "We called {{who}}",
+    "weCalledYou": "We called you",
+    "closeCall": "Close the call",
+    "openCall": "Open the recording and what was said",
+    "nobodyAnswered": "Nobody answered",
+    "missed": "Missed — we sent it by text or email instead",
+    "from": "From",
+    "to": "To",
+    "recordingTranscript": "Recording & transcript",
+    "transcript": "Transcript",
+    "loadingRecording": "Loading the recording…",
+    "them": "Them",
+    "youCap": "You",
+    "noTranscript": "No transcript for this call.",
+    "ai": "CYG Finance AI"
+  },
+  "reports": {
+    "section": {
+      "ASSET": "Assets",
+      "LIABILITY": "Liabilities",
+      "EQUITY": "Equity",
+      "INCOME": "Income",
+      "EXPENSE": "Expenses"
+    },
+    "total": {
+      "ASSET": "Total assets",
+      "LIABILITY": "Total liabilities",
+      "EQUITY": "Total equity",
+      "INCOME": "Total income",
+      "EXPENSE": "Total expenses"
+    },
+    "totalLiabEquity": "Total liabilities & equity",
+    "netIncome": "Net income",
+    "netLoss": "Net loss",
+    "asOf": "As of {{date}}",
+    "asOfLatest": "As of the latest statement",
+    "askStarts": "Ask AI to fix the starting dates",
+    "emptyPeriod": "Nothing in this period",
+    "sortBy": "Sort by {{label}}",
+    "byName": "By name",
+    "amount": "Amount",
+    "seeTransactions": "See its transactions",
+    "uncategorized_one": "{{count}} transaction ({{amount}}) could not be categorized and is counted under “Uncategorized” expenses.",
+    "uncategorized_other": "{{count}} transactions ({{amount}}) could not be categorized and are counted under “Uncategorized” expenses.",
+    "moveSection": "Move to another section",
+    "moveTo": "Move “{{account}}” to",
+    "putBack": "Put back where it was"
+  },
+  "period": {
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "thisYear": "This year",
+    "lastYear": "Last year",
+    "from": "From",
+    "to": "To",
+    "invalid": "“From” must be before “To”."
+  },
+  "merge": {
+    "title": "Merge {{from}} into {{into}}?",
+    "text": "Every transaction and rule of {{from}} moves to {{into}}. {{into}} keeps its own section and settings. Dragging back cannot split them again.",
+    "textBank": "Every transaction and rule of {{from}} moves to {{into}}, and their Bank feeds folders become one (statements and connected bank included). {{into}} keeps its own section and settings. Dragging back cannot split them again.",
+    "name": "Name of the merged account",
+    "merging": "Merging…",
+    "merge": "Merge"
+  },
+  "currency": {
+    "chipTitle": "The currency this account's statements are in — click to change it",
+    "mixed": "Mixed",
+    "of": "Currency of “{{account}}”",
+    "home": "home",
+    "fromStatements": "Use what the statements say",
+    "before": "Before conversion"
+  },
+  "offBy": {
+    "unread_one": "{{count}} statement could not be read, so its transactions are missing from the books.",
+    "unread_other": "{{count}} statements could not be read, so their transactions are missing from the books.",
+    "broken_one": "{{names}} has more than one starting date — a statement is missing in between, or one balance does not carry over to the next statement.",
+    "broken_other": "{{names}} have more than one starting date — a statement is missing in between, or one balance does not carry over to the next statement.",
+    "uncategorized_one": "{{count}} transaction is not categorized yet.",
+    "uncategorized_other": "{{count}} transactions are not categorized yet.",
+    "titleAssets": "Assets and liabilities + equity are off by {{amount}} (assets are higher).",
+    "titleLiabilities": "Assets and liabilities + equity are off by {{amount}} (liabilities + equity are higher).",
+    "why": "Every transaction has two equal sides, so the two totals always match when the books are complete. A difference means part of an account's history is missing or a starting balance was read wrong.",
+    "likely": "Most likely in your books:",
+    "noCause": "We could not find the cause from here — ask the AI or let us know and we will check it.",
+    "seeStatements": "See the statements",
+    "ask": "My balance sheet is off by {{amount}}. Can you find out why?",
+    "askAsOf": "My balance sheet is off by {{amount}} as of {{date}}. Can you find out why?",
+    "askAi": "Ask AI"
+  },
+  "chart": {
+    "account": "Account",
+    "transactions": "Transactions",
+    "balance": "Balance",
+    "bank": "Bank",
+    "moved": "Moved",
+    "dropHere": {
+      "ASSET": "Drop an account here to move it to assets",
+      "LIABILITY": "Drop an account here to move it to liabilities",
+      "EQUITY": "Drop an account here to move it to equity",
+      "INCOME": "Drop an account here to move it to income",
+      "EXPENSE": "Drop an account here to move it to expenses"
+    },
+    "help": "Bank accounts show the net money in and out for the period; a credit card what was charged on it. Under a bank or card account: the balance its books start at (a card: the amount owed) — red when they start more than once (a missing statement, or balances that don't carry over) — and every problem found on its statements. Click an account to see its transactions, drag it to another section to move it, or drop it on another account to merge the two (a bank or card account only with another one that has a Bank feeds folder). Click a bank account's currency to change it; a foreign account shows its balance before conversion underneath."
+  },
+  "api": {
+    "logInAgain": "Please log in again",
+    "tooLarge": "These files are too large to upload at once.",
+    "uploadFailed": "The upload failed. Please try again.",
+    "uploadNetwork": "The upload failed — check your connection and try again."
+  },
+  "taxKind": {
+    "SALES": "In",
+    "PURCHASE": "Out"
+  },
+  "rate": {
+    "fixed": "${{amount}}",
+    "percent": "{{value}}%"
+  }
+}

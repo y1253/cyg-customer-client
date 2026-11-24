@@ -1,0 +1,181 @@
+{
+  "api": {
+    "locked": "Entrez le code que nous vous avons envoyé par courriel pour voir ce contenu.",
+    "unreachable": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez."
+  },
+  "page": {
+    "yourBusiness": "Votre entreprise",
+    "myBusinesses": "Mes entreprises",
+    "description": "Tout ce que notre équipe reçoit et envoie pour votre entreprise.",
+    "lock": "Verrouiller",
+    "tabs": {
+      "communications": "Communications",
+      "tasks": "Tâches",
+      "bookkeeping": "Tenue de livres",
+      "links": "Liens"
+    }
+  },
+  "status": {
+    "read": "Lu",
+    "unread": "Non lu",
+    "completed": "Terminé",
+    "open": "Ouvert"
+  },
+  "unlock": {
+    "title": "Confirmez votre identité",
+    "hint": "Vos messages et vos identifiants enregistrés sont privés. Nous vous enverrons par courriel un code à 6 chiffres pour y accéder.",
+    "emailMe": "M’envoyer un code par courriel",
+    "sentTo": "Nous avons envoyé un code à <b>{{email}}</b>.",
+    "code": "Code",
+    "checking": "Vérification…",
+    "expired": "Ce code a expiré.",
+    "expiresIn": "Expire dans {{time}}"
+  },
+  "row": {
+    "voicemail": "Message vocal",
+    "outgoingCall": "Appel sortant",
+    "outgoingNoAnswer": "Appel sortant · sans réponse",
+    "missedCall": "Appel manqué",
+    "incomingCall": "Appel entrant",
+    "wa": {
+      "voice": "Message vocal",
+      "image": "Photo",
+      "video": "Vidéo",
+      "audio": "Audio",
+      "document": "Document",
+      "sticker": "Autocollant",
+      "message": "Message"
+    },
+    "noSubject": "(sans objet)",
+    "to": "À : {{name}}",
+    "sentEmail": "Courriel envoyé",
+    "email": "Courriel",
+    "recorded": "Enregistré",
+    "textSent": "Texto envoyé",
+    "textMessage": "Message texte",
+    "attachments_one": "{{count}} pièce jointe",
+    "attachments_many": "{{count}} pièces jointes",
+    "attachments_other": "{{count}} pièces jointes",
+    "waSent": "WhatsApp · Envoyé",
+    "waReceived": "WhatsApp · Reçu"
+  },
+  "chatNotice": {
+    "needs_reconnect": "Nous ne pouvons pas joindre votre clavardage pour le moment. Notre équipe a été avisée.",
+    "no_spaces": "Il n’y a encore aucune conversation de clavardage.",
+    "chat_disabled": "Le clavardage est désactivé pour ce compte.",
+    "no_license": "Ce compte n’a pas de licence de clavardage.",
+    "app_not_configured": "Le clavardage n’est pas encore offert.",
+    "error": "Impossible de charger vos conversations pour le moment."
+  },
+  "comm": {
+    "status": {
+      "all": "Tous les statuts",
+      "unread": "Non lus",
+      "uncompleted": "Non terminés"
+    },
+    "failed": {
+      "email": "vos courriels",
+      "chat": "vos messages de clavardage",
+      "phone": "vos appels et textos",
+      "whatsapp": "vos messages WhatsApp"
+    },
+    "kind": {
+      "all": "Tout",
+      "email": "Courriels",
+      "sent": "Courriels envoyés",
+      "chat": "Clavardage",
+      "calls": "Appels",
+      "voicemail": "Messages vocaux",
+      "texts": "Textos"
+    },
+    "nothingConnected": "Aucune boîte de courriel, ligne téléphonique ni WhatsApp n’est encore connectée à cette entreprise.",
+    "line": "Ligne {{number}}",
+    "searchPlaceholder": "Rechercher des noms, des objets, des messages…",
+    "mailboxUnreachable": "Nous ne pouvons pas joindre cette boîte de courriel pour le moment. Notre équipe a été avisée.",
+    "failedLoad": "Impossible de charger {{what}} pour le moment.",
+    "noMatchLoaded": "Aucun résultat parmi les messages chargés jusqu’ici.",
+    "noMatch": "Aucun résultat pour ces filtres.",
+    "noMessages": "Aucun message pour l’instant.",
+    "loadMore": "Charger plus"
+  },
+  "links": {
+    "empty": "Aucun lien n’a encore été enregistré pour cette entreprise.",
+    "hidePassword": "Masquer le mot de passe",
+    "showPassword": "Afficher le mot de passe"
+  },
+  "tasks": {
+    "empty": "Il n’y a encore aucune tâche pour cette entreprise.",
+    "open": "Ouvertes",
+    "nothingOpen": "Aucune tâche ouverte pour le moment.",
+    "completedRecent": "Terminées dans les 90 derniers jours",
+    "recurring": "Calendrier récurrent",
+    "status": {
+      "OVERDUE": "En retard",
+      "DUE_TODAY": "À faire",
+      "UPCOMING": "À venir",
+      "SNOOZED": "Reportée",
+      "COMPLETED": "Terminée"
+    },
+    "completedAt": "Terminée le {{when}}",
+    "dueOn": "Échéance le {{date}}",
+    "noDueDate": "Aucune échéance",
+    "snoozedUntil": "reportée jusqu’au {{date}}",
+    "daysOverdue_one": "{{count}} jour de retard",
+    "daysOverdue_many": "{{count}} jours de retard",
+    "daysOverdue_other": "{{count}} jours de retard",
+    "snoozedCount_one": "{{count}} reportée",
+    "snoozedCount_many": "{{count}} reportées",
+    "snoozedCount_other": "{{count}} reportées",
+    "next": "Prochaine : {{date}}",
+    "noteFromCyg": "Note de CYG",
+    "noteFromBookkeeper": "Note de votre teneur de livres",
+    "noteLabel": "{{label}} :"
+  },
+  "sheet": {
+    "details": "Détails du message",
+    "to": "À : {{who}}",
+    "cc": "Cc : {{who}}",
+    "emailFrame": "Courriel",
+    "attachment": "Pièce jointe",
+    "fileUnavailable": "Fichier non disponible",
+    "loadingFile": "Chargement du fichier…",
+    "voicemail": "Message vocal",
+    "answered": "Répondu",
+    "inProgress": "En cours",
+    "noAnswer": "Sans réponse",
+    "missed": "Manqué",
+    "direction": "Sens",
+    "incoming": "Entrant",
+    "outgoing": "Sortant",
+    "result": "Résultat",
+    "number": "Numéro",
+    "when": "Date",
+    "duration": "Durée",
+    "recording": "Enregistrement",
+    "noRecording": "Aucun enregistrement n’est disponible."
+  },
+  "cycle": {
+    "types": {
+      "DAYS": "Tous les N jours",
+      "MONTHLY_DATE": "Jour du mois",
+      "WEEKLY_DAY": "Jour de la semaine",
+      "MONTHLY_WEEKDAY": "Ne jour de semaine du mois",
+      "QUARTERLY": "Trimestriel — date précise",
+      "YEARLY": "Annuel — date précise"
+    },
+    "lastDay": "le dernier jour",
+    "lastDayOption": "Dernier jour du mois",
+    "theDay": "le {{day}}",
+    "day": "jour",
+    "monthlyOn": "Chaque mois, {{day}}",
+    "quarterlyOn": "Chaque trimestre, {{day}}",
+    "everyWeekday": "Chaque {{weekday}}",
+    "everyWeek": "Chaque semaine",
+    "nthWeekday": "Le {{nth}} {{weekday}} de chaque mois",
+    "yearlyLastDay": "Chaque année, le dernier jour du mois de {{month}}",
+    "yearlyOn": "Chaque année, le {{day}} {{month}}",
+    "everyNDays_one": "Chaque jour",
+    "everyNDays_many": "Tous les {{count}} jours",
+    "everyNDays_other": "Tous les {{count}} jours"
+  }
+}

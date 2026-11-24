@@ -1,4 +1,5 @@
 import type { PortalCall, PortalChat, PortalEmail, PortalSms, PortalWhatsApp } from '@/api/portal'
+import i18n from '@/i18n'
 
 /**
  * The portal's one combined inbox: every channel of one business in a single list,
@@ -135,12 +136,10 @@ export function matchesFilters(item: PortalItem, kind: KindFilter, status: Statu
   return text.includes(q) || (digits.length >= 3 && text.replace(/\D/g, '').includes(digits))
 }
 
-/** What to tell the customer when the chat source reports anything but `ok`. */
-export const CHAT_NOTICE: Record<string, string> = {
-  needs_reconnect: "We can't reach your chat right now. Our team has been notified.",
-  no_spaces: 'There are no chat conversations yet.',
-  chat_disabled: 'Chat is turned off for this account.',
-  no_license: 'This account has no chat license.',
-  app_not_configured: 'Chat is not available yet.',
-  error: 'We could not load your chats right now.',
+const CHAT_STATUSES = ['needs_reconnect', 'no_spaces', 'chat_disabled', 'no_license', 'app_not_configured', 'error'] as const
+
+/** What to tell the customer when the chat source reports anything but `ok` (null = nothing to say). */
+export function chatNotice(status: string): string | null {
+  const known = CHAT_STATUSES.find((s) => s === status)
+  return known ? i18n.t(`portal:chatNotice.${known}`) : null
 }

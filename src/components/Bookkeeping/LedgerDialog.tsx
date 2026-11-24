@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { Period, Statement } from '@/api/bookkeeping'
 import type { SortState } from '@/lib/table-sort'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -54,17 +55,19 @@ export function LedgerDialog({
   /** step2 (2026-11-11): open on one statement's rows. */
   statementId?: number | null
 }) {
+  const { t } = useTranslation('ledger')
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[90vh] flex-col gap-4 p-3 sm:max-w-[min(96vw,90rem)] sm:p-5">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-[#0B1C2C]">
-            Ledger{account && <span className="font-medium text-muted-foreground"> · {account}</span>}
+            {t('dialog.title')}
+            {account && <span className="font-medium text-muted-foreground"> · {account}</span>}
             {name && <span className="font-medium text-muted-foreground"> · {name}</span>}
             {description && <span className="font-medium text-muted-foreground"> · “{description}”</span>}
             {subName && <span className="font-medium text-muted-foreground"> · {subName.name}</span>}
           </DialogTitle>
-          <DialogDescription>Downloads always include every statement.</DialogDescription>
+          <DialogDescription>{t('dialog.downloads')}</DialogDescription>
         </DialogHeader>
         {/* Scrolls DOWN; a ledger wider than the dialog (custom columns) scrolls sideways inside
             the table, with its scrollbar kept at the top of this box (`StickyScrollbar`, top 0). */}

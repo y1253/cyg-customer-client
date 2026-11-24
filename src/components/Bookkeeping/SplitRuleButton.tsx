@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Percent } from 'lucide-react'
 import type { LedgerTransaction, OneTimeSplitResult } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import { pickerUnits, type Unit } from './split-rule-units'
  * not cut. The pieces go under "<name> - <category> - <group or rule>", reused by every later one-time split by it.
  */
 export function SplitRuleButton({ t }: { t: LedgerTransaction }) {
+  const { t: tr } = useTranslation(['ledger', 'common'])
   const tax = useTax().data
   const apply = useApplySplitRule()
   const [open, setOpen] = useState(false)
@@ -43,24 +45,24 @@ export function SplitRuleButton({ t }: { t: LedgerTransaction }) {
       }}
     >
       <PopoverTrigger
-        title="Split this transaction by a split rule or group — one time, no rule saved on the name"
+        title={tr('splitRule.title')}
         className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-brand opacity-0 ring-1 ring-brand/30 transition-opacity group-hover:opacity-100 hover:bg-brand/10 focus-visible:opacity-100 data-popup-open:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <Percent className="size-3.5" />
-        Split rule
+        {tr('splitRule.button')}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72">
         {done ? (
           <div className="grid gap-2 text-sm">
             <p>
               {done.split
-                ? `Split ${done.split} transaction${done.split === 1 ? '' : 's'} by ${unit?.name}.`
-                : `Nothing to split — ${unit?.name} already split ${done.skipped === 1 ? 'it' : 'them'}.`}
-              {done.split > 0 && done.skipped > 0 && ` ${done.skipped} already split.`}
+                ? tr('splitRule.done', { count: done.split, rule: unit?.name })
+                : tr('splitRule.nothing', { count: done.skipped, rule: unit?.name })}
+              {done.split > 0 && done.skipped > 0 && ` ${tr('splitRule.alreadySplit', { count: done.skipped })}`}
             </p>
             <div className="flex justify-end">
               <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
-                Done
+                {tr('common:actions.done')}
               </Button>
             </div>
           </div>
@@ -75,7 +77,7 @@ export function SplitRuleButton({ t }: { t: LedgerTransaction }) {
               {unit.name}
             </button>
             <p className="text-xs text-muted-foreground">
-              One time — {name ?? 'the name'} keeps no split rule, so new transactions are not split.
+              {name ? tr('splitRule.oneTimeNamed', { name }) : tr('splitRule.oneTime')}
             </p>
             <Button
               type="button"
@@ -84,7 +86,7 @@ export function SplitRuleButton({ t }: { t: LedgerTransaction }) {
               className="justify-start bg-brand text-white hover:bg-brand/85"
               onClick={() => run('ONE')}
             >
-              Only this row
+              {tr('splitRule.onlyThisRow')}
             </Button>
             {name && (
               <Button
@@ -95,14 +97,14 @@ export function SplitRuleButton({ t }: { t: LedgerTransaction }) {
                 className="justify-start"
                 onClick={() => run('NAME')}
               >
-                All {name} rows (the ones there now)
+                {tr('splitRule.allNameRows', { name })}
               </Button>
             )}
             {apply.error && <p className="text-xs text-destructive">{apply.error.message}</p>}
           </div>
         ) : (
           <>
-            <p className="text-xs font-medium text-muted-foreground">Split by</p>
+            <p className="text-xs font-medium text-muted-foreground">{tr('splitRule.splitBy')}</p>
             <ul className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
               {units.map((u) => (
                 <li key={u.key} className={cn(u.inGroup && 'pl-4')}>
@@ -110,13 +112,13 @@ export function SplitRuleButton({ t }: { t: LedgerTransaction }) {
                     type="button"
                     disabled={!u.active}
                     onClick={() => setUnit(u)}
-                    title={!u.active ? `${u.name} is switched off` : u.detail}
+                    title={!u.active ? tr('splitRule.switchedOff', { name: u.name }) : u.detail}
                     className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:bg-muted disabled:opacity-50 disabled:hover:bg-transparent"
                   >
                     <span className="min-w-0 flex-1 truncate">
                       {u.name}
-                      {u.group && <span className="text-xs text-muted-foreground"> (group)</span>}
-                      {u.inGroup && <span className="text-xs text-muted-foreground"> alone</span>}
+                      {u.group && <span className="text-xs text-muted-foreground"> {tr('splitRule.group')}</span>}
+                      {u.inGroup && <span className="text-xs text-muted-foreground"> {tr('splitRule.alone')}</span>}
                     </span>
                     {!u.group && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{u.detail}</span>}
                   </button>

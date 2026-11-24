@@ -1,0 +1,153 @@
+{
+  "nav": {
+    "services": "Services",
+    "businesses": "My businesses",
+    "bookkeeping": "Bookkeeping",
+    "contacts": "Contacts",
+    "requests": "My requests",
+    "account": "My account",
+    "dashboard": "Dashboard"
+  },
+  "account": {
+    "title": "My account",
+    "description": "Your details, as CYG Finance has them.",
+    "signedInWith": "Signed in with <method>{{method}}</method>",
+    "method": {
+      "PASSWORD": "Email & password",
+      "GOOGLE": "Google",
+      "PHONE": "a code texted to your phone"
+    },
+    "fullName": "Full name",
+    "email": "Email",
+    "phone": "Phone",
+    "phoneHelp": "Receipts you {{verb}} us from this number go straight into your bookkeeping. You can also log in with it — we text you a code.",
+    "contact": "Preferred contact method",
+    "contactMethod": {
+      "EMAIL": "Email",
+      "WHATSAPP": "WhatsApp",
+      "SMS": "Text message",
+      "CALL": "Phone call"
+    },
+    "noPreference": "No preference",
+    "contactHelp": "How you'd like us to reach you. Text and WhatsApp need your phone above.",
+    "alerts": "New bank transaction alerts",
+    "alertsHelp": "When your connected bank sends new transactions, we message you each one and the category we filed it under — by your preferred contact method (a text if you haven't chosen one). Reply to change a category.",
+    "saved": "Saved.",
+    "saveChanges": "Save changes",
+    "language": {
+      "title": "Language / Langue",
+      "description": "The language the site, your emails and our messages use.",
+      "label": "Language"
+    }
+  },
+  "addEmail": {
+    "sentTo": "We emailed a code to <b>{{email}}</b>.",
+    "code": "Code",
+    "add": "Add email",
+    "another": "Use another email",
+    "placeholder": "you@example.com",
+    "send": "Send code",
+    "help": "You opened your account by phone. Add an email to also sign in with it and get your reports by email."
+  },
+  "password": {
+    "titleChange": "Change password",
+    "titleSet": "Set a password",
+    "descChange": "Other devices signed in to your account will be signed out.",
+    "descSet": "You sign in with Google. Set a password to also sign in with your email.",
+    "changed": "Password changed.",
+    "sendingCode": "Sending code…",
+    "emailCode": "Email me a code",
+    "current": "Current password",
+    "sentTo": "We sent a 6-digit code to <b>{{email}}</b>. It expires in 10 minutes.",
+    "code": "Code",
+    "submitChange": "Change password",
+    "submitSet": "Set password",
+    "errCurrent": "Enter your current password",
+    "errCode": "Enter the 6-digit code from the email"
+  },
+  "pay": {
+    "title": "Read your statements",
+    "description_one": "We read {{count}} new statement and post every transaction to your ledger.",
+    "description_other": "We read {{count}} new statements and post every transaction to your ledger.",
+    "notSetUp": "Payments are not set up yet — please contact us.",
+    "cardLoading": "The card form is still loading.",
+    "checkCard": "Check your card details.",
+    "declined": "Your card was declined.",
+    "payWith": "Pay with",
+    "newCard": "Use a new card",
+    "secured": "Secured by Stripe. Your card is saved for next time — we never see its number.",
+    "processing": "Processing…",
+    "generateFree": "Generate free",
+    "payAndGenerate": "Pay {{amount}} & generate",
+    "summary_one": "Generate · {{count}} statement",
+    "summary_other": "Generate · {{count}} statements",
+    "total": "Total",
+    "free": "Free",
+    "percentOff": "{{value}}% off",
+    "specialPrice": "Special price {{price}}",
+    "promoApplied": "{{code}} applied",
+    "removePromo": "Remove promo code",
+    "havePromo": "Have a promo code?",
+    "promoCode": "Promo code",
+    "expires": "Expires {{date}}"
+  },
+  "cards": {
+    "title": "Saved cards",
+    "description": "Saved securely by Stripe when you pay, so the next Generate is one click. We never see the card number.",
+    "empty": "No saved cards yet — your card is saved the first time you pay."
+  },
+  "contacts": {
+    "title": "Contacts",
+    "description": "People the AI assistant can call or text for you. Ask it “call John and tell him…”.",
+    "add": "Add contact",
+    "emptyTitle": "No contacts yet",
+    "emptyText": "When you ask the assistant to call or text someone, it asks their name and saves them here.",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email",
+    "lastReached": "Last reached",
+    "note": "Note",
+    "editTitle": "Edit contact",
+    "addTitle": "Add a contact",
+    "formDescription": "The assistant uses the name to know who you mean.",
+    "phonePlaceholder": "(514) 555-1234",
+    "notePlaceholder": "e.g. my landlord",
+    "removeTitle": "Remove {{name}}?",
+    "removeDescription": "The assistant will no longer know who they are. Calls and texts already made stay in your history."
+  },
+  "requests": {
+    "title": "My requests",
+    "description": "Something we don’t do yet? Ask here or through the AI assistant. Our team reviews every request.",
+    "new": "New request",
+    "emptyTitle": "No requests yet",
+    "emptyText": "Ask for something we don’t do yet — here, or by asking the assistant — and follow it on this page.",
+    "formDescription": "Tell us what you’d like us to add. Our team reviews every request.",
+    "what": "What would you like?",
+    "whatPlaceholder": "e.g. File my GST returns",
+    "details": "Details (optional)",
+    "send": "Send request",
+    "fromTeam": "From our team:",
+    "asked": "Asked {{date}}",
+    "availableSince": "available since {{date}}",
+    "status": {
+      "OPEN": "Received",
+      "PLANNED": "Planned",
+      "DONE": "Available now",
+      "DECLINED": "Not planned"
+    }
+  },
+  "phoneUpload": {
+    "title": "Send your documents",
+    "goesTo": "They go to {{book}} — we read each one and file it.",
+    "goesToUnder": "They go to {{book}}, under {{name}} — we read each one and file it.",
+    "badFiles": "Those files cannot be read — send photos, PDFs, audio or spreadsheets under 25 MB.",
+    "takePhoto": "Take a photo",
+    "chooseFiles": "Choose files",
+    "sent": "Sent · {{count}} — you can see them on your computer"
+  },
+  "connect": {
+    "connected": "{{name}} connected. Closing…",
+    "failed": "{{name}} could not be connected.",
+    "hint": "You can close this window and try again, or enter your email and password instead."
+  }
+}

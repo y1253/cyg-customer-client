@@ -1,13 +1,15 @@
 import { useState, type ReactNode } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { ChevronDown, CornerDownRight, GripVertical, Pencil, X } from 'lucide-react'
 import type { MergeEnd, NameDescription, NameExceptionOf, NameGroup, SubName, TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
 import { useCreateAccount } from '@/hooks/useCreateAccount'
 import { useDeleteSubName, useSetSubNameCategory, useSetSubNameSettings } from '@/hooks/useSplits'
 import { categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
+import { currentLocale } from '@/i18n'
 import { money } from '@/lib/money'
 import { exceptionCount } from '@/lib/name-exceptions'
-import { FIELD_KIND_ICON, FIELD_KIND_LABEL, fieldHref } from '@/lib/name-fields'
+import { FIELD_KIND_ICON, fieldHref, fieldKindLabel } from '@/lib/name-fields'
 import type { BucketCounts, BucketFilter } from '@/lib/name-files'
 import { cn } from '@/lib/utils'
 import { AgencyPicker } from './AgencyPicker'
@@ -82,6 +84,8 @@ export function SubNameLine({
   id?: string
   highlighted?: boolean
 }) {
+  const { t } = useTranslation(['names', 'common'])
+  const rowsLabel = (n: number) => t('rows', { count: n, n: n.toLocaleString(currentLocale()) })
   const set = useSetSubNameCategory()
   const settings = useSetSubNameSettings()
   const [dialog, setDialog] = useState(false)
@@ -113,7 +117,7 @@ export function SubNameLine({
     merge && ((from) => from.id !== sub.id && merge(sub, { name: from.name, subId: from.id })),
   )
   const nameButton = onOpen ? (
-    <button type="button" onClick={onOpen} className="min-w-0 truncate font-medium text-[#0B1C2C] hover:underline" title="See its rows">
+    <button type="button" onClick={onOpen} className="min-w-0 truncate font-medium text-[#0B1C2C] hover:underline" title={t('subName.seeRows')}>
       {sub.name}
     </button>
   ) : (
@@ -129,9 +133,7 @@ export function SubNameLine({
         drop.over && 'bg-brand/10 ring-2 ring-brand/40 ring-inset',
       )}
       title={
-        own?.onDescription
-          ? 'Drag it onto a name or another sub-name to merge them — or drop a name, a sub-name or a description here'
-          : undefined
+        own?.onDescription ? t('subName.dropTitle') : undefined
       }
     >
       <div
@@ -142,14 +144,14 @@ export function SubNameLine({
         )}
       >
         {draggable ? (
-          <GripVertical className="size-3.5 shrink-0 text-muted-foreground/60" aria-label="Drag to merge" />
+          <GripVertical className="size-3.5 shrink-0 text-muted-foreground/60" aria-label={t('subName.dragToMerge')} />
         ) : (
           <CornerDownRight className="size-3.5 shrink-0 text-brand/60" />
         )}
         {own ? (
           <InlineRename
             value={sub.name}
-            label={`Rename ${sub.name}`}
+            label={t('rename', { name: sub.name })}
             className="min-w-0 flex-none"
             onSave={(name) => settings.mutateAsync({ id: sub.id, name })}
           >
@@ -168,37 +170,35 @@ export function SubNameLine({
         <button
           type="button"
           onClick={() => setEditing(!editing)}
-          title="Change this sub-name's category — every row of it moves"
+          title={t('subName.categoryTitle')}
           className="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 font-medium text-brand hover:bg-brand/15"
         >
           {sub.category}
         </button>
-        <span className="shrink-0 tabular-nums">
-          · {sub.rows} row{sub.rows === 1 ? '' : 's'}
-        </span>
+        <span className="shrink-0 tabular-nums">· {rowsLabel(sub.rows)}</span>
         {descriptions.length + contains.length > 0 && (
           <button
             type="button"
             onClick={() => setDescToggled(!descOpen)}
-            title={descOpen ? 'Hide its descriptions' : 'Show its descriptions'}
+            title={descOpen ? t('subName.hideItsDescriptions') : t('subName.showItsDescriptions')}
             className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800 tabular-nums hover:bg-amber-200"
           >
-            {descriptions.length + contains.length} description{descriptions.length + contains.length === 1 ? '' : 's'}
+            {t('descriptionCount', { count: descriptions.length + contains.length })}
           </button>
         )}
         {exceptions > 0 && (
           <button
             type="button"
             onClick={() => setDescToggled(true)}
-            title="Rows of its descriptions changed one time"
+            title={t('subName.exceptionsTitle')}
             className="shrink-0 font-medium text-amber-700 hover:underline"
           >
-            · {exceptions} exception{exceptions === 1 ? '' : 's'}
+            · {t('exceptionCount', { count: exceptions })}
           </button>
         )}
         <span
           className={cn('shrink-0 font-medium tabular-nums', sub.total < 0 ? 'text-red-600' : 'text-emerald-700')}
-          title="Total of this sub-name"
+          title={t('subName.totalTitle')}
         >
           · {money(sub.total ?? 0)}
         </span>
@@ -213,7 +213,7 @@ export function SubNameLine({
                   key={`${i}:${f.value}`}
                   href={fieldHref(f) ?? undefined}
                   draggable={false}
-                  title={`${f.label || FIELD_KIND_LABEL[f.kind]}: ${f.value}`}
+                  title={t('fieldTitle', { label: f.label || fieldKindLabel(f.kind), value: f.value })}
                   className="inline-flex max-w-40 shrink-0 items-center gap-1 truncate hover:text-brand"
                 >
                   <Icon className="size-3 shrink-0" />
@@ -223,7 +223,9 @@ export function SubNameLine({
             })}
         {own && own.agencies.length > 0 && (
           <span className="ml-auto flex shrink-0 items-center gap-1">
-            {!sub.ownAgencies && <span className="text-[11px] text-muted-foreground/80">as {sub.parent}:</span>}
+            {!sub.ownAgencies && (
+              <span className="text-[11px] text-muted-foreground/80">{t('subName.asParent', { parent: sub.parent })}</span>
+            )}
             <AgencyPicker
               name={sub.name}
               agencies={own.agencies}
@@ -242,7 +244,7 @@ export function SubNameLine({
               <Button
                 variant="ghost"
                 size="icon-xs"
-                title={descOpen ? 'Hide descriptions' : 'Show the descriptions under this sub-name'}
+                title={descOpen ? t('subName.hideDescriptions') : t('subName.showDescriptions')}
                 aria-expanded={descOpen}
                 onClick={() => setDescToggled(!descOpen)}
               >
@@ -252,7 +254,7 @@ export function SubNameLine({
             <Button
               variant="ghost"
               size="icon-xs"
-              title={`Edit ${sub.name} — its name, group, split rules and details`}
+              title={t('subName.edit', { name: sub.name })}
               onClick={() => setDialog(true)}
             >
               <Pencil />
@@ -264,7 +266,7 @@ export function SubNameLine({
             type="button"
             onClick={() => remove.mutate(sub.id)}
             disabled={remove.isPending}
-            title="Remove this sub-name — its rows go back to the name's category"
+            title={t('subName.remove')}
             className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
           >
             <X className="size-3.5" />
@@ -291,12 +293,17 @@ export function SubNameLine({
           {contains.map((c) => (
             <li key={`c:${c.key}`} className="flex items-center gap-3 rounded px-2 py-0.5">
               <span className="min-w-0 flex-1 truncate text-[#0B1C2C]">
-                Description contains <span className="font-medium">“{c.text}”</span>
+                <Trans
+                  t={t}
+                  i18nKey="subName.contains"
+                  values={{ text: c.text }}
+                  components={{ b: <span className="font-medium" /> }}
+                />
               </span>
-              <span className="shrink-0 text-brand">your rule</span>
+              <span className="shrink-0 text-brand">{t('yourRule')}</span>
               <span className="shrink-0 text-muted-foreground">{c.category ?? sub.category}</span>
               <span className="w-14 shrink-0 text-right text-muted-foreground/80 tabular-nums">
-                {c.rows.toLocaleString()} row{c.rows === 1 ? '' : 's'}
+                {rowsLabel(c.rows)}
               </span>
             </li>
           ))}
@@ -304,7 +311,7 @@ export function SubNameLine({
             <li key={d.key ?? d.description}>
               <div
                 {...(d.key && own?.onDescription ? descriptionDragProps(d.key, d.description) : {})}
-                title={d.key ? 'Drag onto another sub-name to move this description there' : undefined}
+                title={d.key ? t('subName.dragDescription') : undefined}
                 className={cn(
                   'flex items-center gap-3 rounded px-2 py-0.5',
                   d.key && own?.onDescription && 'cursor-grab active:cursor-grabbing',
@@ -317,13 +324,13 @@ export function SubNameLine({
                   </DescriptionLink>
                 </span>
                 {d.rule && (
-                  <span className="shrink-0 text-brand" title="Your rule files it under this sub-name">
-                    {d.rule.matchType === 'CONTAINS' ? `contains “${d.rule.text}”` : 'your rule'}
+                  <span className="shrink-0 text-brand" title={t('subName.ruleTitle')}>
+                    {d.rule.matchType === 'CONTAINS' ? t('contains', { text: d.rule.text }) : t('yourRule')}
                   </span>
                 )}
                 <span className="shrink-0 text-muted-foreground">{d.category}</span>
                 <span className="w-14 shrink-0 text-right text-muted-foreground/80 tabular-nums">
-                  {d.rows ? `${d.rows.toLocaleString()} row${d.rows === 1 ? '' : 's'}` : 'no rows yet'}
+                  {d.rows ? rowsLabel(d.rows) : t('noRowsYet')}
                 </span>
               </div>
               {!!d.exceptions?.length && <ExceptionList exceptions={d.exceptions} onGoTo={own?.onGoTo} />}
@@ -341,10 +348,10 @@ export function SubNameLine({
               disabled={!choiceReady(choice) || choice.category === sub.category || set.isPending || create.isPending}
               onClick={() => void save()}
             >
-              Save
+              {t('common:actions.save')}
             </Button>
             <Button type="button" size="xs" variant="ghost" onClick={() => setEditing(false)}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
           </div>
         </div>

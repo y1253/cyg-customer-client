@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 import type { AiFrequency, AiSchedule, AiScheduleChannel, Schedule } from '@/api/schedules'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,14 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAiScheduleActions, useScheduleActions } from '@/hooks/useSchedules'
 import { RunHistory } from './RunHistory'
-import { WEEKDAYS, isRule, ruleChange, todayIso, type Rule } from './schedule-format'
+import { weekdays, isRule, ruleChange, todayIso, type Rule } from './schedule-format'
 
-const FREQ_LABEL: Record<AiFrequency, string> = {
-  DAILY: 'Every day',
-  WEEKLY: 'Every week',
-  MONTHLY: 'Every month',
-  ONCE: 'Once',
-}
+const freqLabel = (f: AiFrequency) => i18n.t(`books:schedules.freq.${f}`)
 
 /** Repeat · day · time — the three fields every schedule has. */
 function RuleFields({
@@ -30,19 +27,21 @@ function RuleFields({
   onChange: (r: Rule) => void
   frequencies: AiFrequency[]
 }) {
+  const { t } = useTranslation(['books', 'common'])
   const set = (patch: Partial<Rule>) => onChange({ ...rule, ...patch })
+  const days = weekdays()
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${id}-repeat`}>Repeat</Label>
+        <Label htmlFor={`${id}-repeat`}>{t('schedules.repeat')}</Label>
         <Select value={rule.frequency} onValueChange={(v) => v && set({ frequency: v as AiFrequency })}>
           <SelectTrigger id={`${id}-repeat`} className="h-9 w-full">
-            <SelectValue>{(v: AiFrequency) => FREQ_LABEL[v]}</SelectValue>
+            <SelectValue>{(v: AiFrequency) => freqLabel(v)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {frequencies.map((f) => (
               <SelectItem key={f} value={f}>
-                {FREQ_LABEL[f]}
+                {freqLabel(f)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -50,7 +49,7 @@ function RuleFields({
       </div>
       {rule.frequency === 'ONCE' && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-date`}>Day</Label>
+          <Label htmlFor={`${id}-date`}>{t('schedules.day')}</Label>
           <Input
             id={`${id}-date`}
             type="date"
@@ -63,14 +62,14 @@ function RuleFields({
       )}
       {(rule.frequency === 'WEEKLY' || rule.frequency === 'MONTHLY') && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-day`}>{rule.frequency === 'WEEKLY' ? 'Day' : 'Day of month'}</Label>
+          <Label htmlFor={`${id}-day`}>{rule.frequency === 'WEEKLY' ? t('schedules.day') : t('schedules.dayOfMonth')}</Label>
           {rule.frequency === 'WEEKLY' ? (
             <Select value={String(rule.weekday)} onValueChange={(v) => v !== null && set({ weekday: Number(v) })}>
               <SelectTrigger id={`${id}-day`} className="h-9 w-full">
-                <SelectValue>{(v: string) => WEEKDAYS[Number(v)]}</SelectValue>
+                <SelectValue>{(v: string) => days[Number(v)]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {WEEKDAYS.map((d, i) => (
+                {days.map((d, i) => (
                   <SelectItem key={d} value={String(i)}>
                     {d}
                   </SelectItem>
@@ -83,7 +82,7 @@ function RuleFields({
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${id}-time`}>Time</Label>
+        <Label htmlFor={`${id}-time`}>{t('schedules.time')}</Label>
         <Input
           id={`${id}-time`}
           type="time"
@@ -128,6 +127,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 /** A built-in schedule's settings: when it goes out, plus what it is and its last sends. */
 export function BuiltInEditor({ s, about, note }: { s: Schedule; about: string; note: React.ReactNode }) {
+  const { t } = useTranslation(['books', 'common'])
   const { update } = useScheduleActions()
   const [rule, setRule] = useState<Rule>(ruleOf(s))
   const changed = ruleChanged(rule, ruleOf(s))
@@ -147,31 +147,27 @@ export function BuiltInEditor({ s, about, note }: { s: Schedule; about: string; 
               })
             }
           >
-            {update.isPending && <Loader2 className="size-4 animate-spin" />} Save
+            {update.isPending && <Loader2 className="size-4 animate-spin" />} {t('common:actions.save')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setRule(ruleOf(s))}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
         </div>
       )}
       {update.error && <p className="text-sm text-destructive">{update.error.message}</p>}
       <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{note}</p>
-      <Section title="Recent sends">
+      <Section title={t('schedules.recent')}>
         <RunHistory runs={s.runs} />
       </Section>
     </div>
   )
 }
 
-const CHANNEL_LABEL: Record<'PREFERRED' | AiScheduleChannel, string> = {
-  PREFERRED: 'My preferred contact',
-  SMS: 'Text message',
-  EMAIL: 'Email',
-  CALL: 'Phone call',
-}
+const channelLabel = (c: 'PREFERRED' | AiScheduleChannel) => i18n.t(`books:schedules.channel.${c}`)
 
 /** A schedule the AI made: its name, what it sends, when and how — all editable. */
 export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) {
+  const { t } = useTranslation(['books', 'common'])
   const { update } = useAiScheduleActions()
   const [title, setTitle] = useState(s.title)
   const [task, setTask] = useState(s.task)
@@ -193,7 +189,7 @@ export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) 
     <div className="flex flex-col gap-5">
       <div className="grid gap-3 sm:grid-cols-[1fr_14rem]">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`ai-${s.id}-title`}>Name</Label>
+          <Label htmlFor={`ai-${s.id}-title`}>{t('schedules.name')}</Label>
           <Input
             id={`ai-${s.id}-title`}
             value={title}
@@ -203,15 +199,15 @@ export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) 
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`ai-${s.id}-channel`}>Send by</Label>
+          <Label htmlFor={`ai-${s.id}-channel`}>{t('schedules.sendBy')}</Label>
           <Select value={channel} onValueChange={(v) => v && setChannel(v as typeof channel)}>
             <SelectTrigger id={`ai-${s.id}-channel`} className="h-9 w-full">
-              <SelectValue>{(v: typeof channel) => CHANNEL_LABEL[v]}</SelectValue>
+              <SelectValue>{(v: typeof channel) => channelLabel(v)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {(['PREFERRED', 'SMS', 'EMAIL', 'CALL'] as const).map((c) => (
                 <SelectItem key={c} value={c}>
-                  {CHANNEL_LABEL[c]}
+                  {channelLabel(c)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -219,7 +215,7 @@ export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) 
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`ai-${s.id}-task`}>What the assistant sends each time</Label>
+        <Label htmlFor={`ai-${s.id}-task`}>{t('schedules.task')}</Label>
         <Textarea
           id={`ai-${s.id}-task`}
           value={task}
@@ -251,16 +247,16 @@ export function AiEditor({ s, note }: { s: AiSchedule; note: React.ReactNode }) 
               })
             }
           >
-            {update.isPending && <Loader2 className="size-4 animate-spin" />} Save
+            {update.isPending && <Loader2 className="size-4 animate-spin" />} {t('common:actions.save')}
           </Button>
           <Button size="sm" variant="ghost" onClick={reset}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
         </div>
       )}
       {update.error && <p className="text-sm text-destructive">{update.error.message}</p>}
       <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{note}</p>
-      <Section title="Recent sends">
+      <Section title={t('schedules.recent')}>
         <RunHistory runs={s.runs} />
       </Section>
     </div>

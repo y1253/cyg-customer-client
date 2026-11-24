@@ -28,6 +28,8 @@
  * only because the preview is never the thing that gets sent.
  */
 
+import { currentLocale } from '@/i18n';
+
 /**
  * Minimal shapes for an API `lib.dom` does not declare.
  *
@@ -142,10 +144,8 @@ export function startLiveTranscription(
 
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang =
-    typeof navigator !== 'undefined' && navigator.language
-      ? navigator.language
-      : 'en-US';
+  // The language the site is shown in (fr-CA / en-CA).
+  recognition.lang = currentLocale();
 
   recognition.onresult = (event) => {
     if (!active) return;

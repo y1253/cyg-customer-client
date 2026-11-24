@@ -1,4 +1,5 @@
 import { AlertCircle, AlertTriangle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { StatementProblemKind } from '@/api/bookkeeping'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,7 @@ const soft = (kind: string) => kind === 'NO_BALANCES' || kind === 'OTHER'
  * warning, like the statement's own badge.
  */
 export function AccountErrors({ errors, className }: { errors?: readonly AccountErrorLine[]; className?: string }) {
+  const { t } = useTranslation(['books', 'common'])
   if (!errors?.length) return null
   return (
     // Spans only: it sits inside a report row's button too.
@@ -38,7 +40,7 @@ export function AccountErrors({ errors, className }: { errors?: readonly Account
             <span className="min-w-0 whitespace-normal">
               <span className="font-medium">{e.title}</span>
               {e.statement && <span className="opacity-75"> · {e.statement}</span>}
-              {e.source === 'AI' && <span className="opacity-75"> · noted by the AI</span>}
+              {e.source === 'AI' && <span className="opacity-75"> · {t('statements.notedByAi')}</span>}
               <span className="block opacity-80">{e.text}</span>
             </span>
           </span>

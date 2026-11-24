@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,7 @@ import { PhoneLoginForm } from './PhoneLoginForm'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export function LoginPage() {
+  const { t } = useTranslation('auth')
   const navigate = useNavigate()
   const login = useLogin()
   const [email, setEmail] = useState('')
@@ -25,13 +27,13 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Log in"
-      description="Welcome back to CYG Finance."
+      title={t('login.title')}
+      description={t('login.description')}
       footer={
         <>
-          New here?{' '}
+          {t('login.newHere')}{' '}
           <Link to="/signup" className="font-semibold text-brand-light hover:underline">
-            Create an account
+            {t('login.createAccount')}
           </Link>
         </>
       }
@@ -41,8 +43,8 @@ export function LoginPage() {
       {/* step12c: or a code texted to the phone on the account. */}
       <Tabs value={method} onValueChange={(v) => setMethod(v as 'email' | 'phone')} className="gap-4">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="email">Email</TabsTrigger>
-          <TabsTrigger value="phone">Phone</TabsTrigger>
+          <TabsTrigger value="email">{t('login.tabEmail')}</TabsTrigger>
+          <TabsTrigger value="phone">{t('login.tabPhone')}</TabsTrigger>
         </TabsList>
         <TabsContent value="phone">
           <PhoneLoginForm onDone={goToDashboard} />
@@ -50,7 +52,7 @@ export function LoginPage() {
         <TabsContent value="email">
           <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('fields.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -62,13 +64,13 @@ export function LoginPage() {
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t('fields.password')}</Label>
                 <Link
                   to="/forgot-password"
                   state={{ email: email.trim() }}
                   className="text-sm font-medium text-brand-light hover:underline"
                 >
-                  Forgot password?
+                  {t('login.forgot')}
                 </Link>
               </div>
               <PasswordInput
@@ -85,7 +87,7 @@ export function LoginPage() {
               </p>
             )}
             <Button type="submit" disabled={login.isPending} className={SUBMIT_CLASS}>
-              {login.isPending ? 'Logging in…' : 'Log in'}
+              {login.isPending ? t('login.submitting') : t('login.submit')}
             </Button>
           </form>
         </TabsContent>

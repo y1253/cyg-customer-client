@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePortalUnlock } from '@/context/PortalUnlockContext'
+import i18n from '@/i18n'
 import {
   usePortalCallRecordings,
   usePortalChatThread,
@@ -56,7 +57,7 @@ export function ThreadSheet({
       <SheetContent className="w-full gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl">
         <SheetHeader className="border-b pr-12">
           <SheetTitle className="truncate text-base">{title}</SheetTitle>
-          <SheetDescription className="sr-only">Message details</SheetDescription>
+          <SheetDescription className="sr-only">{i18n.t('portal:sheet.details')}</SheetDescription>
           {tags && <StatusBadges isRead={tags.isRead} isCompleted={tags.isCompleted} className="mt-1.5" />}
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-4">
@@ -114,8 +115,8 @@ function EmailMessageCard({ companyId, m }: { companyId: number; m: PortalEmailM
           <p className="truncate text-sm font-semibold">{displayName(m.from)}</p>
           <p className="shrink-0 text-xs text-muted-foreground">{formatFull(m.date)}</p>
         </div>
-        <p className="truncate text-xs text-muted-foreground">To: {m.to}</p>
-        {m.cc && <p className="truncate text-xs text-muted-foreground">Cc: {m.cc}</p>}
+        <p className="truncate text-xs text-muted-foreground">{i18n.t('portal:sheet.to', { who: m.to })}</p>
+        {m.cc && <p className="truncate text-xs text-muted-foreground">{i18n.t('portal:sheet.cc', { who: m.cc })}</p>}
       </div>
       <Separator />
       <div className="px-4 py-3">
@@ -173,7 +174,7 @@ function EmailBody({
   return (
     <iframe
       ref={ref}
-      title="Email"
+      title={i18n.t('portal:sheet.emailFrame')}
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       srcDoc={doc}
       className="w-full border-0"
@@ -295,7 +296,7 @@ function SmsThread({ companyId, peer, anchorId }: { companyId: number; peer: str
               return <audio key={media.sid} src={href} controls className="mt-1.5 w-56" />
             if (media.contentType.startsWith('video/'))
               return <video key={media.sid} src={href} controls className="mt-1.5 max-h-64 rounded-lg" />
-            return <FileLink key={media.sid} href={href} name="Attachment" />
+            return <FileLink key={media.sid} href={href} name={i18n.t('portal:sheet.attachment')} />
           })}
         </Bubble>
       ))}
@@ -329,7 +330,7 @@ function WhatsAppContent({ companyId, m }: { companyId: number; m: PortalWhatsAp
   if (m.hasMedia && !ready) {
     media = (
       <p className="flex items-center gap-1.5 text-xs opacity-80">
-        {m.mediaStatus === 'failed' ? 'File unavailable' : <><Loader2 className="h-3 w-3 animate-spin" /> Loading file…</>}
+        {m.mediaStatus === 'failed' ? i18n.t('portal:sheet.fileUnavailable') : <><Loader2 className="h-3 w-3 animate-spin" /> {i18n.t('portal:sheet.loadingFile')}</>}
       </p>
     )
   } else if (ready) {
@@ -345,7 +346,7 @@ function WhatsAppContent({ companyId, m }: { companyId: number; m: PortalWhatsAp
         </div>
       )
     } else {
-      media = <FileLink href={url({ download: true })} name={m.filename || 'Document'} />
+      media = <FileLink href={url({ download: true })} name={m.filename || i18n.t('common:kind.DOCUMENT')} />
     }
   }
 
@@ -364,33 +365,33 @@ function CallDetail({ companyId, sel }: { companyId: number; sel: Extract<Select
   const c = sel.call
   const recs = usePortalCallRecordings(companyId, c.hasRecording ? c.sid : null)
   const outcome = c.hasVoicemail
-    ? 'Voicemail'
+    ? i18n.t('portal:sheet.voicemail')
     : c.outcome === 'answered'
-      ? 'Answered'
+      ? i18n.t('portal:sheet.answered')
       : c.outcome === 'in-progress'
-        ? 'In progress'
+        ? i18n.t('portal:sheet.inProgress')
         : c.direction === 'outbound'
-          ? 'No answer'
-          : 'Missed'
+          ? i18n.t('portal:sheet.noAnswer')
+          : i18n.t('portal:sheet.missed')
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 rounded-xl border bg-background p-4 text-sm shadow-sm">
-        <Info label="Direction" value={c.direction === 'inbound' ? 'Incoming' : 'Outgoing'} />
-        <Info label="Result" value={outcome} />
-        <Info label="Number" value={formatPhone(c.counterparty)} />
-        <Info label="When" value={formatFull(c.at)} />
-        {c.durationSec > 0 && <Info label="Duration" value={formatDuration(c.durationSec)} />}
+        <Info label={i18n.t('portal:sheet.direction')} value={c.direction === 'inbound' ? i18n.t('portal:sheet.incoming') : i18n.t('portal:sheet.outgoing')} />
+        <Info label={i18n.t('portal:sheet.result')} value={outcome} />
+        <Info label={i18n.t('portal:sheet.number')} value={formatPhone(c.counterparty)} />
+        <Info label={i18n.t('portal:sheet.when')} value={formatFull(c.at)} />
+        {c.durationSec > 0 && <Info label={i18n.t('portal:sheet.duration')} value={formatDuration(c.durationSec)} />}
       </div>
       {c.hasRecording && (
         <div className="flex flex-col gap-2 rounded-xl border bg-background p-4 shadow-sm">
-          <p className="text-sm font-medium">{c.hasVoicemail ? 'Voicemail' : 'Recording'}</p>
+          <p className="text-sm font-medium">{c.hasVoicemail ? i18n.t('portal:sheet.voicemail') : i18n.t('portal:sheet.recording')}</p>
           {recs.isPending ? (
             <Skeleton className="h-10 w-full" />
           ) : recs.isError ? (
             <p className="text-sm text-destructive">{recs.error.message}</p>
           ) : recs.data.recordings.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No recording is available.</p>
+            <p className="text-sm text-muted-foreground">{i18n.t('portal:sheet.noRecording')}</p>
           ) : (
             recs.data.recordings.map((r) => <audio key={r.sid} src={recordingUrl(r)} controls className="w-full" />)
           )}

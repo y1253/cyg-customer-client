@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { CustomAnswer, CustomColumn, NameAnswerTarget } from '@/api/customColumns'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -33,6 +34,7 @@ export function CustomCell({
   nameTarget?: NameAnswerTarget
   emptyLabel?: string
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const saveRow = useSaveCustomAnswer()
   const saveName = useSaveNameAnswer()
   const active = nameTarget ? saveName : saveRow
@@ -48,7 +50,7 @@ export function CustomCell({
         ? saveName.mutate({ ...nameTarget, columnId: column.id, ...v }, opts)
         : saveRow.mutate({ transactionId: transactionId!, columnId: column.id, ...v }, opts),
   }
-  const empty = emptyLabel ?? (column.required ? 'Required' : '—')
+  const empty = emptyLabel ?? (column.required ? t('common:status.required') : '—')
   const [draft, setDraft] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const serverError = save.error?.message ?? null
@@ -115,7 +117,7 @@ export function CustomCell({
           setProblem(null)
           save.reset()
         }}
-        title={bad ? `${bad} — click to fix` : `${rulesText(column)} — click to edit`}
+        title={bad ? t('cells.clickToFix', { problem: bad }) : t('cells.clickToEdit', { rules: rulesText(column) })}
         className={cn(
           'block w-full min-w-0 truncate rounded px-1 py-0.5 text-left text-sm hover:bg-black/5',
           !stored && 'text-muted-foreground/60',

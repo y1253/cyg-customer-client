@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 import type { CustomColumn, CustomNameAnswer, NameAnswerTarget } from '@/api/customColumns'
 import { Input } from '@/components/ui/input'
@@ -8,8 +9,6 @@ import { useNames } from '@/hooks/useNames'
 import { useSubNames } from '@/hooks/useSplits'
 import { byLabel } from '@/lib/sort'
 import { CustomCell } from './CustomCell'
-
-const NO_DEFAULT = 'No default'
 
 /** The default answer of `target` in `columnId`, if it has one. */
 function defaultOf(answers: CustomNameAnswer[], columnId: number, target: NameAnswerTarget) {
@@ -28,6 +27,7 @@ function defaultOf(answers: CustomNameAnswer[], columnId: number, target: NameAn
  * fills every EMPTY cell of that name's rows at once and as new rows come in; answers already there stay.
  */
 export function ColumnNameAnswers({ column }: { column: CustomColumn }) {
+  const { t } = useTranslation(['names', 'common'])
   const columns = useCustomColumns()
   const names = useNames()
   const subNames = useSubNames()
@@ -56,16 +56,16 @@ export function ColumnNameAnswers({ column }: { column: CustomColumn }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-col gap-0.5">
-        <Label>Answers per name</Label>
+        <Label>{t('columnAnswers.title')}</Label>
         <span className="text-xs text-muted-foreground">
-          The answer each name gets in “{column.name}”. It fills every empty cell of that name's transactions now and
-          as new ones come in — answers already typed stay. {set > 0 && `${set} name${set === 1 ? '' : 's'} set.`}
+          {t('columnAnswers.help', { column: column.name })}
+          {set > 0 && ` ${t('columnAnswers.set', { count: set })}`}
         </span>
       </div>
       {rows.length > 8 && (
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a name" className="h-9 pl-8" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('columnAnswers.find')} className="h-9 pl-8" />
         </div>
       )}
       <ul className="max-h-80 min-w-0 divide-y overflow-y-auto rounded-lg ring-1 ring-black/10">
@@ -78,12 +78,12 @@ export function ColumnNameAnswers({ column }: { column: CustomColumn }) {
               column={column}
               answer={defaultOf(answers, column.id, r.target)}
               nameTarget={r.target}
-              emptyLabel={NO_DEFAULT}
+              emptyLabel={t('columnAnswers.noDefault')}
             />
           </li>
         ))}
         {!shown.length && (
-          <li className="px-3 py-2 text-sm text-muted-foreground">{rows.length ? 'No name matches.' : 'No names yet.'}</li>
+          <li className="px-3 py-2 text-sm text-muted-foreground">{rows.length ? t('columnAnswers.noMatch') : t('columnAnswers.noNames')}</li>
         )}
       </ul>
     </div>
@@ -95,6 +95,7 @@ export function ColumnNameAnswers({ column }: { column: CustomColumn }) {
  * columns (the same as "Answers per name" in the column's window).
  */
 export function NameColumnAnswersSection({ target }: { target: NameAnswerTarget }) {
+  const { t } = useTranslation(['names', 'common'])
   const columns = useCustomColumns()
   const list = columns.data?.columns ?? []
   if (!list.length) return null
@@ -102,9 +103,9 @@ export function NameColumnAnswersSection({ target }: { target: NameAnswerTarget 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex flex-col gap-0.5">
-        <Label>Your columns</Label>
+        <Label>{t('columnAnswers.yourColumns')}</Label>
         <span className="text-xs text-muted-foreground">
-          What its transactions get in each of your columns — fills the empty cells, now and as new ones come in.
+          {t('columnAnswers.sectionHelp')}
         </span>
       </div>
       <ul className="flex min-w-0 flex-col gap-1">
@@ -113,7 +114,7 @@ export function NameColumnAnswersSection({ target }: { target: NameAnswerTarget 
             <span className="truncate text-sm" title={c.name}>
               {c.name}
             </span>
-            <CustomCell column={c} answer={defaultOf(answers, c.id, target)} nameTarget={target} emptyLabel={NO_DEFAULT} />
+            <CustomCell column={c} answer={defaultOf(answers, c.id, target)} nameTarget={target} emptyLabel={t('columnAnswers.noDefault')} />
           </li>
         ))}
       </ul>

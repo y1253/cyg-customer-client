@@ -1,4 +1,5 @@
 import { ChevronDown, LayoutDashboard, LogOut, UserRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import {
@@ -42,6 +43,7 @@ function Avatar({ customer, className }: { customer: Customer; className?: strin
  */
 export function HeaderAccountDesktop() {
   const { token, customer, logout } = useAuth()
+  const { t } = useTranslation(['site', 'common'])
 
   return (
     <div className="flex items-center gap-5 border-l border-white/20 pl-6">
@@ -61,13 +63,13 @@ export function HeaderAccountDesktop() {
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-3 px-3 py-2.5" render={<Link to="/dashboard" />}>
-              <LayoutDashboard /> Dashboard
+              <LayoutDashboard /> {t('nav.dashboard')}
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-3 px-3 py-2.5" render={<Link to="/dashboard/account" />}>
-              <UserRound /> My account
+              <UserRound /> {t('nav.myAccount')}
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-3 px-3 py-2.5" onClick={logout}>
-              <LogOut /> Log out
+              <LogOut /> {t('common:actions.logOut')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -77,7 +79,7 @@ export function HeaderAccountDesktop() {
             to="/login"
             className="text-base font-medium whitespace-nowrap text-white transition-opacity hover:opacity-70"
           >
-            Log in
+            {t('common:actions.logIn')}
           </Link>
           <Link
             to="/signup"
@@ -87,7 +89,7 @@ export function HeaderAccountDesktop() {
               'hover:border-white hover:bg-white hover:text-[#0B1C2C]',
             )}
           >
-            Sign up
+            {t('common:actions.signUp')}
           </Link>
         </>
       )}
@@ -98,6 +100,7 @@ export function HeaderAccountDesktop() {
 /** The same corner inside the mobile menu sheet, under the Contact Us CTA. */
 export function HeaderAccountMobile() {
   const { token, customer, logout } = useAuth()
+  const { t } = useTranslation(['site', 'common'])
 
   if (token && customer) {
     return (
@@ -109,14 +112,14 @@ export function HeaderAccountMobile() {
             render={<Link to="/dashboard" />}
             className="text-sm font-medium text-brand hover:underline"
           >
-            Go to dashboard
+            {t('nav.goToDashboard')}
           </SheetClose>
         </div>
         <SheetClose
           onClick={logout}
           className={cn(buttonVariants({ variant: 'outline' }), 'h-10 gap-2 rounded-lg px-4')}
         >
-          <LogOut className="size-4" /> Log out
+          <LogOut className="size-4" /> {t('common:actions.logOut')}
         </SheetClose>
       </div>
     )
@@ -128,7 +131,7 @@ export function HeaderAccountMobile() {
         render={<Link to="/login" />}
         className={cn(buttonVariants({ variant: 'outline' }), 'h-12 rounded-lg text-base font-semibold')}
       >
-        Log in
+        {t('common:actions.logIn')}
       </SheetClose>
       <SheetClose
         render={<Link to="/signup" />}
@@ -137,7 +140,7 @@ export function HeaderAccountMobile() {
           'h-12 rounded-lg border-brand text-base font-semibold text-brand hover:bg-brand hover:text-white',
         )}
       >
-        Sign up
+        {t('common:actions.signUp')}
       </SheetClose>
     </div>
   )

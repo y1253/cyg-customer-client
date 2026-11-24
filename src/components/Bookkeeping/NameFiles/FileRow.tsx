@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Check,
   ChevronDown,
@@ -24,18 +25,19 @@ import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useAttachmentActions } from '@/hooks/useAttachments'
 import { useBook } from '@/hooks/useBook'
 import { usePlaceAttachment } from '@/hooks/useNameFiles'
-import { fmtDay, KIND_LABEL } from '@/lib/attachment-labels'
+import { fmtDay, kindLabel } from '@/lib/attachment-labels'
 import { money } from '@/lib/money'
 import { fileDate, fileTitle } from '@/lib/name-files'
 import { cn } from '@/lib/utils'
 import { AttachmentPreview, AttachmentStatusBadge, KindIcon, ReadingSummary } from '../AttachmentParts'
 
-const SOURCE_BADGE: Partial<Record<Attachment['source'], [string, string]>> = {
-  SMS: ['via text', 'bg-sky-50 text-sky-700 ring-sky-600/20'],
-  WHATSAPP: ['via WhatsApp', 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'],
-  EMAIL: ['via email', 'bg-indigo-50 text-indigo-700 ring-indigo-600/20'],
-  STATEMENT: ['from statement', 'bg-violet-50 text-violet-700 ring-violet-600/20'],
-  CHAT: ['via AI chat', 'bg-brand/10 text-brand ring-brand/25'],
+/** A source's badge: its label key (`ledger:files.source.<key>`) and colours. */
+const SOURCE_BADGE: Partial<Record<Attachment['source'], ['SMS' | 'WHATSAPP' | 'EMAIL' | 'STATEMENT' | 'CHAT', string]>> = {
+  SMS: ['SMS', 'bg-sky-50 text-sky-700 ring-sky-600/20'],
+  WHATSAPP: ['WHATSAPP', 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'],
+  EMAIL: ['EMAIL', 'bg-indigo-50 text-indigo-700 ring-indigo-600/20'],
+  STATEMENT: ['STATEMENT', 'bg-violet-50 text-violet-700 ring-violet-600/20'],
+  CHAT: ['CHAT', 'bg-brand/10 text-brand ring-brand/25'],
 }
 
 /**
@@ -61,6 +63,7 @@ export function FileRow({
   onMove: (a: Attachment) => void
   defaultOpen?: boolean
 }) {
+  const { t } = useTranslation(['ledger', 'common'])
   const [open, setOpen] = useState(defaultOpen)
   const [asking, setAsking] = useState(defaultOpen && a.bucket === 'ERROR')
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -101,8 +104,8 @@ export function FileRow({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-[#0B1C2C]">{fileTitle(a)}</span>
           <span className="block truncate text-xs text-muted-foreground">
-            {fmtDay(fileDate(a))} · {KIND_LABEL[a.kind]}
-            {showName && ` · ${a.name ?? 'Unsorted'}`}
+            {fmtDay(fileDate(a))} · {kindLabel(a.kind)}
+            {showName && ` · ${a.name ?? t('files.unsorted')}`}
             {a.transaction && ` · → ${a.transaction.name ?? a.transaction.description}`}
           </span>
         </span>
@@ -120,13 +123,13 @@ export function FileRow({
                 })
               }}
               onKeyDown={(e) => e.stopPropagation()}
-              title="Open the statement it was cut from"
+              title={t('files.openStatement')}
               className={cn(
                 'hidden shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 hover:underline sm:inline',
                 badge[1],
               )}
             >
-              {badge[0]}
+              {t(`files.source.${badge[0]}`)}
             </button>
           ) : (
             <span
@@ -135,12 +138,12 @@ export function FileRow({
                 badge[1],
               )}
             >
-              {badge[0]}
+              {t(`files.source.${badge[0]}`)}
             </span>
           ))}
         {!!a.messageCount && (
           <span
-            title={`${a.messageCount} message${a.messageCount === 1 ? '' : 's'} with the AI about this file`}
+            title={t('files.messages', { count: a.messageCount })}
             className="flex shrink-0 items-center gap-0.5 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-medium text-brand"
           >
             <MessagesSquare className="size-3" /> {a.messageCount}
@@ -149,7 +152,7 @@ export function FileRow({
         {amount !== null && <span className="hidden shrink-0 text-sm tabular-nums sm:inline">{money(amount)}</span>}
         {a.name === null && !busy ? (
           <span className="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
-            No name yet
+            {t('files.noName')}
           </span>
         ) : (
           <AttachmentStatusBadge a={a} />
@@ -174,15 +177,15 @@ export function FileRow({
                 placeholder={a.reading?.summary ?? a.filename}
                 className="h-8"
               />
-              <Button type="submit" size="icon-sm" disabled={place.isPending} title="Save the name">
+              <Button type="submit" size="icon-sm" disabled={place.isPending} title={t('files.saveName')}>
                 <Check />
               </Button>
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setRenaming(null)} title="Cancel">
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setRenaming(null)} title={t('common:actions.cancel')}>
                 <X />
               </Button>
             </form>
           ) : (
-            a.displayName && <p className="text-xs text-muted-foreground">File: {a.filename}</p>
+            a.displayName && <p className="text-xs text-muted-foreground">{t('files.file', { name: a.filename })}</p>
           )}
           <AttachmentPreview a={a} />
           <ReadingSummary a={a} />
@@ -191,7 +194,7 @@ export function FileRow({
           )}
           {a.name === null && !busy && (
             <p className="text-xs text-red-700">
-              We could not tell who this is from. Move it to a name, or ask the AI about it.
+              {t('files.whoFrom')}
             </p>
           )}
           {asking ? (
@@ -208,12 +211,12 @@ export function FileRow({
                 onClick={() => onViewTransaction(a.transaction!.id)}
                 className="gap-1.5 text-brand"
               >
-                <ExternalLink className="size-4" /> View transaction
+                <ExternalLink className="size-4" /> {t('files.viewTransaction')}
               </Button>
             )}
             {!busy && (
               <Button size="sm" variant="ghost" onClick={() => onPick(a)} className="gap-1.5">
-                <Search className="size-4" /> {a.transaction ? 'Change transaction' : 'Choose transaction'}
+                <Search className="size-4" /> {a.transaction ? t('files.changeTransaction') : t('status.choose')}
               </Button>
             )}
             {assistant && !busy && (
@@ -222,21 +225,21 @@ export function FileRow({
                 variant={asking ? 'secondary' : 'ghost'}
                 onClick={() => setAsking(!asking)}
                 className="gap-1.5 text-brand"
-                title="Chat with the AI about this file — or ask it to call you"
+                title={t('files.askTitle')}
               >
-                <Sparkles className="size-4" /> {asking ? 'Hide AI chat' : 'Ask AI / call me'}
+                <Sparkles className="size-4" /> {asking ? t('attachments.hideAi') : t('files.ask')}
               </Button>
             )}
             {a.hasEmail && (
               <Button size="sm" variant="ghost" onClick={() => onEmail(a)} className="gap-1.5">
-                <Mail className="size-4" /> View full email
+                <Mail className="size-4" /> {t('files.viewEmail')}
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={() => setRenaming(a.displayName ?? '')} className="gap-1.5">
-              <Pencil className="size-4" /> Rename
+              <Pencil className="size-4" /> {t('common:actions.rename')}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => onMove(a)} className="gap-1.5">
-              <FolderInput className="size-4" /> Move
+              <FolderInput className="size-4" /> {t('move.move')}
             </Button>
             {(a.status === 'FAILED' || a.status === 'UNMATCHED' || a.status === 'DOCUMENT') && (
               <Button
@@ -246,7 +249,7 @@ export function FileRow({
                 onClick={() => retry.mutate(a.id)}
                 className="gap-1.5"
               >
-                <RotateCw className="size-4" /> Read again
+                <RotateCw className="size-4" /> {t('files.readAgain')}
               </Button>
             )}
             <Button
@@ -255,9 +258,9 @@ export function FileRow({
               disabled={remove.isPending}
               onClick={() => remove.mutate(a.id)}
               className="ml-auto gap-1.5 text-muted-foreground hover:text-destructive"
-              title="Delete this file (splits made from it stay)"
+              title={t('files.deleteTitle')}
             >
-              <Trash2 className="size-4" /> Delete
+              <Trash2 className="size-4" /> {t('common:actions.delete')}
             </Button>
           </div>
         </div>

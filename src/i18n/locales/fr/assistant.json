@@ -1,0 +1,143 @@
+{
+  "channel": {
+    "BOT": "Web",
+    "SMS": "Texto",
+    "WHATSAPP": "WhatsApp",
+    "EMAIL": "Courriel",
+    "VOICE": "Téléphone"
+  },
+  "conversation": {
+    "aboutAttachment": "À propos d’une pièce jointe",
+    "chat": "Clavardage"
+  },
+  "intake": {
+    "sendVerb": "par texto",
+    "sendVerbWhatsapp": "par texto ou WhatsApp"
+  },
+  "mic": {
+    "blocked": "L’accès au microphone est bloqué. Autorisez-le dans le navigateur pour enregistrer un message vocal.",
+    "notFound": "Aucun microphone n’a été trouvé.",
+    "inUse": "Le microphone est utilisé par une autre application.",
+    "failed": "Impossible de lancer l’enregistrement."
+  },
+  "panel": {
+    "conversations": "Conversations",
+    "newChat": "Nouvelle conversation",
+    "empty": "Posez n’importe quelle question sur vos livres : « Montre mes opérations de mars », « Combien ai-je dépensé chez Costco ? », « Déplace Uber dans Déplacements ». Ajoutez un reçu, un chèque ou une lettre avec le trombone et l’IA le lira. Vous pouvez aussi texter notre numéro de reçus ou lui écrire sur WhatsApp.",
+    "readOnly": {
+      "SMS": "Cette conversation a eu lieu par texto. Répondez depuis votre téléphone pour la poursuivre.",
+      "WHATSAPP": "Cette conversation a eu lieu sur WhatsApp. Répondez-y pour la poursuivre.",
+      "VOICE": "Il s’agit d’appels téléphoniques. Appelez notre numéro de reçus pour parler de nouveau à l’IA.",
+      "EMAIL": "Cette conversation a eu lieu par courriel. Répondez à ce courriel pour la poursuivre.",
+      "attachment": "Cette conversation porte sur un fichier. Poursuivez-la depuis son dossier dans l’onglet Noms → Demander à l’IA.",
+      "statement": "Cette conversation porte sur un relevé. Poursuivez-la depuis Flux bancaires → Demander à l’IA de le corriger."
+    },
+    "learnedTitle": "Ce que l’IA a appris",
+    "learnedHelp": "Les règles que l’IA a retenues de vos conversations. Elle les suit chaque fois qu’elle lit vos relevés et vos reçus.",
+    "nothingYet": "Rien pour l’instant.",
+    "forgetRule": "Oublier cette règle"
+  },
+  "attachmentChat": {
+    "placeholder": "p. ex. « C’est l’achat Amazon du 3 mars » ou « Il y a deux chèques sur cette image »",
+    "empty": "Dites à l’IA où va ce fichier ou ce qui ne va pas, ou appuyez sur le téléphone pour en parler."
+  },
+  "statementChat": {
+    "placeholder": "p. ex. « Les retraits de la page 3 ont été lus comme des dépôts »",
+    "empty": "Dites à l’IA ce qui ne va pas avec ce relevé, ou appuyez sur le téléphone pour en parler. Elle peut le relire ou corriger ses soldes."
+  },
+  "attachmentConversation": {
+    "loading": "Chargement de la conversation…",
+    "title": "Conversation sur ce fichier"
+  },
+  "callMe": {
+    "calling": "Appel en cours…",
+    "about": "Appelez-moi à ce sujet",
+    "aboutAddPhone": "Appelez-moi à ce sujet (ajoutez d’abord votre téléphone)",
+    "whatNumber": "À quel numéro devons-nous appeler ?",
+    "savedNote": "Il est enregistré dans votre compte; la prochaine fois, nous appellerons directement.",
+    "phonePlaceholder": "514 555-1234",
+    "callMe": "Appelez-moi"
+  },
+  "chat": {
+    "openFile": "Ouvrir le fichier",
+    "fileRemovedTitle": "Ce fichier a été supprimé depuis",
+    "removed": "(supprimé)",
+    "aiAssistant": "Assistant IA",
+    "aiDid": "L’IA a fait :",
+    "refused_one": "{{count}} fichier n’a pas été ajouté. Utilisez une photo (JPG, PNG), un PDF, un chiffrier (XLSX, CSV) ou une note vocale de moins de 25 Mo.",
+    "refused_other": "{{count}} fichiers n’ont pas été ajoutés. Utilisez une photo (JPG, PNG), un PDF, un chiffrier (XLSX, CSV) ou une note vocale de moins de 25 Mo.",
+    "refused_many": "{{count}} fichiers n’ont pas été ajoutés. Utilisez une photo (JPG, PNG), un PDF, un chiffrier (XLSX, CSV) ou une note vocale de moins de 25 Mo.",
+    "couldNotAnswer": "L’assistant n’a pas pu répondre.",
+    "readingFiles": "Lecture de vos fichiers… cela peut prendre une minute.",
+    "thinking": "L’IA réfléchit…",
+    "removeFile": "Retirer {{name}}",
+    "addFileTitle": "Ajouter un fichier (reçu, chèque, lettre…)",
+    "addFile": "Ajouter un fichier",
+    "placeholder": "Posez une question sur vos livres…"
+  },
+  "dictate": {
+    "tooShort": "C’était trop court. Maintenez le bouton pendant que vous parlez.",
+    "nothingHeard": "Rien n’a été capté. Réessayez un peu plus près du micro.",
+    "failed": "Cet enregistrement n’a pas pu être converti en texte.",
+    "stopTitle": "Arrêter et insérer le texte",
+    "stopLabel": "Arrêter la dictée",
+    "speak": "Dictez votre message"
+  },
+  "floating": {
+    "newConversation": "Nouvelle conversation",
+    "latestConversation": "Votre dernière conversation",
+    "empty": "Posez n’importe quelle question sur vos livres ou demandez une modification. Tapez-la, ou appuyez sur le micro et dites-la.",
+    "title": "Votre teneur de livres IA",
+    "subtitle": "Demandez ce que vous voulez, comme vous voulez : il répond tout de suite.",
+    "chatWeb": "Clavarder sur le Web",
+    "chatWebHint": "Tapez votre question",
+    "dictateTitle": "Ouvrir la conversation et commencer à parler",
+    "dictate": "Dicter",
+    "reach": {
+      "text": "Textez l’IA au",
+      "textWhatsapp": "Textez l’IA ou écrivez-lui sur WhatsApp au",
+      "callText": "Appelez ou textez l’IA au",
+      "callTextWhatsapp": "Appelez l’IA, textez-la ou écrivez-lui sur WhatsApp au"
+    },
+    "call": "Appeler",
+    "text": "Texter",
+    "callMe": "Appelez-moi",
+    "callMeHintPhone": "L’IA vous appelle maintenant au {{phone}}",
+    "callMeHint": "L’IA vous appelle maintenant",
+    "pickUp": "{{message}}. Répondez !",
+    "welcomeTitle": "Textez-moi un mot de bienvenue",
+    "welcomeHint": "Recevez notre numéro par texto pour l’enregistrer",
+    "phonePrompt": "Votre numéro de téléphone (enregistré dans votre compte) :",
+    "openLabel": "Parler à l’assistant IA",
+    "sheetTitle": "Assistant IA"
+  },
+  "documents": {
+    "openLabel": "Vos documents, et comment nous les envoyer",
+    "title": "Vos documents",
+    "subtitle": "Chaque fichier est rangé sous son nom dans l’onglet Noms.",
+    "reading_one": "Lecture de {{count}} fichier…",
+    "reading_other": "Lecture de {{count}} fichiers…",
+    "reading_many": "Lecture de {{count}} fichiers…",
+    "sendUs": "Envoyez-nous des documents",
+    "text": "Texter",
+    "emailTitle": "Écrire à {{email}}",
+    "emailHint": "Transférez reçus, factures, relevés, contrats",
+    "fromPhone": "Depuis votre téléphone",
+    "fromPhoneHint": "Numérisez un code QR et prenez des photos",
+    "copyAddress": "Copier l’adresse",
+    "welcomeText": "Envoyez un courriel de bienvenue depuis {{inbox}}. Répondez-y ou transférez-y des documents à partir de cette adresse :",
+    "emailPlaceholder": "nom@exemple.com",
+    "uploading": "Téléversement… {{pct}} %",
+    "fromComputer": "Depuis cet ordinateur",
+    "fromComputerHint": "Photos, PDF, chiffriers, notes vocales",
+    "cannotRead": "Ces fichiers ne peuvent pas être lus ici.",
+    "added_one": "{{count}} fichier ajouté. Nous le lisons.",
+    "added_other": "{{count}} fichiers ajoutés. Nous les lisons.",
+    "added_many": "{{count}} fichiers ajoutés. Nous les lisons.",
+    "qrAlt": "Code QR pour envoyer des fichiers depuis votre téléphone",
+    "qrHelp": "Numérisez-le avec l’appareil photo de votre téléphone, puis prenez des photos ou choisissez des fichiers. Le code est valide 30 minutes.",
+    "received_one": "{{count}} fichier reçu",
+    "received_other": "{{count}} fichiers reçus",
+    "received_many": "{{count}} fichiers reçus"
+  }
+}

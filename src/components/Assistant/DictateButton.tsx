@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Mic, Square } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { transcribeDictation } from '@/api/assistant'
 import { Button } from '@/components/ui/button'
 import { useBook } from '@/hooks/useBook'
@@ -35,6 +36,7 @@ export function DictateButton({
   /** step2 (2026-11-09): start recording as soon as it shows (the chat bubble's "Dictate"). */
   autoStart?: boolean
 }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const book = useBook()
   const [phase, setPhase] = useState<'idle' | 'recording' | 'working'>('idle')
   const [elapsed, setElapsed] = useState(0)
@@ -84,7 +86,7 @@ export function DictateButton({
     if (heldFor < MIN_RECORDING_MS) {
       setPhase('idle')
       setLiveText('')
-      setError('That was too short — hold it while you speak.')
+      setError(t('dictate.tooShort'))
       return
     }
     setPhase('working')
@@ -94,9 +96,9 @@ export function DictateButton({
       const final = text.trim()
       if (final) onText(final)
       else if (heard) onText(heard)
-      else setError('Nothing was picked up. Try again a little closer to the mic.')
+      else setError(t('dictate.nothingHeard'))
     } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : 'That recording could not be turned into text.')
+      setError(err instanceof Error && err.message ? err.message : t('dictate.failed'))
       // The request failed; the customer's sentence should not be thrown away with it.
       if (heard) onText(heard)
     } finally {
@@ -178,8 +180,8 @@ export function DictateButton({
         type="button"
         variant="outline"
         size={recording ? 'default' : 'icon'}
-        title={recording ? 'Stop and insert the text' : 'Speak your message'}
-        aria-label={recording ? 'Stop dictating' : 'Speak your message'}
+        title={recording ? t('dictate.stopTitle') : t('dictate.speak')}
+        aria-label={recording ? t('dictate.stopLabel') : t('dictate.speak')}
         disabled={disabled || phase === 'working'}
         onClick={() => {
           if (recording) recorder.current?.stop()

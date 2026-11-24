@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CreditCard, Landmark } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { BankConnection } from '@/api/bankFeeds'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,6 +45,7 @@ export function BankStartDatesDialog({
 }
 
 function StartDatesForm({ connection, onClose }: { connection: BankConnection; onClose: () => void }) {
+  const { t } = useTranslation(['books', 'common'])
   const save = useSaveStartDates()
   const [dates, setDates] = useState<Record<number, string>>(() =>
     Object.fromEntries(connection.accounts.map((a) => [a.id, a.startDate ?? ''])),
@@ -65,16 +67,17 @@ function StartDatesForm({ connection, onClose }: { connection: BankConnection; o
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Where should your books start?</DialogTitle>
+        <DialogTitle>{t('dates.title')}</DialogTitle>
         <DialogDescription>
-          Pick the first day to bring in for each {connection.institutionName ?? 'bank'} account. Leave it blank for
-          everything the bank gives us (up to 2 years).
-          {!isNew && ' A later date takes the earlier months out of your books.'}
+          {connection.institutionName
+            ? t('dates.intro', { bank: connection.institutionName })
+            : t('dates.introNoName')}
+          {!isNew && ` ${t('dates.later')}`}
         </DialogDescription>
       </DialogHeader>
 
       {connection.accounts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No accounts are shared from this bank yet.</p>
+        <p className="text-sm text-muted-foreground">{t('dates.none')}</p>
       ) : (
         <ul className="space-y-3">
           {connection.accounts.map((a) => (
@@ -92,7 +95,7 @@ function StartDatesForm({ connection, onClose }: { connection: BankConnection; o
               </span>
               <Input
                 type="date"
-                aria-label={`Start date for ${a.name}`}
+                aria-label={t('dates.startFor', { name: a.name })}
                 className="sm:w-44"
                 min={connection.earliestDate}
                 max={max}
@@ -113,21 +116,21 @@ function StartDatesForm({ connection, onClose }: { connection: BankConnection; o
             setDates(Object.fromEntries(connection.accounts.map((a) => [a.id, date])))
           }}
         >
-          Use the first account’s date for all
+          {t('dates.useFirst')}
         </button>
       )}
 
       {invalid && (
         <p className="text-sm text-destructive">
-          Pick a day between {connection.earliestDate} and today.
+          {t('dates.invalid', { date: connection.earliestDate })}
         </p>
       )}
       {save.error && <p className="text-sm text-destructive">{save.error.message}</p>}
 
       <DialogFooter>
-        <DialogClose render={<Button variant="outline" />}>{isNew ? 'Later' : 'Cancel'}</DialogClose>
+        <DialogClose render={<Button variant="outline" />}>{isNew ? t('dates.laterButton') : t('common:actions.cancel')}</DialogClose>
         <Button disabled={save.isPending || invalid || connection.accounts.length === 0} onClick={submit}>
-          {save.isPending ? 'Saving…' : isNew ? 'Bring them in' : 'Save'}
+          {save.isPending ? t('common:actions.saving') : isNew ? t('dates.bringIn') : t('common:actions.save')}
         </Button>
       </DialogFooter>
     </>

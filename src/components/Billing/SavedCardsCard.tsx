@@ -1,4 +1,5 @@
 import { CreditCard, Loader2, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useRemoveCard } from '@/hooks/useRemoveCard'
@@ -7,6 +8,7 @@ import { cardExpiry, cardLabel } from '@/lib/cards'
 
 /** Account page: the cards Stripe saved from past payments, each removable. */
 export function SavedCardsCard() {
+  const { t } = useTranslation(['dashboard', 'common'])
   const cards = useSavedCards()
   const remove = useRemoveCard()
   const list = cards.data ?? []
@@ -14,9 +16,9 @@ export function SavedCardsCard() {
   return (
     <Card className="mt-6 max-w-2xl rounded-2xl border-0 py-8 shadow-sm ring-1 ring-black/5">
       <CardHeader className="px-8">
-        <CardTitle className="text-lg font-bold text-[#0B1C2C]">Saved cards</CardTitle>
+        <CardTitle className="text-lg font-bold text-[#0B1C2C]">{t('cards.title')}</CardTitle>
         <CardDescription>
-          Saved securely by Stripe when you pay, so the next Generate is one click. We never see the card number.
+          {t('cards.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-2 px-8">
@@ -24,7 +26,7 @@ export function SavedCardsCard() {
           <div className="h-14 animate-pulse rounded-xl bg-muted" />
         ) : list.length === 0 ? (
           <p className="rounded-xl bg-muted/50 px-4 py-5 text-center text-sm text-muted-foreground">
-            No saved cards yet — your card is saved the first time you pay.
+            {t('cards.empty')}
           </p>
         ) : (
           list.map((card) => {
@@ -36,7 +38,7 @@ export function SavedCardsCard() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-[#0B1C2C]">{cardLabel(card)}</p>
-                  <p className="text-xs text-muted-foreground">Expires {cardExpiry(card)}</p>
+                  <p className="text-xs text-muted-foreground">{t('pay.expires', { date: cardExpiry(card) })}</p>
                 </div>
                 <Button
                   variant="ghost"
@@ -46,7 +48,7 @@ export function SavedCardsCard() {
                   onClick={() => remove.mutate(card.id)}
                 >
                   {removing ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                  Remove
+                  {t('common:actions.remove')}
                 </Button>
               </div>
             )

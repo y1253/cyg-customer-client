@@ -1,0 +1,593 @@
+{
+  "tabs": {
+    "statements": "Flux bancaires",
+    "ledger": "Grand livre",
+    "communications": "Communications",
+    "accounts": "Plan comptable",
+    "income": "État des résultats",
+    "balance": "Bilan",
+    "names": "Noms",
+    "products": "Produits",
+    "schedules": "Envois planifiés"
+  },
+  "page": {
+    "title": "Tenue de livres",
+    "description": "Téléversez vos relevés bancaires — nous inscrivons chaque opération au débit et au crédit.",
+    "downloadExcel": "Télécharger Excel",
+    "downloadPdf": "Télécharger PDF",
+    "noFigures": "Aucun chiffre pour l’instant",
+    "noFiguresHint": "Téléversez un relevé bancaire — les rapports se remplissent une fois qu’il a été lu.",
+    "problemCount_one": "{{count}} relevé avec un problème",
+    "problemCount_other": "{{count}} relevés avec un problème",
+    "problemCount_many": "{{count}} relevés avec un problème",
+    "upload": "Téléverser",
+    "readingTakes": "La lecture prend environ une minute par relevé — vous pouvez quitter cette page, elle se poursuit en arrière-plan."
+  },
+  "switcher": {
+    "switch": "Changer d’entreprise",
+    "yours": "Vos entreprises",
+    "rename": "Renommer « {{name}} »",
+    "new": "Nouvelle entreprise",
+    "renameTitle": "Renommer l’entreprise",
+    "newHint": "Une tenue de livres distincte — ses propres relevés, fichiers, règles et rapports.",
+    "renameHint": "Le nom s’affiche sur cette page et en tête de vos rapports et exportations.",
+    "nameLabel": "Nom de l’entreprise",
+    "namePlaceholder": "p. ex. Location rue Maple",
+    "create": "Créer"
+  },
+  "starts": {
+    "date": "Date de départ : {{date}}",
+    "balance": "Solde de départ : {{amount}} le {{date}}",
+    "dates": "Dates de départ : {{dates}}",
+    "dateAmount": "{{date}} ({{amount}})",
+    "dateAmountWorked": "{{date}} ({{amount}}, calculé)",
+    "derived": {
+      "CLOSING": "calculé à partir du solde de clôture",
+      "ZERO": "non imprimé — fixé à 0,00"
+    },
+    "undated": "un relevé non daté",
+    "undatedCap": "Un relevé non daté",
+    "thisOne": "celui-ci",
+    "missing": "{{at}} : relevé manquant du {{from}} au {{to}}",
+    "missingJump": "{{at}} : relevé manquant du {{from}} au {{to}}, et le solde est passé de {{before}} à {{after}}",
+    "statementEnding": "le relevé se terminant le {{date}}",
+    "statementBefore": "le relevé précédent",
+    "review": "{{at}} : {{before}} doit être vérifié, alors les livres recommencent ici",
+    "mismatch": "{{at}} : les soldes ne se suivent pas — {{before}} se termine à {{closing}}, celui-ci commence à {{opening}}",
+    "mismatchNoClosing": "{{at}} : les soldes ne se suivent pas — aucun solde de clôture n’a été lu pour {{before}}, celui-ci commence à {{opening}}",
+    "warning": "Plus d’une date de départ : il manque un relevé, ou les soldes ne se suivent pas d’un relevé à l’autre."
+  },
+  "help": {
+    "ENDING": {
+      "what": "Son solde d’ouverture, plus les entrées et sorties d’argent que nous avons lues, n’arrive pas au solde de clôture imprimé, donc une opération a été mal lue ou sautée. Ses opérations sont dans vos livres telles que lues jusqu’à ce que ce soit corrigé.",
+      "todo": [
+        "Réessayez — il est relu entièrement.",
+        "Demandez à l’IA en lui indiquant les soldes imprimés sur le relevé, ou l’opération erronée ; elle corrige la lecture et vérifie de nouveau."
+      ]
+    },
+    "RUNNING": {
+      "what": "La banque imprime un solde courant à côté de chaque opération. Celui de la dernière opération devrait être le solde de clôture du relevé, et ce n’est pas le cas — une opération a donc été mal lue ou sautée. Ses opérations sont dans vos livres telles que lues jusqu’à ce que ce soit corrigé.",
+      "todo": [
+        "Réessayez — il est relu entièrement.",
+        "Demandez à l’IA en lui indiquant l’opération ou le montant erroné ; elle corrige la lecture et vérifie de nouveau."
+      ]
+    },
+    "NO_OPENING": {
+      "what": "Nous n’avons pas pu lire de solde d’ouverture sur ce relevé, et aucun solde de clôture ne permettait de le calculer. Vos livres commencent donc ce compte à 0,00 $ ici, et ses soldes peuvent être inexacts.",
+      "todo": [
+        "Réessayez — il est relu avec notre lecteur le plus puissant.",
+        "Demandez à l’IA en lui indiquant le solde d’ouverture imprimé sur le relevé ; elle l’inscrit et vérifie les opérations."
+      ]
+    },
+    "OTHER": {
+      "what": "Notre IA a noté ce problème avec le relevé à partir de ce que vous lui avez dit. Il reste affiché jusqu’à ce qu’il soit corrigé.",
+      "todo": [
+        "Demandez à l’IA de le corriger, ou réessayez — il est relu entièrement."
+      ]
+    },
+    "MISMATCH": {
+      "what": "Chaque relevé devrait commencer au solde de clôture du relevé précédent. Ce n’est pas le cas ici, donc l’un des deux a été mal lu ou la banque a changé quelque chose. Nous relisons les deux avec notre lecteur le plus puissant. D’ici là, vos livres recommencent au solde d’ouverture de ce relevé.",
+      "todo": [
+        "Ouvrez les deux PDF et comparez le solde de clôture du premier avec le solde d’ouverture de celui-ci.",
+        "Demandez à l’IA en lui indiquant le bon solde, ou ce qui a été mal lu ; elle corrige et vérifie de nouveau.",
+        "Si un relevé a été classé dans le mauvais compte, déplacez-le dans le bon dossier."
+      ]
+    },
+    "MISSING": {
+      "what": "Il y a un écart entre le relevé précédent et celui-ci, donc les opérations de cette période manquent dans vos livres. Vos livres recommencent au solde d’ouverture de ce relevé.",
+      "todo": [
+        "Téléversez le ou les relevés manquants — l’écart se comble de lui-même une fois qu’ils sont lus.",
+        "S’il n’y a vraiment eu aucun relevé pour cette période, dites-le à l’IA."
+      ]
+    },
+    "NO_BALANCES": {
+      "what": "Nous avons lu les opérations, mais rien sur le relevé (solde d’ouverture ou de clôture, totaux, solde courant) ne permettait de les vérifier ; certaines peuvent manquer ou être mal lues. Elles sont dans vos livres telles que lues.",
+      "todo": [
+        "Réessayez — il est relu avec notre lecteur le plus puissant.",
+        "Demandez à l’IA en lui indiquant les soldes d’ouverture et de clôture imprimés sur le relevé ; elle vérifie les opérations à partir de ceux-ci.",
+        "Si le PDF est une numérisation ou une photo, téléversez une copie plus nette, ou celle téléchargée de votre banque."
+      ]
+    },
+    "NEEDS_REVIEW": {
+      "what": "Nous avons lu chaque opération, puis nous les avons additionnées et comparées aux totaux imprimés par la banque. Ils ne correspondent pas : quelque chose a été mal lu ou sauté (souvent une page, un signe ou un montant). Pour garder vos livres exacts, rien de ce relevé n’est encore dans votre grand livre.",
+      "todo": [
+        "Réessayez — chaque lecture repart de zéro et règle souvent le problème.",
+        "Demandez à l’IA en lui indiquant ce qui ne va pas (p. ex. quelle page ou quel montant) ; elle corrige la lecture et réessaie.",
+        "Si le PDF est une numérisation ou une photo, téléversez une copie plus nette, ou celle téléchargée de votre banque."
+      ]
+    },
+    "PASSWORD": {
+      "what": "Le PDF est protégé par un mot de passe et ne peut pas être ouvert.",
+      "todo": [
+        "Téléchargez de nouveau le relevé de votre banque sans mot de passe, ou imprimez-le dans un nouveau PDF, puis téléversez celui-ci."
+      ]
+    },
+    "NOT_STATEMENT": {
+      "what": "Ce fichier ne ressemble pas à un relevé bancaire ou de carte de crédit (c’est peut-être un reçu, une facture ou un résumé).",
+      "todo": [
+        "S’il s’agit d’un reçu ou d’une facture, téléversez-le plutôt dans les pièces jointes.",
+        "Si c’est vraiment un relevé, demandez à l’IA en lui indiquant la banque et le compte."
+      ]
+    },
+    "DAMAGED": {
+      "what": "Le fichier est endommagé ou n’est pas un vrai PDF, il ne peut donc pas être ouvert.",
+      "todo": [
+        "Téléchargez de nouveau le relevé de votre banque et téléversez la nouvelle copie."
+      ]
+    },
+    "GENERIC": {
+      "what": "Un problème est survenu pendant la lecture de ce relevé — habituellement un moment d’achalandage de notre côté ou un fichier difficile à lire.",
+      "todo": [
+        "Réessayez.",
+        "Demandez à l’IA en lui indiquant de quel relevé il s’agit ; elle réessaie avec cette information.",
+        "Si l’échec persiste, téléversez une copie plus nette, ou celle téléchargée de votre banque."
+      ]
+    }
+  },
+  "statements": {
+    "status": {
+      "done": "Terminé",
+      "needsReview": "À vérifier",
+      "failed": "Échec",
+      "notRead": "Pas encore lu",
+      "reading": "Lecture…",
+      "queued": "En file"
+    },
+    "couldNotRead": "Nous n’avons pas pu lire ce relevé.",
+    "noMatch": "Ce relevé ne correspond pas aux totaux de la banque.",
+    "txCount_one": "{{count}} opération",
+    "txCount_other": "{{count}} opérations",
+    "txCount_many": "{{count}} opérations",
+    "inCurrency": "en {{currency}}",
+    "readingAll": "Lecture de chaque opération…",
+    "clickGenerate": "cliquez sur Générer pour le lire",
+    "waiting": "En attente de lecture…",
+    "filter": {
+      "all": "Tous",
+      "done": "Terminés",
+      "unread": "Problèmes",
+      "waiting": "En attente"
+    },
+    "empty": "Aucun relevé pour l’instant",
+    "emptyHint": "Les relevés téléversés s’affichent ici.",
+    "rereadAllCount": "Tout relire ({{count}})",
+    "collapseAll": "Tout replier",
+    "expandAll": "Tout déplier",
+    "dragHint": "Un relevé dans le mauvais compte ? Glissez-le sur le bon dossier, ou utilisez son menu <icon></icon>.",
+    "nothing": "Rien ici.",
+    "askStarts": "{{account}} a plus d’une date de départ ({{dates}}).{{why}} Pourquoi ses soldes ne se suivent-ils pas, et comment corriger cela ?",
+    "seeInLedger_one": "Voir son opération dans le grand livre — {{file}}",
+    "seeInLedger_other": "Voir ses {{count}} opérations dans le grand livre — {{file}}",
+    "seeInLedger_many": "Voir ses {{count}} opérations dans le grand livre — {{file}}",
+    "bankFeed": "Flux bancaire",
+    "movedByYou": "déplacé par vous",
+    "details": "Détails",
+    "hideDetails": "Masquer les détails",
+    "closeChat": "Fermer le clavardage",
+    "askFix": "Demander à l’IA de corriger",
+    "askAbout": "Demander à l’IA",
+    "moveTitle": "Déplacer vers un autre compte",
+    "moveTo": "Déplacer vers le compte",
+    "newAccount": "Nouveau compte…",
+    "viewPdf": "Voir le PDF du relevé",
+    "viewOriginal": "Voir le PDF original",
+    "delete": "Supprimer le relevé",
+    "rereadTitle_one": "Relire {{count}} relevé ?",
+    "rereadTitle_other": "Relire {{count}} relevés ?",
+    "rereadTitle_many": "Relire {{count}} relevés ?",
+    "rereadText": "Chaque relevé qui a un problème est relu à partir de son PDF. Pendant la lecture, ses opérations sortent de vos livres ; elles reviennent dès qu’elle est terminée. Un relevé manquant n’est pas inclus — téléversez-le pour combler l’écart.",
+    "rereadQueued_one": "{{count}} relevé est en cours de relecture.",
+    "rereadQueued_other": "{{count}} relevés sont en cours de relecture.",
+    "rereadQueued_many": "{{count}} relevés sont en cours de relecture.",
+    "rereadNone": "Rien à relire pour le moment.",
+    "starting": "Démarrage…",
+    "rereadAll": "Tout relire",
+    "newAccountTitle": "Déplacer vers un nouveau compte",
+    "newAccountText": "{{label}} aura son propre dossier. Nommez-le comme vous connaissez le compte, p. ex. « TD Chèques 5234 ».",
+    "accountName": "Nom du compte",
+    "moving": "Déplacement…",
+    "move": "Déplacer",
+    "deleteTitle": "Supprimer ce relevé ?",
+    "deleteText_one": "{{file}} et son opération seront retirés de votre grand livre et de vos exportations.",
+    "deleteText_other": "{{file}} et ses {{count}} opérations seront retirés de votre grand livre et de vos exportations.",
+    "deleteText_many": "{{file}} et ses {{count}} opérations seront retirés de votre grand livre et de vos exportations.",
+    "deleting": "Suppression…",
+    "notSorted": "Pas encore classés",
+    "card": "Carte",
+    "count_one": "{{count}} relevé",
+    "count_other": "{{count}} relevés",
+    "count_many": "{{count}} relevés",
+    "renameAccount": "Renommer {{name}}",
+    "everyProblem": "Tous les problèmes de ce relevé",
+    "notedByAi": "noté par l’IA",
+    "whatWentWrong": "Ce qui s’est passé, précisément",
+    "whatDidNotMatch": "Ce qui ne correspondait pas aux totaux de la banque",
+    "whatMeans": "Ce que cela signifie",
+    "whatToDo": "Ce que vous pouvez faire",
+    "youTold": "Ce que vous nous avez dit :",
+    "notRead": "non lu",
+    "owes": "dû {{amount}}",
+    "balanceLine": "Début : {{open}} · fin : {{end}}",
+    "balanceLineWorked": "Début : {{open}} (calculé) · fin : {{end}}"
+  },
+  "upload": {
+    "notPdf_one": "{{count}} fichier qui n’est pas un PDF ({{names}})",
+    "notPdf_other": "{{count}} fichiers qui ne sont pas des PDF ({{names}})",
+    "notPdf_many": "{{count}} fichiers qui ne sont pas des PDF ({{names}})",
+    "tooBig_one": "{{count}} fichier de plus de 50 Mo",
+    "tooBig_other": "{{count}} fichiers de plus de 50 Mo",
+    "tooBig_many": "{{count}} fichiers de plus de 50 Mo",
+    "skipped": "Ignoré : {{what}}.",
+    "skippedBoth": "Ignorés : {{a}} et {{b}}.",
+    "uploading_one": "Téléversement de {{count}} relevé…",
+    "uploading_other": "Téléversement de {{count}} relevés…",
+    "uploading_many": "Téléversement de {{count}} relevés…",
+    "drop": "Déposez vos relevés bancaires ici",
+    "browse": "ou <link>parcourez vos fichiers</link> — en PDF, autant que vous voulez",
+    "done": "Téléversé — cliquez sur Générer une fois qu’ils sont tous ajoutés."
+  },
+  "generate": {
+    "reading": "Lecture des relevés…",
+    "new": "Générer · {{count}} nouveau(x)",
+    "newPaid": "Générer · {{count}} nouveau(x) · {{price}}",
+    "button": "Générer",
+    "ready_one": "{{count}} relevé prêt à lire",
+    "ready_other": "{{count}} relevés prêts à lire",
+    "ready_many": "{{count}} relevés prêts à lire",
+    "upToDate": "Votre grand livre est à jour",
+    "readyHint": "Téléversez tout d’abord, puis cliquez sur Générer — nous les lisons et inscrivons chaque opération.",
+    "upToDateHint": "Téléversez d’autres relevés quand vous voulez, puis cliquez sur Générer.",
+    "home": "Devise de base",
+    "homeHint": "La devise dans laquelle vos livres sont tenus. Les relevés dans une autre devise sont convertis au taux quotidien de la Banque du Canada."
+  },
+  "bank": {
+    "justNow": "à l’instant",
+    "minAgo": "il y a {{n}} min",
+    "hoursAgo": "il y a {{n}} h",
+    "yesterday": "hier",
+    "signInNeeded": "Vous devez vous reconnecter",
+    "stopped": "La connexion a cessé de fonctionner",
+    "pickStarts": "Choisissez où commence chaque compte — rien n’est classé avant",
+    "bringingIn": "Importation de votre historique…",
+    "upToDate": "À jour · {{ago}}",
+    "connect": "Connecter votre banque",
+    "connectAnother": "Connecter une autre banque",
+    "intro": "Fini les téléversements : vous choisissez les comptes à votre banque et jusqu’où remonter (jusqu’à 2 ans), et nous classons chaque mois comme un relevé, automatiquement. Lecture seule — votre mot de passe bancaire va à Plaid, jamais à nous.",
+    "yourBank": "Votre banque",
+    "signInAgain": "Se reconnecter",
+    "refreshNow": "Actualiser maintenant",
+    "disconnect": "Déconnecter",
+    "disconnecting": "Déconnexion…",
+    "dontDisconnect": "Ne vous déconnectez pas — une nouvelle connexion recommence l’attente.",
+    "newAccount": "Votre banque a un compte que vous n’avez pas encore partagé.",
+    "addIt": "L’ajouter",
+    "filedUnder": "Classé sous « {{name}} »",
+    "from": "depuis le {{date}}",
+    "allHistory": "tout l’historique",
+    "start": "solde de départ {{amount}}",
+    "startOn": "solde de départ {{amount}} le {{date}}",
+    "startOwed": "solde de départ dû {{amount}}",
+    "startOwedOn": "solde de départ dû {{amount}} le {{date}}",
+    "owed": "dû {{amount}}",
+    "changeAccounts": "Changer les comptes",
+    "startDates": "Dates de départ",
+    "disconnectTitle": "Déconnecter {{name}} ?",
+    "disconnectThis": "Déconnecter cette banque ?",
+    "disconnectText": "Nous cessons d’importer de nouvelles opérations et supprimons notre accès. Les relevés déjà importés restent dans vos livres."
+  },
+  "dates": {
+    "title": "Où vos livres doivent-ils commencer ?",
+    "intro": "Choisissez la première journée à importer pour chaque compte {{bank}}. Laissez vide pour tout ce que la banque nous donne (jusqu’à 2 ans).",
+    "introNoName": "Choisissez la première journée à importer pour chaque compte bancaire. Laissez vide pour tout ce que la banque nous donne (jusqu’à 2 ans).",
+    "later": "Une date plus tardive retire les mois précédents de vos livres.",
+    "none": "Aucun compte de cette banque n’est encore partagé.",
+    "startFor": "Date de départ pour {{name}}",
+    "useFirst": "Utiliser la date du premier compte pour tous",
+    "invalid": "Choisissez une journée entre le {{date}} et aujourd’hui.",
+    "laterButton": "Plus tard",
+    "bringIn": "Les importer"
+  },
+  "plaid": {
+    "expired": "Cette connexion bancaire a expiré. Veuillez la recommencer à partir de votre page de tenue de livres.",
+    "back": "Retour à la tenue de livres",
+    "finishing": "Finalisation de votre connexion bancaire…",
+    "notLoaded": "Plaid ne s’est pas chargé",
+    "loadFailed": "Impossible de charger la fenêtre de connexion bancaire. Vérifiez votre connexion et réessayez."
+  },
+  "startsChat": {
+    "title": "{{account}} : plus d’une date de départ",
+    "none": "Aucun relevé lu pour ce compte pour l’instant."
+  },
+  "schedules": {
+    "run": {
+      "none": "non envoyé",
+      "sms": "par texto",
+      "call": "par appel téléphonique",
+      "email": "par courriel"
+    },
+    "nothingSent": "Rien d’envoyé pour l’instant.",
+    "sendNowLower": "envoi immédiat",
+    "next": "Prochain : {{when}}",
+    "nextSend": "Prochain envoi",
+    "turnOff": "Désactiver {{title}}",
+    "turnOn": "Activer {{title}}",
+    "more": "Plus d’options pour {{title}}",
+    "sendNow": "Envoyer maintenant",
+    "freq": {
+      "DAILY": "Chaque jour",
+      "WEEKLY": "Chaque semaine",
+      "MONTHLY": "Chaque mois",
+      "ONCE": "Une fois"
+    },
+    "repeat": "Répétition",
+    "day": "Jour",
+    "dayOfMonth": "Jour du mois",
+    "time": "Heure",
+    "recent": "Envois récents",
+    "channel": {
+      "PREFERRED": "Mon moyen de contact préféré",
+      "SMS": "Texto",
+      "EMAIL": "Courriel",
+      "CALL": "Appel téléphonique"
+    },
+    "name": "Nom",
+    "sendBy": "Envoyer par",
+    "task": "Ce que l’assistant envoie chaque fois",
+    "builtin": {
+      "ACCOUNT_STATUS": {
+        "title": "Aperçu de l’état du compte",
+        "what": "Ce qui demande encore votre attention : reçus non associés, opérations non catégorisées, noms non reconnus, relevés à vérifier. Rien en suspens = rien d’envoyé."
+      },
+      "FINANCIAL_REPORT": {
+        "title": "Rapport financier",
+        "what": "L’état des résultats et le bilan du mois dernier — un PDF par courriel, ou un résumé et un lien par texto."
+      }
+    },
+    "to": {
+      "nowhere": "aucune destination",
+      "call": "par appel au {{to}}",
+      "sms": "par texto au {{to}}",
+      "email": "par courriel à {{to}}"
+    },
+    "delivery": {
+      "nowhere": "Nous n’avons aucune adresse courriel ni aucun numéro de téléphone pour l’envoyer.",
+      "builtinCall": "L’assistant IA <b>appelle</b> le {{to}}, vous le communique et répond à vos questions. Pas de réponse → un texto, puis un courriel.",
+      "builtinSms": "Envoyé par <b>texto</b> au {{to}}.",
+      "builtinSmsWhatsapp": "Envoyé par <b>texto</b> au {{to}} (les messages planifiés aux utilisateurs WhatsApp partent par texto).",
+      "builtinEmail": "Envoyé par <b>courriel</b> à {{to}}.",
+      "builtinEmailAddPhone": "Envoyé par <b>courriel</b> à {{to}} — ajoutez un numéro de cellulaire à votre compte pour le recevoir par texto ou par appel.",
+      "changePreferred": "Changez votre moyen de contact préféré dans la <link>page Compte</link>.",
+      "aiPrepares": "Chaque fois, l’assistant IA consulte vos livres et prépare le message.",
+      "aiWrites": "Chaque fois, l’assistant IA consulte vos livres et rédige le message.",
+      "aiCall": "Il <b>appelle</b> le {{to}}, vous le communique et répond à vos questions. Pas de réponse → un texto, puis un courriel{{why}}.",
+      "aiSms": "Il est envoyé par <b>texto</b> au {{to}}{{why}}.",
+      "aiEmail": "Il est envoyé par <b>courriel</b> à {{to}}{{why}}.",
+      "preferred": " — votre moyen de contact préféré",
+      "noCalls": " (les appels téléphoniques ne sont pas offerts pour le moment)",
+      "changeContact": "Modifiez vos coordonnées dans la <link>page Compte</link>."
+    },
+    "title": "Messages planifiés",
+    "intro": "Des mises à jour régulières sur cette tenue de livres, envoyées par texto ou par courriel. Cliquez sur une ligne pour la modifier.",
+    "builtIn": "Intégrés",
+    "askedInChat": "Demandés en clavardage",
+    "noCustom": "Aucun envoi personnalisé pour l’instant",
+    "askHint": "Demandez à l’assistant IA — par clavardage, texto ou courriel — tout envoi régulier, comme <i>« Texte-moi mon solde de caisse chaque jour à 6 h »</i> ou <i>« Envoie-moi par courriel les reçus non associés chaque vendredi »</i>. Il s’affichera ici.",
+    "askHintOff": "Les envois que vous demandez à l’assistant IA s’afficheront ici.",
+    "madeByAi": "Créé par l’IA",
+    "yours": "Le vôtre",
+    "deleteTitle": "Supprimer « {{title}} » ?",
+    "deleteText": "Il ne sera plus envoyé. Vous pourrez toujours le redemander à l’assistant.",
+    "keep": "Le garder"
+  },
+  "comm": {
+    "channel": {
+      "WHATSAPP": {
+        "label": "WhatsApp",
+        "empty": "Rien sur WhatsApp pour l’instant."
+      },
+      "SMS": {
+        "label": "Textos",
+        "empty": "Aucun texto pour l’instant."
+      },
+      "VOICE": {
+        "label": "Appels téléphoniques",
+        "empty": "Aucun appel avec l’IA pour l’instant."
+      },
+      "EMAIL": {
+        "label": "Courriel",
+        "empty": "Aucun courriel pour l’instant."
+      },
+      "BOT": {
+        "label": "Clavardage du site",
+        "empty": "Aucun clavardage sur le site pour l’instant."
+      },
+      "UPLOADS": {
+        "label": "Téléversements",
+        "empty": "Rien de téléversé sur le site pour l’instant."
+      }
+    },
+    "fileStatus": {
+      "MATCHED": "Classé",
+      "DONE": "Lu",
+      "UNMATCHED": "Pas encore associé",
+      "NEEDS_REVIEW": "À vérifier",
+      "UPLOADED": "En attente de Générer",
+      "PENDING": "Lecture…",
+      "PROCESSING": "Lecture…",
+      "FAILED": "Illisible",
+      "DOCUMENT": "Document",
+      "REMOVED": "Retiré"
+    },
+    "pick": "Choisissez une conversation pour voir tout ce qui y a été échangé.",
+    "noCallsCall": "Aucun appel avec l’IA pour l’instant. Appelez notre numéro de reçus pour lui parler.",
+    "back": "Retour aux conversations",
+    "continue": "Continuer dans l’onglet Assistant",
+    "loadEarlier": "Charger les plus anciens",
+    "uploadedStatement": "A téléversé un relevé",
+    "sentFile": "A envoyé un fichier",
+    "removed": "Ce fichier a été retiré depuis",
+    "openFile": "Ouvrir le fichier",
+    "purpose": {
+      "INBOUND": "Vous nous avez appelés",
+      "ACCOUNT_STATUS": "Nous avons appelé avec l’état de votre compte",
+      "FINANCIAL_REPORT": "Nous avons appelé avec votre rapport financier",
+      "AI_SCHEDULE": "Nous avons appelé avec un message que vous avez planifié",
+      "REQUESTED": "Nous vous avons rappelé, comme demandé",
+      "THIRD_PARTY": "Nous les avons appelés pour vous"
+    },
+    "phoneCall": "Appel téléphonique",
+    "callStatus": {
+      "COMPLETED": "Terminé",
+      "IN_PROGRESS": "En cours",
+      "RINGING": "Sonnerie",
+      "NO_ANSWER": "Pas de réponse",
+      "FAILED": "Échec"
+    },
+    "you": "vous",
+    "callWith": "Appel avec {{who}}",
+    "theyCalled": "{{who}} nous a appelés",
+    "youCalled": "Vous nous avez appelés",
+    "weCalledThem": "Nous avons appelé {{who}}",
+    "weCalledYou": "Nous vous avons appelé",
+    "closeCall": "Fermer l’appel",
+    "openCall": "Ouvrir l’enregistrement et la transcription",
+    "nobodyAnswered": "Personne n’a répondu",
+    "missed": "Manqué — nous l’avons envoyé par texto ou par courriel",
+    "from": "De",
+    "to": "À",
+    "recordingTranscript": "Enregistrement et transcription",
+    "transcript": "Transcription",
+    "loadingRecording": "Chargement de l’enregistrement…",
+    "them": "Interlocuteur",
+    "youCap": "Vous",
+    "noTranscript": "Aucune transcription pour cet appel.",
+    "ai": "IA de CYG Finance"
+  },
+  "reports": {
+    "section": {
+      "ASSET": "Actif",
+      "LIABILITY": "Passif",
+      "EQUITY": "Capitaux propres",
+      "INCOME": "Revenus",
+      "EXPENSE": "Charges"
+    },
+    "total": {
+      "ASSET": "Total de l’actif",
+      "LIABILITY": "Total du passif",
+      "EQUITY": "Total des capitaux propres",
+      "INCOME": "Total des revenus",
+      "EXPENSE": "Total des charges"
+    },
+    "totalLiabEquity": "Total du passif et des capitaux propres",
+    "netIncome": "Bénéfice net",
+    "netLoss": "Perte nette",
+    "asOf": "Au {{date}}",
+    "asOfLatest": "À la date du dernier relevé",
+    "askStarts": "Demander à l’IA de corriger les dates de départ",
+    "emptyPeriod": "Rien pour cette période",
+    "sortBy": "Trier par {{label}}",
+    "byName": "Par nom",
+    "amount": "Montant",
+    "seeTransactions": "Voir ses opérations",
+    "uncategorized_one": "{{count}} opération ({{amount}}) n’a pas pu être catégorisée et est comptée dans les charges « Non catégorisé ».",
+    "uncategorized_other": "{{count}} opérations ({{amount}}) n’ont pas pu être catégorisées et sont comptées dans les charges « Non catégorisé ».",
+    "uncategorized_many": "{{count}} opérations ({{amount}}) n’ont pas pu être catégorisées et sont comptées dans les charges « Non catégorisé ».",
+    "moveSection": "Déplacer vers une autre section",
+    "moveTo": "Déplacer « {{account}} » vers",
+    "putBack": "Remettre à sa place d’origine"
+  },
+  "period": {
+    "thisMonth": "Ce mois-ci",
+    "lastMonth": "Le mois dernier",
+    "thisYear": "Cette année",
+    "lastYear": "L’an dernier",
+    "from": "Du",
+    "to": "Au",
+    "invalid": "La date « Du » doit précéder la date « Au »."
+  },
+  "merge": {
+    "title": "Fusionner {{from}} dans {{into}} ?",
+    "text": "Toutes les opérations et règles de {{from}} passent à {{into}}. {{into}} conserve sa propre section et ses paramètres. Glisser à nouveau ne les séparera pas.",
+    "textBank": "Toutes les opérations et règles de {{from}} passent à {{into}}, et leurs dossiers de flux bancaires n’en font plus qu’un (relevés et banque connectée compris). {{into}} conserve sa propre section et ses paramètres. Glisser à nouveau ne les séparera pas.",
+    "name": "Nom du compte fusionné",
+    "merging": "Fusion…",
+    "merge": "Fusionner"
+  },
+  "currency": {
+    "chipTitle": "La devise des relevés de ce compte — cliquez pour la changer",
+    "mixed": "Mixte",
+    "of": "Devise de « {{account}} »",
+    "home": "base",
+    "fromStatements": "Utiliser celle indiquée sur les relevés",
+    "before": "Avant conversion"
+  },
+  "offBy": {
+    "unread_one": "{{count}} relevé n’a pas pu être lu, ses opérations manquent donc dans les livres.",
+    "unread_other": "{{count}} relevés n’ont pas pu être lus, leurs opérations manquent donc dans les livres.",
+    "unread_many": "{{count}} relevés n’ont pas pu être lus, leurs opérations manquent donc dans les livres.",
+    "broken_one": "{{names}} a plus d’une date de départ — il manque un relevé entre les deux, ou un solde ne se reporte pas sur le relevé suivant.",
+    "broken_other": "{{names}} ont plus d’une date de départ — il manque un relevé entre les deux, ou un solde ne se reporte pas sur le relevé suivant.",
+    "broken_many": "{{names}} ont plus d’une date de départ — il manque un relevé entre les deux, ou un solde ne se reporte pas sur le relevé suivant.",
+    "uncategorized_one": "{{count}} opération n’est pas encore catégorisée.",
+    "uncategorized_other": "{{count}} opérations ne sont pas encore catégorisées.",
+    "uncategorized_many": "{{count}} opérations ne sont pas encore catégorisées.",
+    "titleAssets": "L’actif et le passif + capitaux propres diffèrent de {{amount}} (l’actif est plus élevé).",
+    "titleLiabilities": "L’actif et le passif + capitaux propres diffèrent de {{amount}} (le passif + capitaux propres est plus élevé).",
+    "why": "Chaque opération a deux côtés égaux, donc les deux totaux concordent toujours quand les livres sont complets. Un écart signifie qu’une partie de l’historique d’un compte manque ou qu’un solde de départ a été mal lu.",
+    "likely": "Causes les plus probables dans vos livres :",
+    "noCause": "Nous n’avons pas pu trouver la cause d’ici — demandez à l’IA ou écrivez-nous et nous vérifierons.",
+    "seeStatements": "Voir les relevés",
+    "ask": "Mon bilan a un écart de {{amount}}. Pouvez-vous trouver pourquoi ?",
+    "askAsOf": "Mon bilan a un écart de {{amount}} au {{date}}. Pouvez-vous trouver pourquoi ?",
+    "askAi": "Demander à l’IA"
+  },
+  "chart": {
+    "account": "Compte",
+    "transactions": "Opérations",
+    "balance": "Solde",
+    "bank": "Banque",
+    "moved": "Déplacé",
+    "dropHere": {
+      "ASSET": "Déposez un compte ici pour le déplacer dans l’actif",
+      "LIABILITY": "Déposez un compte ici pour le déplacer dans le passif",
+      "EQUITY": "Déposez un compte ici pour le déplacer dans les capitaux propres",
+      "INCOME": "Déposez un compte ici pour le déplacer dans les revenus",
+      "EXPENSE": "Déposez un compte ici pour le déplacer dans les charges"
+    },
+    "help": "Les comptes bancaires montrent le total net des entrées et sorties d’argent de la période ; une carte de crédit, ce qui y a été porté. Sous un compte bancaire ou une carte : le solde où ses livres commencent (une carte : le montant dû) — en rouge s’ils commencent plus d’une fois (un relevé manquant, ou des soldes qui ne se suivent pas) — et chaque problème trouvé sur ses relevés. Cliquez sur un compte pour voir ses opérations, glissez-le vers une autre section pour le déplacer, ou déposez-le sur un autre compte pour fusionner les deux (un compte bancaire ou une carte seulement avec un autre qui a un dossier de flux bancaires). Cliquez sur la devise d’un compte bancaire pour la changer ; un compte en devise étrangère affiche en dessous son solde avant conversion."
+  },
+  "api": {
+    "logInAgain": "Veuillez vous reconnecter",
+    "tooLarge": "Ces fichiers sont trop volumineux pour être téléversés d’un coup.",
+    "uploadFailed": "Le téléversement a échoué. Veuillez réessayer.",
+    "uploadNetwork": "Le téléversement a échoué — vérifiez votre connexion et réessayez."
+  },
+  "taxKind": {
+    "SALES": "Entrée",
+    "PURCHASE": "Sortie"
+  },
+  "rate": {
+    "fixed": "{{amount}} $",
+    "percent": "{{value}} %"
+  }
+}

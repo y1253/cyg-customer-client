@@ -1,3 +1,4 @@
+import i18n from '@/i18n'
 import { errorFrom, fetchWithAuth } from './client'
 
 /**
@@ -60,7 +61,7 @@ async function call<T>(token: string, path: string, init?: RequestInit): Promise
   try {
     res = await fetchWithAuth(token, url(path), init)
   } catch {
-    throw new Error('Could not reach the server. Please check your connection and try again.')
+    throw new Error(i18n.t('register:api.unreachable'))
   }
   if (!res.ok) throw await errorFrom(res)
   return (await res.json()) as T

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { sendEmailCode, verifyEmail } from '@/api/customerAuth'
 import { CodeInput } from '@/components/Auth/CodeInput'
@@ -13,6 +14,7 @@ import { useAuth } from '@/context/AuthContext'
  * then the customer can also sign in with Google or set a password, and get emails from us.
  */
 export function AddEmailField() {
+  const { t } = useTranslation(['dashboard', 'common'])
   const { token, setCustomer } = useAuth()
   const qc = useQueryClient()
   const [email, setEmail] = useState('')
@@ -33,13 +35,18 @@ export function AddEmailField() {
 
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor="add-email">Email</Label>
+      <Label htmlFor="add-email">{t('account.email')}</Label>
       {sentTo ? (
         <div className="flex flex-col gap-3 rounded-xl bg-[#F6F8FA] p-4">
           <p className="text-sm text-muted-foreground">
-            We emailed a code to <span className="font-semibold text-foreground">{sentTo}</span>.
+            <Trans
+              t={t}
+              i18nKey="addEmail.sentTo"
+              values={{ email: sentTo }}
+              components={{ b: <span className="font-semibold text-foreground" /> }}
+            />
           </p>
-          <CodeInput id="add-email-code" label="Code" value={code} onChange={setCode} />
+          <CodeInput id="add-email-code" label={t('addEmail.code')} value={code} onChange={setCode} />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -48,7 +55,7 @@ export function AddEmailField() {
               className="bg-brand text-white hover:bg-brand/85"
             >
               {verify.isPending && <Loader2 className="size-4 animate-spin" />}
-              Add email
+              {t('addEmail.add')}
             </Button>
             <Button
               type="button"
@@ -59,7 +66,7 @@ export function AddEmailField() {
                 verify.reset()
               }}
             >
-              Use another email
+              {t('addEmail.another')}
             </Button>
           </div>
         </div>
@@ -70,7 +77,7 @@ export function AddEmailField() {
             type="email"
             autoComplete="email"
             className="h-11"
-            placeholder="you@example.com"
+            placeholder={t('addEmail.placeholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -82,7 +89,7 @@ export function AddEmailField() {
             onClick={() => send.mutate(email.trim())}
           >
             {send.isPending && <Loader2 className="size-4 animate-spin" />}
-            Send code
+            {t('addEmail.send')}
           </Button>
         </div>
       )}
@@ -93,7 +100,7 @@ export function AddEmailField() {
       )}
       {!sentTo && (
         <p className="text-xs text-muted-foreground">
-          You opened your account by phone. Add an email to also sign in with it and get your reports by email.
+          {t('addEmail.help')}
         </p>
       )}
     </div>

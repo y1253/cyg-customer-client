@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { FormData } from '../types';
 
@@ -7,10 +8,11 @@ interface Props {
 }
 
 export function Step1Location({ data, onChange }: Props) {
+  const { t } = useTranslation(['register', 'common']);
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm font-medium text-foreground">
-        Where is your business located?
+        {t('location.question')}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
@@ -24,7 +26,7 @@ export function Step1Location({ data, onChange }: Props) {
           )}
         >
           <span className="text-3xl">🇺🇸</span>
-          United States
+          {t('location.usa')}
         </button>
         <button
           type="button"
@@ -37,12 +39,12 @@ export function Step1Location({ data, onChange }: Props) {
           )}
         >
           <span className="text-3xl">🇨🇦</span>
-          Canada
+          {t('location.canada')}
         </button>
       </div>
       {data.country === 'CANADA' && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
-          Canadian businesses will be asked for additional legal information in a later step.
+          {t('location.canadaNote')}
         </p>
       )}
     </div>

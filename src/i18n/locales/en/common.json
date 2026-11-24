@@ -1,0 +1,102 @@
+{
+  "meta": {
+    "title": "CYG Finance — AI bookkeeping",
+    "description": "CYG Finance helps business owners save time and money on bookkeeping and income taxes, with an AI bookkeeping agent you can text, backed by real accountants."
+  },
+  "lang": {
+    "label": "Language",
+    "switch": "Changer de langue / Change language",
+    "fr": "Français",
+    "en": "English",
+    "frShort": "FR",
+    "enShort": "EN"
+  },
+  "unknown": "Unknown",
+  "duration": {
+    "minSec": "{{m}}m {{s}}s",
+    "sec": "{{s}}s"
+  },
+  "bytes": {
+    "b": "{{n}} B",
+    "kb": "{{n}} KB",
+    "mb": "{{n}} MB"
+  },
+  "period": {
+    "from": "From {{date}}",
+    "upTo": "Up to {{date}}",
+    "allTime": "All time"
+  },
+  "kind": {
+    "RECEIPT": "Receipt",
+    "CHECK": "Cheque",
+    "AUDIO": "Voice note",
+    "TEXT": "Text message",
+    "OTHER": "File",
+    "INVOICE": "Invoice",
+    "DEPOSIT_SLIP": "Deposit slip",
+    "DOCUMENT": "Document"
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "remove": "Remove",
+    "edit": "Edit",
+    "rename": "Rename",
+    "back": "Back",
+    "next": "Next",
+    "continue": "Continue",
+    "done": "Done",
+    "add": "Add",
+    "send": "Send",
+    "sending": "Sending…",
+    "retry": "Try again",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "search": "Search",
+    "open": "Open",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "upload": "Upload",
+    "refresh": "Refresh",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "seeAll": "See all",
+    "reset": "Reset",
+    "apply": "Apply",
+    "clear": "Clear",
+    "ok": "OK",
+    "logOut": "Log out",
+    "logIn": "Log in",
+    "signUp": "Sign up"
+  },
+  "status": {
+    "loading": "Loading…",
+    "error": "Something went wrong.",
+    "errorRetry": "Something went wrong. Please try again.",
+    "none": "None",
+    "on": "On",
+    "off": "Off",
+    "new": "New",
+    "optional": "Optional",
+    "required": "Required"
+  },
+  "rows_one": "{{count}} row",
+  "rows_other": "{{count}} rows",
+  "nav": {
+    "home": "CYG Finance home",
+    "openMenu": "Open menu",
+    "menu": "Menu"
+  },
+  "accountType": {
+    "INCOME": "Income",
+    "EXPENSE": "Expense",
+    "ASSET": "Asset",
+    "LIABILITY": "Liability",
+    "EQUITY": "Equity"
+  }
+}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Package, Pencil, RotateCcw, Search } from 'lucide-react'
 import type { Product, ProductSource } from '@/api/bookkeeping'
 import { Badge } from '@/components/ui/badge'
@@ -20,23 +21,21 @@ import { useClosingValue } from '@/hooks/useClosingValue'
 import { useProducts } from '@/hooks/useProducts'
 import { useResetProductRule, useSaveProductRule } from '@/hooks/useProductRule'
 import { NEW_CATEGORY, categoryChoice, choiceReady, resolveChoice } from '@/lib/categoryChoice'
+import { currentLocale } from '@/i18n'
 import { money } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { CategoryField } from './CategoryField'
 
 type Filter = 'ALL' | ProductSource
 
-const FILTERS: Array<{ id: Filter; label: string }> = [
-  { id: 'ALL', label: 'All' },
-  { id: 'rule', label: 'Your categories' },
-  { id: 'memory', label: 'Chosen by AI' },
-  { id: 'parent', label: 'From the transaction' },
-]
+/** The filter chips; each label is `names:products.filter.<id>`. */
+const FILTERS: Filter[] = ['ALL', 'rule', 'memory', 'parent']
 
-const SOURCE: Record<ProductSource, { label: string; className: string }> = {
-  rule: { label: 'Yours', className: 'bg-brand/10 text-brand' },
-  memory: { label: 'AI', className: 'bg-sky-100 text-sky-800' },
-  parent: { label: 'From transaction', className: 'bg-muted text-muted-foreground' },
+/** Each source's badge colour; its label is `names:products.source.<source>`. */
+const SOURCE_CLASS: Record<ProductSource, string> = {
+  rule: 'bg-brand/10 text-brand',
+  memory: 'bg-sky-100 text-sky-800',
+  parent: 'bg-muted text-muted-foreground',
 }
 
 /**
@@ -46,6 +45,7 @@ const SOURCE: Record<ProductSource, { label: string; className: string }> = {
  * — their existing rows of that item move at once, and every later receipt follows it.
  */
 export function Products() {
+  const { t } = useTranslation(['names', 'common'])
   const products = useProducts()
   const reset = useResetProductRule()
   const [editing, setEditing] = useState<Product | null>(null)
@@ -68,11 +68,8 @@ export function Products() {
   return (
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
       <div className="border-b px-5 py-4">
-        <h2 className="font-semibold text-[#0B1C2C]">Products</h2>
-        <p className="text-sm text-muted-foreground">
-          Every item on your receipts. Change a category and it is saved to your account — used for these items now
-          and on every receipt from now on.
-        </p>
+        <h2 className="font-semibold text-[#0B1C2C]">{t('products.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('products.intro')}</p>
       </div>
 
       <div className="flex flex-col gap-3 border-b px-5 py-3 sm:flex-row sm:items-center">
@@ -81,24 +78,24 @@ export function Products() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search product or category"
+            placeholder={t('products.search')}
             className="h-9 pl-9"
           />
         </div>
         <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-          {FILTERS.map((f) => (
+          {FILTERS.map((id) => (
             <button
-              key={f.id}
+              key={id}
               type="button"
-              onClick={() => setFilter(f.id)}
+              onClick={() => setFilter(id)}
               className={cn(
                 'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
-                filter === f.id
+                filter === id
                   ? 'bg-[#0B1C2C] text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
               )}
             >
-              {f.label} <span className="opacity-70 tabular-nums">{count(f.id)}</span>
+              {t(`products.filter.${id}`)} <span className="opacity-70 tabular-nums">{count(id)}</span>
             </button>
           ))}
         </div>
@@ -115,11 +112,9 @@ export function Products() {
           <span className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-brand/10 text-brand">
             <Package className="size-5" />
           </span>
-          <p className="font-medium text-[#0B1C2C]">{q || filter !== 'ALL' ? 'Nothing matches' : 'No products yet'}</p>
+          <p className="font-medium text-[#0B1C2C]">{q || filter !== 'ALL' ? t('products.nothingMatches') : t('products.none')}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {q || filter !== 'ALL'
-              ? 'Try another search or filter.'
-              : 'Products appear here once a receipt’s items are split onto its transaction (add receipts in a name’s folder on the Names tab).'}
+            {q || filter !== 'ALL' ? t('products.tryAnother') : t('products.emptyHelp')}
           </p>
         </div>
       ) : (
@@ -132,22 +127,22 @@ export function Products() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-[#0B1C2C]">{p.name}</p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                  <Badge className={SOURCE[p.source].className}>{SOURCE[p.source].label}</Badge>
+                  <Badge className={SOURCE_CLASS[p.source]}>{t(`products.source.${p.source}`)}</Badge>
                   <span className="truncate text-sm text-muted-foreground">{p.category}</span>
                   <span className="text-xs text-muted-foreground/80 tabular-nums">
-                    · {p.rows.toLocaleString()} row{p.rows === 1 ? '' : 's'} · {money(p.total)}
+                    · {t('rows', { count: p.rows, n: p.rows.toLocaleString(currentLocale()) })} · {money(p.total)}
                   </span>
                 </div>
               </div>
               <div className="flex shrink-0 gap-1">
-                <Button variant="ghost" size="icon-sm" title={`Change ${p.name}’s category`} onClick={() => setEditing(p)}>
+                <Button variant="ghost" size="icon-sm" title={t('products.change', { name: p.name })} onClick={() => setEditing(p)}>
                   <Pencil />
                 </Button>
                 {p.source === 'rule' && (
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title={p.suggested ? `Reset to the AI’s choice (${p.suggested})` : 'Reset to default'}
+                    title={p.suggested ? t('products.resetToAi', { category: p.suggested }) : t('resetToDefault')}
                     disabled={reset.isPending && reset.variables?.itemKey === p.itemKey}
                     onClick={() => reset.mutate({ itemKey: p.itemKey })}
                     className="text-muted-foreground"
@@ -173,6 +168,7 @@ export function Products() {
 
 /** Choose the item's category. Always saved to the account (existing rows + every later receipt). */
 function ProductForm({ product, onDone }: { product: Product; onDone: () => void }) {
+  const { t } = useTranslation(['names', 'common'])
   const create = useCreateAccount()
   const save = useSaveProductRule()
   const [choice, setChoice] = useState(categoryChoice(product.category))
@@ -200,26 +196,25 @@ function ProductForm({ product, onDone }: { product: Product; onDone: () => void
       <DialogHeader>
         <DialogTitle>{product.name}</DialogTitle>
         <DialogDescription>
-          {product.rows.toLocaleString()} row{product.rows === 1 ? '' : 's'} on your receipts
-          {product.suggested && <> · the AI chose {product.suggested}</>}
+          {t('products.onReceipts', { count: product.rows, n: product.rows.toLocaleString(currentLocale()) })}
+          {product.suggested && t('products.aiChose', { category: product.suggested })}
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Category</Label>
+        <Label>{t('products.category')}</Label>
         <CategoryField value={choice} onChange={setChoice} />
         <p className="text-xs text-muted-foreground">
-          Saved to your account — these rows move now, and this item goes in this category on every receipt from now
-          on.
+          {t('products.help')}
         </p>
       </div>
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
         <Button type="submit" disabled={!changed || pending} className="bg-brand text-white hover:bg-brand/85">
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? t('common:actions.saving') : t('common:actions.save')}
         </Button>
       </DialogFooter>
     </form>

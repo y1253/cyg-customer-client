@@ -1,8 +1,9 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MonthDaySelect } from "@/components/ui/MonthDaySelect";
-import { monthDayLabel } from "@/lib/cycle";
+import { CYCLE_TYPES, monthDayLabel, monthName, monthNames, ordinalNames, weekdayName, weekdayNames } from "@/lib/cycle";
 import type { FormData } from '../types';
 
 const SELECT_CLASS =
@@ -10,10 +11,6 @@ const SELECT_CLASS =
 
 const TEXTAREA_CLASS =
   "flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground resize-none";
-
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const ORDINALS = ["1st", "2nd", "3rd", "4th"];
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 interface Props {
   data: FormData;
@@ -39,6 +36,7 @@ function CyclePicker({
   onChange: (patch: Partial<FormData>) => void;
   config: CyclePickerConfig;
 }) {
+  const { t } = useTranslation(["register", "common"]);
   const cycleType = data[config.cycleTypeKey] as string;
   const cycleDay = String((data[config.cycleDayKey] as number | null) ?? 1);
   const cycleNth = String((data[config.cycleNthKey] as number | null) ?? 1);
@@ -47,17 +45,17 @@ function CyclePicker({
   return (
     <div className="flex flex-col gap-3 pl-1">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${config.idPrefix}-start-date`}>Starting Date</Label>
+        <Label htmlFor={`${config.idPrefix}-start-date`}>{t("schedule.startDate")}</Label>
         <Input
           id={`${config.idPrefix}-start-date`}
           type="date"
           value={data[config.startDateKey] as string}
           onChange={(e) => onChange({ [config.startDateKey]: e.target.value } as Partial<FormData>)}
         />
-        <p className="text-xs text-muted-foreground">Past dates will backfill all todos up to today.</p>
+        <p className="text-xs text-muted-foreground">{t("schedule.backfill")}</p>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${config.idPrefix}-cycle-type`}>Repeat</Label>
+        <Label htmlFor={`${config.idPrefix}-cycle-type`}>{t("schedule.repeat")}</Label>
         <select
           id={`${config.idPrefix}-cycle-type`}
           value={cycleType}
@@ -71,18 +69,15 @@ function CyclePicker({
           }
           className={SELECT_CLASS}
         >
-          <option value="DAYS">Every N days</option>
-          <option value="MONTHLY_DATE">Monthly — specific date</option>
-          <option value="WEEKLY_DAY">Weekly — specific day</option>
-          <option value="MONTHLY_WEEKDAY">Monthly — Nth weekday</option>
-          <option value="QUARTERLY">Quarterly — specific date</option>
-          <option value="YEARLY">Yearly — specific date</option>
+          {CYCLE_TYPES.map((c) => (
+            <option key={c} value={c}>{t(`schedule.types.${c}`)}</option>
+          ))}
         </select>
       </div>
 
       {cycleType === "DAYS" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${config.idPrefix}-cycle-days`}>Every (days)</Label>
+          <Label htmlFor={`${config.idPrefix}-cycle-days`}>{t("schedule.everyDays")}</Label>
           <Input
             id={`${config.idPrefix}-cycle-days`}
             type="number"
@@ -91,38 +86,38 @@ function CyclePicker({
             onChange={(e) => onChange({ [config.cycleKey]: Number(e.target.value) || 30 } as Partial<FormData>)}
             placeholder="30"
           />
-          <p className="text-xs text-muted-foreground">First todo due in {cycle || 30} days.</p>
+          <p className="text-xs text-muted-foreground">{t("schedule.firstDue", { count: cycle || 30 })}</p>
         </div>
       )}
 
       {cycleType === "MONTHLY_DATE" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${config.idPrefix}-cycle-date`}>Day of month</Label>
+          <Label htmlFor={`${config.idPrefix}-cycle-date`}>{t("schedule.dayOfMonth")}</Label>
           <MonthDaySelect
             id={`${config.idPrefix}-cycle-date`}
             value={cycleDay}
             onChange={(v) => onChange({ [config.cycleDayKey]: v } as Partial<FormData>)}
           />
           <p className="text-xs text-muted-foreground">
-            Repeats on {monthDayLabel(cycleDay)} of each month.
+            {t("schedule.repeatsMonthly", { day: monthDayLabel(cycleDay) })}
           </p>
         </div>
       )}
 
       {cycleType === "WEEKLY_DAY" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${config.idPrefix}-cycle-weekday`}>Day of week</Label>
+          <Label htmlFor={`${config.idPrefix}-cycle-weekday`}>{t("schedule.dayOfWeek")}</Label>
           <select
             id={`${config.idPrefix}-cycle-weekday`}
             value={cycleDay}
             onChange={(e) => onChange({ [config.cycleDayKey]: Number(e.target.value) } as Partial<FormData>)}
             className={SELECT_CLASS}
           >
-            {WEEKDAYS.map((d, i) => (
+            {weekdayNames().map((d, i) => (
               <option key={i} value={i}>{d}</option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground">Repeats every {WEEKDAYS[Number(cycleDay)]}.</p>
+          <p className="text-xs text-muted-foreground">{t("schedule.repeatsWeekly", { weekday: weekdayName(Number(cycleDay)) })}</p>
         </div>
       )}
 
@@ -130,48 +125,48 @@ function CyclePicker({
         <div className="flex flex-col gap-3">
           <div className="flex gap-3">
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${config.idPrefix}-cycle-nth`}>Which</Label>
+              <Label htmlFor={`${config.idPrefix}-cycle-nth`}>{t("schedule.which")}</Label>
               <select
                 id={`${config.idPrefix}-cycle-nth`}
                 value={cycleNth}
                 onChange={(e) => onChange({ [config.cycleNthKey]: Number(e.target.value) } as Partial<FormData>)}
                 className={SELECT_CLASS}
               >
-                {ORDINALS.map((o, i) => (
+                {ordinalNames().map((o, i) => (
                   <option key={i + 1} value={i + 1}>{o}</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${config.idPrefix}-cycle-mwd`}>Weekday</Label>
+              <Label htmlFor={`${config.idPrefix}-cycle-mwd`}>{t("schedule.weekday")}</Label>
               <select
                 id={`${config.idPrefix}-cycle-mwd`}
                 value={cycleDay}
                 onChange={(e) => onChange({ [config.cycleDayKey]: Number(e.target.value) } as Partial<FormData>)}
                 className={SELECT_CLASS}
               >
-                {WEEKDAYS.map((d, i) => (
+                {weekdayNames().map((d, i) => (
                   <option key={i} value={i}>{d}</option>
                 ))}
               </select>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Repeats on the {ORDINALS[Number(cycleNth) - 1]} {WEEKDAYS[Number(cycleDay)]} of each month.
+            {t("schedule.repeatsNthWeekday", { nth: ordinalNames()[Number(cycleNth) - 1], weekday: weekdayName(Number(cycleDay)) })}
           </p>
         </div>
       )}
 
       {cycleType === "QUARTERLY" && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${config.idPrefix}-cycle-quarterly`}>Day of month</Label>
+          <Label htmlFor={`${config.idPrefix}-cycle-quarterly`}>{t("schedule.dayOfMonth")}</Label>
           <MonthDaySelect
             id={`${config.idPrefix}-cycle-quarterly`}
             value={cycleDay}
             onChange={(v) => onChange({ [config.cycleDayKey]: v } as Partial<FormData>)}
           />
           <p className="text-xs text-muted-foreground">
-            Repeats every 3 months on {monthDayLabel(cycleDay)}.
+            {t("schedule.repeatsQuarterly", { day: monthDayLabel(cycleDay) })}
           </p>
         </div>
       )}
@@ -180,20 +175,20 @@ function CyclePicker({
         <div className="flex flex-col gap-3">
           <div className="flex gap-3">
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${config.idPrefix}-cycle-yearly-month`}>Month</Label>
+              <Label htmlFor={`${config.idPrefix}-cycle-yearly-month`}>{t("schedule.month")}</Label>
               <select
                 id={`${config.idPrefix}-cycle-yearly-month`}
                 value={cycleNth}
                 onChange={(e) => onChange({ [config.cycleNthKey]: Number(e.target.value) } as Partial<FormData>)}
                 className={SELECT_CLASS}
               >
-                {MONTHS.map((m, i) => (
+                {monthNames().map((m, i) => (
                   <option key={i + 1} value={i + 1}>{m}</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5 flex-1">
-              <Label htmlFor={`${config.idPrefix}-cycle-yearly-day`}>Day</Label>
+              <Label htmlFor={`${config.idPrefix}-cycle-yearly-day`}>{t("schedule.day")}</Label>
               <MonthDaySelect
                 id={`${config.idPrefix}-cycle-yearly-day`}
                 value={cycleDay}
@@ -202,20 +197,20 @@ function CyclePicker({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Repeats every year on {MONTHS[Number(cycleNth) - 1]} ({monthDayLabel(cycleDay)}).
+            {t("schedule.repeatsYearly", { month: monthName(Number(cycleNth) - 1), day: monthDayLabel(cycleDay) })}
           </p>
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${config.idPrefix}-note`}>
-          Note <span className="text-muted-foreground font-normal">(optional)</span>
+          {t("schedule.note")} <span className="text-muted-foreground font-normal">{t("schedule.optionalParen")}</span>
         </Label>
         <textarea
           id={`${config.idPrefix}-note`}
           value={data[config.noteKey] as string}
           onChange={(e) => onChange({ [config.noteKey]: e.target.value } as Partial<FormData>)}
-          placeholder="Any additional instructions..."
+          placeholder={t("schedule.notePlaceholder")}
           className={TEXTAREA_CLASS}
         />
       </div>
@@ -235,13 +230,14 @@ const PAYROLL_CYCLE_CONFIG: CyclePickerConfig = {
 
 
 export function Step9Payroll({ data, onChange }: Props) {
+  const { t } = useTranslation(["register", "common"]);
   const isCanada = data.country === 'CANADA';
 
   return (
     <div className="flex flex-col gap-8">
       {/* Section 1 — Payroll Management */}
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-foreground">Should we prepare payroll checks?</p>
+        <p className="text-sm font-medium text-foreground">{t("payroll.question")}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
@@ -254,7 +250,7 @@ export function Step9Payroll({ data, onChange }: Props) {
             )}
           >
             <span className="text-2xl">✓</span>
-            Yes
+            {t("common:actions.yes")}
           </button>
           <button
             type="button"
@@ -267,7 +263,7 @@ export function Step9Payroll({ data, onChange }: Props) {
             )}
           >
             <span className="text-2xl">✕</span>
-            No
+            {t("common:actions.no")}
           </button>
         </div>
 
@@ -279,7 +275,7 @@ export function Step9Payroll({ data, onChange }: Props) {
       {/* Section 2 — Payroll Tax Filing (Canada only) */}
       {isCanada && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium text-foreground">Should we handle payroll tax filing?</p>
+          <p className="text-sm font-medium text-foreground">{t("payroll.taxQuestion")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
@@ -292,7 +288,7 @@ export function Step9Payroll({ data, onChange }: Props) {
               )}
             >
               <span className="text-2xl">✓</span>
-              Yes
+              {t("common:actions.yes")}
             </button>
             <button
               type="button"
@@ -305,14 +301,14 @@ export function Step9Payroll({ data, onChange }: Props) {
               )}
             >
               <span className="text-2xl">✕</span>
-              No
+              {t("common:actions.no")}
             </button>
           </div>
 
           {data.payrollTaxEnabled === true && (
             <div className="flex flex-col gap-4 pl-1">
               <div className="flex flex-col gap-1.5">
-                <p className="text-sm font-medium text-foreground">Which type? <span className="text-xs font-normal text-muted-foreground">(select one or both)</span></p>
+                <p className="text-sm font-medium text-foreground">{t("payroll.whichType")} <span className="text-xs font-normal text-muted-foreground">{t("payroll.selectOneOrBoth")}</span></p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -324,7 +320,7 @@ export function Step9Payroll({ data, onChange }: Props) {
                         : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted/30",
                     )}
                   >
-                    🍁 Canadian
+                    🍁 {t("payroll.canadian")}
                   </button>
                   <button
                     type="button"
@@ -336,21 +332,21 @@ export function Step9Payroll({ data, onChange }: Props) {
                         : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted/30",
                     )}
                   >
-                    🏙️ Quebec
+                    🏙️ {t("payroll.quebec")}
                   </button>
                 </div>
               </div>
 
               {data.payrollTaxCadEnabled && (
                 <div className="flex flex-col gap-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">🍁 Canadian schedule</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">🍁 {t("payroll.canadianSchedule")}</p>
                   <div className="flex flex-col gap-1.5 pl-1">
-                    <Label htmlFor="pr-tax-note">Note <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Label htmlFor="pr-tax-note">{t("schedule.note")} <span className="text-muted-foreground font-normal">{t("schedule.optionalParen")}</span></Label>
                     <textarea
                       id="pr-tax-note"
                       value={data.payrollTaxNote as string}
                       onChange={(e) => onChange({ payrollTaxNote: e.target.value })}
-                      placeholder="Any additional instructions..."
+                      placeholder={t("schedule.notePlaceholder")}
                       className={TEXTAREA_CLASS}
                     />
                   </div>
@@ -358,14 +354,14 @@ export function Step9Payroll({ data, onChange }: Props) {
               )}
               {data.payrollTaxQcEnabled && (
                 <div className="flex flex-col gap-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">🏙️ Quebec schedule</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">🏙️ {t("payroll.quebecSchedule")}</p>
                   <div className="flex flex-col gap-1.5 pl-1">
-                    <Label htmlFor="pr-tax-qc-note">Note <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Label htmlFor="pr-tax-qc-note">{t("schedule.note")} <span className="text-muted-foreground font-normal">{t("schedule.optionalParen")}</span></Label>
                     <textarea
                       id="pr-tax-qc-note"
                       value={data.payrollTaxQcNote as string}
                       onChange={(e) => onChange({ payrollTaxQcNote: e.target.value })}
-                      placeholder="Any additional instructions..."
+                      placeholder={t("schedule.notePlaceholder")}
                       className={TEXTAREA_CLASS}
                     />
                   </div>
@@ -379,7 +375,7 @@ export function Step9Payroll({ data, onChange }: Props) {
       {/* Section 3 — Payroll Year End (Canada only) */}
       {isCanada && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium text-foreground">Should we handle payroll year-end filing?</p>
+          <p className="text-sm font-medium text-foreground">{t("payroll.yearEndQuestion")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
@@ -392,7 +388,7 @@ export function Step9Payroll({ data, onChange }: Props) {
               )}
             >
               <span className="text-2xl">✓</span>
-              Yes
+              {t("common:actions.yes")}
             </button>
             <button
               type="button"
@@ -412,20 +408,20 @@ export function Step9Payroll({ data, onChange }: Props) {
               )}
             >
               <span className="text-2xl">✕</span>
-              No
+              {t("common:actions.no")}
             </button>
           </div>
 
           {data.payrollYearEndEnabled === true && (
             <div className="flex flex-col gap-3 pl-1">
-              <p className="text-xs text-muted-foreground">Select all that apply. Year-end tasks are scheduled annually on January 15.</p>
+              <p className="text-xs text-muted-foreground">{t("payroll.yearEndHint")}</p>
               {(
                 [
-                  { label: "RL-1 and Summary", key: "payrollYearEndRl1" as keyof FormData },
-                  { label: "T4 and T4A and Summaries", key: "payrollYearEndT4" as keyof FormData },
-                  { label: "CNESST Statement of Wages", key: "payrollYearEndCnesst" as keyof FormData },
+                  { id: "rl1", key: "payrollYearEndRl1" as keyof FormData },
+                  { id: "t4", key: "payrollYearEndT4" as keyof FormData },
+                  { id: "cnesst", key: "payrollYearEndCnesst" as keyof FormData },
                 ] as const
-              ).map(({ label, key }) => (
+              ).map(({ id, key }) => (
                 <button
                   key={key}
                   type="button"
@@ -438,7 +434,7 @@ export function Step9Payroll({ data, onChange }: Props) {
                   )}
                 >
                   <span className="text-base">{data[key] ? "✓" : "○"}</span>
-                  {label}
+                  {t(`payroll.yearEnd.${id}`)}
                 </button>
               ))}
             </div>

@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils'
  * drops the setting. `currency` undefined = its statements disagree.
  */
 export function AccountCurrency({ account, currency }: { account: string; currency?: string | null }) {
+  const { t } = useTranslation(['books', 'common'])
   const settings = useCurrency()
   const set = useSetAccountCurrency()
   const home = settings.data?.home
@@ -28,19 +30,19 @@ export function AccountCurrency({ account, currency }: { account: string; curren
     <DropdownMenu>
       <DropdownMenuTrigger
         onClick={(e) => e.stopPropagation()}
-        title="The currency this account's statements are in — click to change it"
+        title={t('currency.chipTitle')}
         className={cn(
           'inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:bg-black/10',
           foreign ? 'bg-amber-100 text-amber-800' : 'bg-muted text-muted-foreground',
         )}
       >
-        {set.isPending ? '…' : shown ?? 'Mixed'}
+        {set.isPending ? '…' : (shown ?? t('currency.mixed'))}
         <ChevronDown className="size-3" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-72 w-56 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* base-ui throws when a GroupLabel (DropdownMenuLabel) is not inside a Group. */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Currency of “{account}”</DropdownMenuLabel>
+          <DropdownMenuLabel>{t('currency.of', { account })}</DropdownMenuLabel>
           {(settings.data?.currencies ?? []).map((c) => (
             <DropdownMenuItem
               key={c}
@@ -48,13 +50,13 @@ export function AccountCurrency({ account, currency }: { account: string; curren
               className={cn(c === shown && 'font-semibold')}
             >
               {c}
-              {c === home && <span className="ml-auto text-xs text-muted-foreground">home</span>}
+              {c === home && <span className="ml-auto text-xs text-muted-foreground">{t('currency.home')}</span>}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => set.mutate({ account, currency: null })}>
-          Use what the statements say
+          {t('currency.fromStatements')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -63,9 +65,10 @@ export function AccountCurrency({ account, currency }: { account: string; curren
 
 /** The amount before conversion, small under the converted one — e.g. "USD 1,234.56". */
 export function ForeignAmount({ currency, amount }: { currency?: string; amount?: number }) {
+  const { t } = useTranslation(['books', 'common'])
   if (!currency || amount === undefined) return null
   return (
-    <span className="mt-0.5 block text-[11px] leading-tight font-normal text-muted-foreground" title="Before conversion">
+    <span className="mt-0.5 block text-[11px] leading-tight font-normal text-muted-foreground" title={t('currency.before')}>
       <span className="mr-1">{currency}</span>
       {money(amount)}
     </span>

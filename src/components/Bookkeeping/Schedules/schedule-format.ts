@@ -1,5 +1,6 @@
 /** Shared labels and formatting for the Schedules tab. */
 
+import i18n, { currentLocale } from '@/i18n'
 import type { AiFrequency } from '@/api/schedules'
 
 /** A schedule's when, as the editors hold it. */
@@ -12,7 +13,15 @@ export type Rule = {
   date: string
 }
 
-export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+/** Sunday … Saturday in the shown language (index 0 = Sunday, as the API counts). */
+export const weekdays = (): string[] => {
+  const fmt = new Intl.DateTimeFormat(currentLocale(), { weekday: 'long' })
+  // 2024-01-07 was a Sunday.
+  return Array.from({ length: 7 }, (_, i) => {
+    const name = fmt.format(new Date(2024, 0, 7 + i))
+    return name.charAt(0).toUpperCase() + name.slice(1)
+  })
+}
 
 /** The browser's time zone — what "2:00 PM" means to the person choosing it. */
 export const browserZone = () => {
@@ -24,7 +33,7 @@ export const browserZone = () => {
 }
 
 export const fmtWhen = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, {
+  new Date(iso).toLocaleString(currentLocale(), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -35,12 +44,12 @@ export const fmtWhen = (iso: string) =>
 /** A run's channel in words. */
 export const runChannel = (channel: string) =>
   channel === 'NONE'
-    ? 'not sent'
+    ? i18n.t('books:schedules.run.none')
     : channel === 'SMS'
-      ? 'by text'
+      ? i18n.t('books:schedules.run.sms')
       : channel === 'CALL'
-        ? 'by phone call'
-        : 'by email'
+        ? i18n.t('books:schedules.run.call')
+        : i18n.t('books:schedules.run.email')
 
 export const isTime = (t: string) => /^\d{2}:\d{2}$/.test(t)
 

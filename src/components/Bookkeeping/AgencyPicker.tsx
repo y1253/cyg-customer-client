@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Split } from 'lucide-react'
 import type { TaxAgency } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,7 @@ export function AgencyPicker({
   rows?: number
   draft?: boolean
 }) {
+  const { t } = useTranslation(['names', 'common'])
   const groups = useTax().data?.groups ?? []
   const units = pickerUnits(agencies, (id) => groups.find((g) => g.id === id)?.name)
   const isOn = (u: Unit) => u.alone === alone && u.ids.some((id) => picked.includes(id))
@@ -60,7 +62,7 @@ export function AgencyPicker({
     <Popover onOpenChange={(open) => !open && setAsking(null)}>
       <PopoverTrigger
         disabled={pending}
-        title={`Split rules of ${name}`}
+        title={t('picker.title', { name })}
         className={cn(
           'inline-flex max-w-44 shrink-0 items-center gap-1 truncate rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
           chosen.length
@@ -71,30 +73,34 @@ export function AgencyPicker({
         <Split className="size-3.5 shrink-0" />
         <span className="truncate">
           {chosen.length
-            ? chosen.map((a) => (a.inGroup ? `${a.name} (alone)` : a.name)).join(', ')
-            : 'No split rules'}
+            ? chosen.map((a) => (a.inGroup ? t('picker.alone', { name: a.name }) : a.name)).join(', ')
+            : t('picker.none')}
         </span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">
-        <p className="text-xs font-medium text-muted-foreground">Split rules of {name}</p>
+        <p className="text-xs font-medium text-muted-foreground">{t('picker.title', { name })}</p>
         {asking ? (
           <div className="grid gap-2 rounded-md bg-muted/50 p-2 text-sm">
             <p>
-              Split {rows !== undefined ? `the ${rows} transaction${rows === 1 ? '' : 's'}` : 'the transactions'} of{' '}
-              <span className="font-medium">{name}</span> by <span className="font-medium">{asking.name}</span> now?
+              <Trans
+                t={t}
+                i18nKey={rows !== undefined ? 'picker.ask' : 'picker.askNoCount'}
+                count={rows}
+                values={{ name, rule: asking.name }}
+                components={{ b: <span className="font-medium" /> }}
+              />
             </p>
             {replaced(asking).length > 0 && (
               <p className="text-xs text-amber-800">
-                This replaces {replaced(asking).map((c) => c.name).join(', ')} — the splits it made stay.
+                {t('picker.replaces', { list: replaced(asking).map((c) => c.name).join(', ') })}
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              New transactions of {name} are split as they come in. The splits are regular splits — you can change
-              them afterwards.
+              {t('picker.newOnes', { name })}
             </p>
             <div className="flex justify-end gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => setAsking(null)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button
                 type="button"
@@ -106,7 +112,7 @@ export function AgencyPicker({
                   setAsking(null)
                 }}
               >
-                Split them
+                {t('picker.splitThem')}
               </Button>
             </div>
           </div>
@@ -117,7 +123,7 @@ export function AgencyPicker({
                 <li key={u.key} className={cn(u.inGroup && 'pl-5')}>
                   <label
                     className={cn('flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm', !u.active && 'opacity-60')}
-                    title={u.inGroup ? `${u.name} on its own — not with the rest of ${u.inGroup}` : undefined}
+                    title={u.inGroup ? t('picker.aloneTitle', { name: u.name, group: u.inGroup }) : undefined}
                   >
                     <Switch
                       checked={isOn(u)}
@@ -128,7 +134,7 @@ export function AgencyPicker({
                     {u.group ? (
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">
-                          {u.name} <span className="text-xs text-muted-foreground">(group)</span>
+                          {u.name} <span className="text-xs text-muted-foreground">{t('picker.groupTag')}</span>
                         </span>
                         <span className="block truncate text-xs text-muted-foreground tabular-nums" title={u.detail}>
                           {u.detail}
@@ -138,7 +144,7 @@ export function AgencyPicker({
                       <>
                         <span className="min-w-0 flex-1 truncate">
                           {u.name}
-                          {u.inGroup && <span className="text-xs text-muted-foreground"> alone</span>}
+                          {u.inGroup && <span className="text-xs text-muted-foreground"> {t('picker.aloneTag')}</span>}
                         </span>
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{u.detail}</span>
                       </>
@@ -148,14 +154,13 @@ export function AgencyPicker({
               ))}
             </ul>
             {chosen.length > 1 && (
-              <p className="text-[11px] text-amber-800">{name} has several picks — pick one.</p>
+              <p className="text-[11px] text-amber-800">{t('picker.several', { name })}</p>
             )}
             <p className="text-[11px] text-muted-foreground">
-              One split rule or one group per name — to use several rules together, put them in a split group. A
-              group's rule picked alone splits on its own, not with its group.
+              {t('picker.help')}
             </p>
             {chosen.length > 0 && !draft && (
-              <p className="text-[11px] text-muted-foreground">Turning one off keeps the splits it already made.</p>
+              <p className="text-[11px] text-muted-foreground">{t('picker.offKeeps')}</p>
             )}
           </>
         )}

@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
+import { MIN_PASSWORD } from '@/lib/password'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,9 +15,8 @@ import { CodeInput, ResendButton } from './CodeInput'
 import { GoogleButton } from './GoogleButton'
 import { PasswordInput } from './PasswordInput'
 
-const MIN_PASSWORD = 8
-
 export function SignupPage() {
+  const { t } = useTranslation('auth')
   const navigate = useNavigate()
   const signup = useSignup()
   const human = useTurnstile()
@@ -31,12 +32,12 @@ export function SignupPage() {
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     // The server validates too; this only saves a round trip on the obvious cases.
-    if (!name.trim()) return setFormError('Name is required')
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setFormError('Enter a valid email address')
+    if (!name.trim()) return setFormError(t('errors.nameRequired'))
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setFormError(t('errors.invalidEmail'))
     if (password.length < MIN_PASSWORD) {
-      return setFormError(`Password must be at least ${MIN_PASSWORD} characters`)
+      return setFormError(t('password.tooShort', { min: MIN_PASSWORD }))
     }
-    if (confirm !== password) return setFormError('Passwords do not match')
+    if (confirm !== password) return setFormError(t('password.mismatch'))
     if (human.required && !human.token) return setFormError(human.pendingMessage)
     setFormError(null)
     signup.mutate(
@@ -62,13 +63,13 @@ export function SignupPage() {
 
   return (
     <AuthLayout
-      title="Create your account"
-      description="Sign up with Google or with your email."
+      title={t('signup.title')}
+      description={t('signup.description')}
       footer={
         <>
-          Already have an account?{' '}
+          {t('signup.haveAccount')}{' '}
           <Link to="/login" className="font-semibold text-brand-light hover:underline">
-            Log in
+            {t('signup.logIn')}
           </Link>
         </>
       }
@@ -77,7 +78,7 @@ export function SignupPage() {
       <OrDivider />
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="name">Full name</Label>
+          <Label htmlFor="name">{t('fields.fullName')}</Label>
           <Input
             id="name"
             autoComplete="name"
@@ -87,7 +88,7 @@ export function SignupPage() {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t('fields.email')}</Label>
           <Input
             id="email"
             type="email"
@@ -98,7 +99,7 @@ export function SignupPage() {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t('fields.password')}</Label>
           <PasswordInput
             id="password"
             autoComplete="new-password"
@@ -106,10 +107,10 @@ export function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">At least {MIN_PASSWORD} characters.</p>
+          <p className="text-xs text-muted-foreground">{t('password.minHint', { min: MIN_PASSWORD })}</p>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="confirm-password">Confirm password</Label>
+          <Label htmlFor="confirm-password">{t('fields.confirmPassword')}</Label>
           <PasswordInput
             id="confirm-password"
             autoComplete="new-password"
@@ -119,7 +120,7 @@ export function SignupPage() {
             onChange={(e) => setConfirm(e.target.value)}
           />
           {confirm.length > 0 && confirm !== password && (
-            <p className="text-xs text-destructive">Passwords do not match.</p>
+            <p className="text-xs text-destructive">{t('password.mismatchHint')}</p>
           )}
         </div>
         {human.widget}
@@ -129,8 +130,11 @@ export function SignupPage() {
           </p>
         )}
         <Button type="submit" disabled={signup.isPending} className={SUBMIT_CLASS}>
-          {signup.isPending ? 'Sending code…' : 'Create account'}
+          {signup.isPending ? t('signup.sendingCode') : t('signup.submit')}
         </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          <Trans t={t} i18nKey="signup.terms" components={{ privacy: <Link to="/privacy" className="underline hover:text-foreground" /> }} />
+        </p>
       </form>
     </AuthLayout>
   )
@@ -146,6 +150,7 @@ function VerifyStep({
   onVerified: () => void
   onChangeEmail: () => void
 }) {
+  const { t } = useTranslation('auth')
   const verify = useVerifySignup()
   const resend = useResendSignupCode()
   const [code, setCode] = useState('')
@@ -171,42 +176,41 @@ function VerifyStep({
 
   return (
     <AuthLayout
-      title="Check your email"
-      description="Enter the code we sent to confirm your email address."
+      title={t('signup.verifyTitle')}
+      description={t('signup.verifyDescription')}
       footer={
         <>
-          Already have an account?{' '}
+          {t('signup.haveAccount')}{' '}
           <Link to="/login" className="font-semibold text-brand-light hover:underline">
-            Log in
+            {t('signup.logIn')}
           </Link>
         </>
       }
     >
       <p className="text-sm text-muted-foreground">
-        We sent a 6-digit code to <span className="font-semibold text-foreground">{email}</span>. It
-        expires in 10 minutes.
+        <Trans t={t} i18nKey="signup.sentTo" values={{ email }} components={{ b: <b className="font-semibold text-foreground" /> }} />
       </p>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <CodeInput id="signup-code" label="Verification code" value={code} onChange={setCode} />
+        <CodeInput id="signup-code" label={t('fields.verificationCode')} value={code} onChange={setCode} />
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
           </p>
         )}
         {resend.isSuccess && !error && (
-          <p className="text-sm text-muted-foreground">A new code is on its way.</p>
+          <p className="text-sm text-muted-foreground">{t('code.newOnItsWay')}</p>
         )}
         <Button
           type="submit"
           disabled={verify.isPending || code.length !== 6}
           className={SUBMIT_CLASS}
         >
-          {verify.isPending ? 'Verifying…' : 'Verify and create account'}
+          {verify.isPending ? t('signup.verifying') : t('signup.verifySubmit')}
         </Button>
       </form>
       <div className="flex items-center justify-between text-sm">
         <Button variant="link" className="h-auto p-0" onClick={onChangeEmail}>
-          Use a different email
+          {t('signup.otherEmail')}
         </Button>
         <ResendButton wait={countdown.left} pending={resend.isPending} onClick={onResend} />
       </div>

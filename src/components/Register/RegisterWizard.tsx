@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Phone } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -40,6 +41,7 @@ import { Step12Terms } from './steps/Step12Terms'
 export function RegisterWizardPage() {
   const id = Number(useParams().id)
   const reg = useRegistration(id)
+  const { t } = useTranslation(['register', 'common'])
 
   if (reg.isPending) {
     return (
@@ -52,7 +54,7 @@ export function RegisterWizardPage() {
   if (reg.isError || !reg.data) {
     return (
       <div className="mx-auto max-w-2xl text-sm">
-        <p className="text-destructive">{reg.error?.message ?? 'This application could not be found.'}</p>
+        <p className="text-destructive">{reg.error?.message ?? t('wizard.notFound')}</p>
         <BackLink />
       </div>
     )
@@ -64,12 +66,13 @@ export function RegisterWizardPage() {
 }
 
 function BackLink() {
+  const { t } = useTranslation(['register', 'common'])
   return (
     <Link
       to="/dashboard/register"
       className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
     >
-      <ArrowLeft size={14} /> My businesses
+      <ArrowLeft size={14} /> {t('wizard.myBusinesses')}
     </Link>
   )
 }
@@ -81,6 +84,7 @@ function initialKey(r: Registration): StepKey {
 
 function RegisterWizard({ registration }: { registration: Registration }) {
   const id = registration.id
+  const { t } = useTranslation(['register', 'common'])
   const [form, setForm] = useState<FormData>(() => formFromAnswers(registration.answers))
   const [currentKey, setCurrentKey] = useState<StepKey>(() => initialKey(registration))
   const [billingPasswordSaved, setBillingPasswordSaved] = useState(registration.billingPasswordSaved)
@@ -149,10 +153,10 @@ function RegisterWizard({ registration }: { registration: Registration }) {
       <BackLink />
       <div className="mb-6 mt-4">
         <h1 className="text-2xl font-bold tracking-[-0.02em] text-[#0B1C2C] sm:text-3xl">
-          {form.businessName.trim() || 'Register your business'}
+          {form.businessName.trim() || t('wizard.title')}
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Your answers are saved each time you click Next, so you can stop and come back any time.
+          {t('wizard.savedHint')}
         </p>
       </div>
 
@@ -201,18 +205,18 @@ function RegisterWizard({ registration }: { registration: Registration }) {
             className="w-full gap-1.5 sm:w-auto"
           >
             <ChevronLeft size={16} />
-            Back
+            {t('common:actions.back')}
           </Button>
           <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
             {error && <p className="text-xs text-destructive sm:max-w-xs">{error.message}</p>}
             <Button onClick={() => void handleNext()} disabled={!valid || busy} className="gap-1.5">
               {isLast ? (
-                submit.isPending ? 'Submitting…' : 'Submit application'
+                submit.isPending ? t('wizard.submitting') : t('wizard.submit')
               ) : save.isPending ? (
-                'Saving…'
+                t('common:actions.saving')
               ) : (
                 <>
-                  Next
+                  {t('common:actions.next')}
                   <ChevronRight size={16} />
                 </>
               )}
@@ -222,7 +226,7 @@ function RegisterWizard({ registration }: { registration: Registration }) {
       </Card>
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
-        Your information is kept confidential and used only for bookkeeping purposes.
+        {t('wizard.confidential')}
       </p>
     </div>
   )
@@ -237,6 +241,7 @@ function Submitted({
   justNow?: boolean
   businessName?: string
 }) {
+  const { t } = useTranslation(['register', 'common'])
   return (
     <div className="mx-auto w-full max-w-md">
       <Card>
@@ -244,29 +249,34 @@ function Submitted({
           <CheckCircle2 className="h-14 w-14 text-green-500" />
           <div>
             <h2 className="text-xl font-semibold">
-              {justNow ? 'Application received!' : 'Application submitted'}
+              {justNow ? t('submitted.receivedTitle') : t('submitted.submittedTitle')}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {businessName ? (
                 <>
-                  Thank you, <span className="font-medium text-foreground">{businessName.trim()}</span>.{' '}
+                  <Trans
+                    t={t}
+                    i18nKey="submitted.thanks"
+                    values={{ name: businessName.trim() }}
+                    components={{ b: <span className="font-medium text-foreground" /> }}
+                  />{' '}
                 </>
               ) : null}
-              We have your information and will be in touch shortly.
+              {t('submitted.inTouch')}
             </p>
           </div>
           <div className="w-full rounded-lg border bg-muted/30 p-4">
             <p className="flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <Phone size={14} /> Your number
+              <Phone size={14} /> {t('submitted.yourNumber')}
             </p>
             {supportNumber ? (
               <>
                 <p className="mt-1 text-2xl font-semibold tracking-wide">{formatNumber(supportNumber)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Call, text or WhatsApp us on this number.</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('submitted.callUs')}</p>
               </>
             ) : (
               <p className="mt-1 text-sm text-muted-foreground">
-                Your new number is being set up. We will send it to you shortly.
+                {t('submitted.settingUp')}
               </p>
             )}
           </div>

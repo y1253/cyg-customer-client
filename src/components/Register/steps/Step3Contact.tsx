@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatPhone } from '@/lib/utils';
@@ -9,40 +10,41 @@ interface Props {
 }
 
 export function Step3Contact({ data, onChange }: Props) {
+  const { t } = useTranslation(['register', 'common']);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="personalName">
-          Contact Name <span className="text-destructive">*</span>
+          {t('contact.name')} <span className="text-destructive">*</span>
         </Label>
         <Input
           id="personalName"
           value={data.personalName}
           onChange={e => onChange({ personalName: e.target.value })}
-          placeholder="John Smith"
+          placeholder={t('contact.namePlaceholder')}
         />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="privateEmail">
-            Email <span className="text-destructive">*</span>
+            {t('contact.email')} <span className="text-destructive">*</span>
           </Label>
           <Input
             id="privateEmail"
             type="email"
             value={data.privateEmail}
             onChange={e => onChange({ privateEmail: e.target.value })}
-            placeholder="john@example.com"
+            placeholder={t('contact.emailPlaceholder')}
           />
           {data.privateEmail && !data.privateEmail.includes('@') && (
-            <p className="text-xs text-destructive">Please enter a valid email address.</p>
+            <p className="text-xs text-destructive">{t('contact.emailInvalid')}</p>
           )}
         </div>
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="privatePhone">
-            Phone <span className="text-destructive">*</span>
+            {t('contact.phone')} <span className="text-destructive">*</span>
           </Label>
           <Input
             id="privatePhone"

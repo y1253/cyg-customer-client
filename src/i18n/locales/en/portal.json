@@ -1,0 +1,177 @@
+{
+  "api": {
+    "locked": "Enter the code we emailed you to view this.",
+    "unreachable": "Could not reach the server. Please check your connection and try again."
+  },
+  "page": {
+    "yourBusiness": "Your business",
+    "myBusinesses": "My businesses",
+    "description": "Everything our team receives and sends for your business.",
+    "lock": "Lock",
+    "tabs": {
+      "communications": "Communications",
+      "tasks": "Tasks",
+      "bookkeeping": "Bookkeeping",
+      "links": "Links"
+    }
+  },
+  "status": {
+    "read": "Read",
+    "unread": "Unread",
+    "completed": "Completed",
+    "open": "Open"
+  },
+  "unlock": {
+    "title": "Confirm it's you",
+    "hint": "Your messages and saved logins are private. We'll email you a 6-digit code to open them.",
+    "emailMe": "Email me a code",
+    "sentTo": "We sent a code to <b>{{email}}</b>.",
+    "code": "Code",
+    "checking": "Checking…",
+    "expired": "This code has expired.",
+    "expiresIn": "Expires in {{time}}"
+  },
+  "row": {
+    "voicemail": "Voicemail",
+    "outgoingCall": "Outgoing call",
+    "outgoingNoAnswer": "Outgoing call · no answer",
+    "missedCall": "Missed call",
+    "incomingCall": "Incoming call",
+    "wa": {
+      "voice": "Voice message",
+      "image": "Photo",
+      "video": "Video",
+      "audio": "Audio",
+      "document": "Document",
+      "sticker": "Sticker",
+      "message": "Message"
+    },
+    "noSubject": "(no subject)",
+    "to": "To: {{name}}",
+    "sentEmail": "Sent email",
+    "email": "Email",
+    "recorded": "Recorded",
+    "textSent": "Text sent",
+    "textMessage": "Text message",
+    "attachments_one": "{{count}} attachment",
+    "attachments_other": "{{count}} attachments",
+    "waSent": "WhatsApp · Sent",
+    "waReceived": "WhatsApp · Received"
+  },
+  "chatNotice": {
+    "needs_reconnect": "We can't reach your chat right now. Our team has been notified.",
+    "no_spaces": "There are no chat conversations yet.",
+    "chat_disabled": "Chat is turned off for this account.",
+    "no_license": "This account has no chat license.",
+    "app_not_configured": "Chat is not available yet.",
+    "error": "We could not load your chats right now."
+  },
+  "comm": {
+    "status": {
+      "all": "Any status",
+      "unread": "Unread",
+      "uncompleted": "Not completed"
+    },
+    "failed": {
+      "email": "emails",
+      "chat": "chat messages",
+      "phone": "calls and texts",
+      "whatsapp": "WhatsApp messages"
+    },
+    "kind": {
+      "all": "Everything",
+      "email": "Emails",
+      "sent": "Sent emails",
+      "chat": "Chat",
+      "calls": "Calls",
+      "voicemail": "Voicemails",
+      "texts": "Texts"
+    },
+    "nothingConnected": "No mailbox, phone line or WhatsApp is connected to this business yet.",
+    "line": "Line {{number}}",
+    "searchPlaceholder": "Search names, subjects, messages…",
+    "mailboxUnreachable": "We can't reach this mailbox right now. Our team has been notified.",
+    "failedLoad": "We could not load your {{what}} right now.",
+    "noMatchLoaded": "Nothing matches in what is loaded so far.",
+    "noMatch": "Nothing matches these filters.",
+    "noMessages": "No messages yet.",
+    "loadMore": "Load more"
+  },
+  "links": {
+    "empty": "No links have been saved for this business yet.",
+    "hidePassword": "Hide password",
+    "showPassword": "Show password"
+  },
+  "tasks": {
+    "empty": "There are no tasks for this business yet.",
+    "open": "Open",
+    "nothingOpen": "Nothing open right now.",
+    "completedRecent": "Completed in the last 90 days",
+    "recurring": "Recurring schedule",
+    "status": {
+      "OVERDUE": "Overdue",
+      "DUE_TODAY": "Due",
+      "UPCOMING": "Upcoming",
+      "SNOOZED": "Snoozed",
+      "COMPLETED": "Completed"
+    },
+    "completedAt": "Completed {{when}}",
+    "dueOn": "Due {{date}}",
+    "noDueDate": "No due date",
+    "snoozedUntil": "snoozed until {{date}}",
+    "daysOverdue_one": "{{count}} day overdue",
+    "daysOverdue_other": "{{count}} days overdue",
+    "snoozedCount_one": "{{count}} snoozed",
+    "snoozedCount_other": "{{count}} snoozed",
+    "next": "Next {{date}}",
+    "noteFromCyg": "Note from CYG",
+    "noteFromBookkeeper": "Note from your bookkeeper",
+    "noteLabel": "{{label}}:"
+  },
+  "sheet": {
+    "details": "Message details",
+    "to": "To: {{who}}",
+    "cc": "Cc: {{who}}",
+    "emailFrame": "Email",
+    "attachment": "Attachment",
+    "fileUnavailable": "File unavailable",
+    "loadingFile": "Loading file…",
+    "voicemail": "Voicemail",
+    "answered": "Answered",
+    "inProgress": "In progress",
+    "noAnswer": "No answer",
+    "missed": "Missed",
+    "direction": "Direction",
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
+    "result": "Result",
+    "number": "Number",
+    "when": "When",
+    "duration": "Duration",
+    "recording": "Recording",
+    "noRecording": "No recording is available."
+  },
+  "cycle": {
+    "types": {
+      "DAYS": "Every N days",
+      "MONTHLY_DATE": "Day of month",
+      "WEEKLY_DAY": "Day of week",
+      "MONTHLY_WEEKDAY": "Nth weekday of month",
+      "QUARTERLY": "Quarterly — specific date",
+      "YEARLY": "Yearly — specific date"
+    },
+    "lastDay": "the last day",
+    "lastDayOption": "Last day of month",
+    "theDay": "the {{nth}}",
+    "day": "day",
+    "monthlyOn": "Monthly on {{day}}",
+    "quarterlyOn": "Quarterly on {{day}}",
+    "everyWeekday": "Every {{weekday}}",
+    "everyWeek": "Every week",
+    "nthWeekday": "The {{nth}} {{weekday}} of each month",
+    "yearlyLastDay": "Yearly on the last day of {{month}}",
+    "yearlyOn": "Yearly on {{month}} {{day}}",
+    "everyNDays_one": "Every day",
+    "everyNDays_other": "Every {{count}} days"
+  }
+}

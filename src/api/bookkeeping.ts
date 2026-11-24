@@ -1,3 +1,4 @@
+import i18n, { currentLocale } from '@/i18n'
 import { ApiError, errorFrom, fetchWithAuth, handleUnauthorized } from './client'
 import type { ColumnFilter, SortState } from '@/lib/table-sort'
 
@@ -466,7 +467,7 @@ export function uploadStatements(
     xhr.onload = () => {
       if (xhr.status === 401) {
         handleUnauthorized()
-        return reject(new Error('Please log in again'))
+        return reject(new Error(i18n.t('books:api.logInAgain')))
       }
       let body: unknown = null
       try {
@@ -479,12 +480,12 @@ export function uploadStatements(
       reject(
         new Error(
           xhr.status === 413
-            ? 'These files are too large to upload at once.'
-            : (Array.isArray(message) ? message[0] : message) ?? 'The upload failed. Please try again.',
+            ? i18n.t('books:api.tooLarge')
+            : ((Array.isArray(message) ? message[0] : message) ?? i18n.t('books:api.uploadFailed')),
         ),
       )
     }
-    xhr.onerror = () => reject(new Error('The upload failed — check your connection and try again.'))
+    xhr.onerror = () => reject(new Error(i18n.t('books:api.uploadNetwork')))
     xhr.send(form)
   })
 }
@@ -609,18 +610,28 @@ export type TaxSettings = {
   groups: SplitGroup[]
 }
 
+/** "In" / "Out" in the shown language. */
+export const taxKindLabel = (kind: TaxKind): string => i18n.t(`books:taxKind.${kind}`)
+
+/** The same labels as a map; read at call time, so they follow the language. */
 export const TAX_KIND_LABEL: Record<TaxKind, string> = {
-  SALES: 'In',
-  PURCHASE: 'Out',
+  get SALES() {
+    return taxKindLabel('SALES')
+  },
+  get PURCHASE() {
+    return taxKindLabel('PURCHASE')
+  },
 }
 
 /** "In 5%" / "Out $2.00". */
 export function rateLabel(r: SplitRuleRate): string {
   const value =
     r.mode === 'FIXED'
-      ? `$${(r.amount ?? 0).toFixed(2)}`
-      : `${r.rate.toLocaleString(undefined, { maximumFractionDigits: 3 })}%`
-  return `${TAX_KIND_LABEL[r.kind]} ${value}`
+      ? i18n.t('books:rate.fixed', {
+          amount: (r.amount ?? 0).toLocaleString(currentLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        })
+      : i18n.t('books:rate.percent', { value: r.rate.toLocaleString(currentLocale(), { maximumFractionDigits: 3 }) })
+  return `${taxKindLabel(r.kind)} ${value}`
 }
 
 /** What a payee is, from its category: income → customer, expense → supplier. */

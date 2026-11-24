@@ -12,6 +12,7 @@ import {
   QrCode,
   Send,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { ATTACHMENT_ACCEPT, isAcceptedAttachment, MAX_ATTACHMENT_BYTES } from '@/api/attachments'
 import { FilesDialog, type FilesTarget } from '@/components/Bookkeeping/NameFiles/FilesDialog'
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,7 @@ export function DocumentsButton() {
 }
 
 function Inner() {
+  const { t } = useTranslation(['assistant', 'common'])
   const attachments = useAttachments()
   const counts = useMemo(() => totalCounts(attachments.data ?? []), [attachments.data])
   const [card, setCard] = useState(false)
@@ -63,7 +65,7 @@ function Inner() {
           openOnHover
           delay={120}
           closeDelay={250}
-          aria-label="Your documents, and how to send them"
+          aria-label={t('documents.openLabel')}
           className={cn(
             'fixed z-40 flex size-12 items-center justify-center rounded-full bg-white text-[#0B1C2C] shadow-lg ring-1 ring-black/10 transition-transform hover:scale-105 focus-visible:outline-none',
             beside ? 'right-[5.5rem] bottom-6 sm:right-[6.5rem] sm:bottom-8' : 'right-4 bottom-4 sm:right-6 sm:bottom-6',
@@ -80,9 +82,9 @@ function Inner() {
         <PopoverContent side="top" align="end" sideOffset={10} className="w-[22rem] gap-0 overflow-hidden rounded-xl p-0">
           <div className="rounded-t-xl bg-gradient-to-br from-[#0B1C2C] to-[#12384a] px-4 py-3 text-white">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
-              <Paperclip className="size-4 text-[#47c4bc]" /> Your documents
+              <Paperclip className="size-4 text-[#47c4bc]" /> {t('documents.title')}
             </p>
-            <p className="text-xs text-white/70">Every file is kept under its name on the Names tab.</p>
+            <p className="text-xs text-white/70">{t('documents.subtitle')}</p>
           </div>
           <div className="grid grid-cols-3 gap-1.5 p-2">
             {(
@@ -108,7 +110,7 @@ function Inner() {
           </div>
           {counts.reading > 0 && (
             <p className="flex items-center gap-1.5 px-3 pb-1 text-xs text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" /> Reading {counts.reading} file{counts.reading === 1 ? '' : 's'}…
+              <Loader2 className="size-3 animate-spin" /> {t('documents.reading', { count: counts.reading })}
             </p>
           )}
           <SendWays />
@@ -125,6 +127,7 @@ function Inner() {
 
 /** Every way to send documents in. */
 function SendWays() {
+  const { t } = useTranslation(['assistant', 'common'])
   const { customer } = useAuth()
   const intake = useIntake()
   const number = intake.data?.numbers[0]
@@ -135,7 +138,7 @@ function SendWays() {
   return (
     <div className="flex flex-col gap-1 border-t p-2">
       <p className="px-1 pt-0.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-        Send us documents
+        {t('documents.sendUs')}
       </p>
       {number && (
         <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-muted/50 px-2.5 py-2">
@@ -144,7 +147,7 @@ function SendWays() {
             href={`sms:${number}`}
             className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-brand ring-1 ring-brand/20 hover:bg-brand/5"
           >
-            <MessageSquareText className="size-3.5" /> Text
+            <MessageSquareText className="size-3.5" /> {t('documents.text')}
           </a>
           {whatsapp && (
             <a
@@ -161,8 +164,8 @@ function SendWays() {
       {email && (
         <Way
           icon={<Mail className="size-4" />}
-          title={`Email ${email}`}
-          hint="Forward receipts, invoices, statements, contracts"
+          title={t('documents.emailTitle', { email })}
+          hint={t('documents.emailHint')}
           active={open === 'email'}
           onClick={() => setOpen(open === 'email' ? null : 'email')}
         />
@@ -171,8 +174,8 @@ function SendWays() {
       <BrowseWay />
       <Way
         icon={<QrCode className="size-4" />}
-        title="From your phone"
-        hint="Scan a QR code and take photos"
+        title={t('documents.fromPhone')}
+        hint={t('documents.fromPhoneHint')}
         active={open === 'qr'}
         onClick={() => setOpen(open === 'qr' ? null : 'qr')}
       />
@@ -219,6 +222,7 @@ function Way({
 
 /** Copy the inbox address, or have it email a welcome to any address (theirs by default). */
 function EmailPanel({ inbox, defaultTo }: { inbox: string; defaultTo: string }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const [to, setTo] = useState(defaultTo)
   const [copied, setCopied] = useState(false)
   const welcome = useWelcomeEmail()
@@ -237,10 +241,10 @@ function EmailPanel({ inbox, defaultTo }: { inbox: string; defaultTo: string }) 
         }
         className="inline-flex w-fit items-center gap-1 text-xs font-medium text-brand hover:underline"
       >
-        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} {copied ? 'Copied' : 'Copy the address'}
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} {copied ? t('common:actions.copied') : t('documents.copyAddress')}
       </button>
       <p className="text-xs text-muted-foreground">
-        Send a welcome email from {inbox} — reply to it or forward documents to it, from that address:
+        {t('documents.welcomeText', { inbox })}
       </p>
       <form
         className="flex gap-1.5"
@@ -253,7 +257,7 @@ function EmailPanel({ inbox, defaultTo }: { inbox: string; defaultTo: string }) 
           type="email"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          placeholder="name@example.com"
+          placeholder={t('documents.emailPlaceholder')}
           className="h-8 bg-white"
         />
         <Button
@@ -262,7 +266,7 @@ function EmailPanel({ inbox, defaultTo }: { inbox: string; defaultTo: string }) 
           disabled={welcome.isPending || !to.trim()}
           className="shrink-0 gap-1 bg-brand text-white hover:bg-brand/85"
         >
-          {welcome.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} Send
+          {welcome.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} {t('common:actions.send')}
         </Button>
       </form>
       {(welcome.data || welcome.error) && (
@@ -282,6 +286,7 @@ function EmailPanel({ inbox, defaultTo }: { inbox: string; defaultTo: string }) 
 
 /** Files from this computer — Unsorted first, the AI files each under its name. */
 function BrowseWay() {
+  const { t } = useTranslation(['assistant', 'common'])
   const input = useRef<HTMLInputElement>(null)
   const upload = useUploadAttachments()
   const [note, setNote] = useState<string | null>(null)
@@ -289,8 +294,12 @@ function BrowseWay() {
     <>
       <Way
         icon={<Laptop className="size-4" />}
-        title={upload.isPending ? `Uploading… ${Math.round(upload.progress * 100)}%` : 'From this computer'}
-        hint={note ?? 'Photos, PDFs, spreadsheets, voice notes'}
+        title={
+          upload.isPending
+            ? t('documents.uploading', { pct: Math.round(upload.progress * 100) })
+            : t('documents.fromComputer')
+        }
+        hint={note ?? t('documents.fromComputerHint')}
         busy={upload.isPending}
         onClick={() => input.current?.click()}
       />
@@ -304,11 +313,11 @@ function BrowseWay() {
           const all = Array.from(e.target.files ?? [])
           e.target.value = ''
           const ok = all.filter((f) => isAcceptedAttachment(f) && f.size <= MAX_ATTACHMENT_BYTES)
-          if (!ok.length) return setNote(all.length ? 'Those files cannot be read here.' : null)
+          if (!ok.length) return setNote(all.length ? t('documents.cannotRead') : null)
           upload.mutate(
             { files: ok },
             {
-              onSuccess: () => setNote(`${ok.length} file${ok.length === 1 ? '' : 's'} added — we're reading them`),
+              onSuccess: () => setNote(t('documents.added', { count: ok.length })),
               onError: (err) => setNote(err.message),
             },
           )
@@ -320,6 +329,7 @@ function BrowseWay() {
 
 /** A QR code to a 30-minute upload page; counts what arrives while it is open. */
 function QrPanel() {
+  const { t } = useTranslation(['assistant', 'common'])
   const link = usePhoneUploadLink()
   const attachments = useAttachments()
   const [qr, setQr] = useState<string | null>(null)
@@ -348,14 +358,14 @@ function QrPanel() {
       ) : link.error ? (
         <p className="text-xs text-destructive">{link.error.message}</p>
       ) : (
-        <img src={qr!} alt="QR code to send files from your phone" className="size-44 rounded-lg bg-white p-1.5" />
+        <img src={qr!} alt={t('documents.qrAlt')} className="size-44 rounded-lg bg-white p-1.5" />
       )}
       <p className="text-xs text-muted-foreground">
-        Scan with your phone's camera, then take photos or pick files. The code works for 30 minutes.
+        {t('documents.qrHelp')}
       </p>
       {received > 0 && (
         <p className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-          {received} file{received === 1 ? '' : 's'} received
+          {t('documents.received', { count: received })}
         </p>
       )}
     </div>

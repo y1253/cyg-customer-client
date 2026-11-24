@@ -1,4 +1,5 @@
 import { rateLabel, type TaxAgency } from '@/api/bookkeeping'
+import i18n from '@/i18n'
 import { sortByLabel } from '@/lib/sort'
 
 /**
@@ -44,7 +45,7 @@ export function pickerUnits(agencies: TaxAgency[], groupName: (id: number) => st
       agencies.filter((m) => m.groupId === a.groupId),
       (m) => m.name,
     )
-    const group = groupName(a.groupId) ?? 'Group'
+    const group = groupName(a.groupId) ?? i18n.t('names:picker.group')
     blocks.push([
       {
         key: `g${a.groupId}`,

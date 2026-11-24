@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Check, ListFilter, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { CONTAINS_MIN, ruleConflictOf, type NameDescription } from '@/api/bookkeeping'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { useSetNameGroup } from '@/hooks/useNameGroups'
 import { useResetNameRule, useSaveNameRule } from '@/hooks/useNameRule'
 import { useNames } from '@/hooks/useNames'
 import { useRuleConflict } from '@/hooks/useRuleConflict'
+import { currentLocale } from '@/i18n'
 import { useTax } from '@/hooks/useTax'
 import { AgencyPicker } from './AgencyPicker'
 import { ExceptionList } from './Exceptions'
@@ -29,6 +31,7 @@ import { RuleConflictDialog } from './RuleConflictDialog'
  * ledger row — its split rules.
  */
 export function NameDescriptionsEditor({ name, withTax = false }: { name: string; withTax?: boolean }) {
+  const { t } = useTranslation(['names', 'common'])
   const names = useNames()
   const live = names.data?.names.find((n) => n.name.toLowerCase() === name.toLowerCase())
   const save = useSaveNameRule()
@@ -81,7 +84,7 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
     <div className="mt-1 flex flex-col gap-1">
       <div className="flex gap-1.5">
         <Input
-          aria-label="Description contains"
+          aria-label={t('editor.containsAria')}
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={191}
@@ -94,14 +97,14 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
             }
           }}
         />
-        <Button type="button" size="icon-sm" disabled={busy || text.trim().length < CONTAINS_MIN} onClick={onSave} title="Save">
+        <Button type="button" size="icon-sm" disabled={busy || text.trim().length < CONTAINS_MIN} onClick={onSave} title={t('common:actions.save')}>
           <Check />
         </Button>
         <Button
           type="button"
           size="icon-sm"
           variant="ghost"
-          title="Cancel"
+          title={t('common:actions.cancel')}
           onClick={() => {
             setNarrowing(null)
             setAdding(false)
@@ -111,8 +114,7 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Keep only the words every description of {live.name} has (at least {CONTAINS_MIN} characters). Every
-        description containing them gets this name — now and in every later statement.
+        {t('editor.narrowHelp', { name: live.name, min: CONTAINS_MIN })}
       </p>
     </div>
   )
@@ -122,7 +124,7 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
     <div className="flex flex-col gap-3">
       {groups.length > 0 && !live.unclarified && (
         <div className="flex flex-col gap-1.5">
-          <Label>Group</Label>
+          <Label>{t('editor.group')}</Label>
           <GroupPicker
             groups={groups}
             value={live.group ?? live.type}
@@ -130,7 +132,7 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
             onChange={(v) => v !== (live.group ?? live.type) && setGroup.mutate({ name: live.name, group: v })}
           />
           <p className="text-xs text-muted-foreground">
-            Where it is listed on the Names tab — its categories and split rules stay as they are. Type a new one to add it.
+            {t('editor.groupHelp')}
           </p>
         </div>
       )}
@@ -138,8 +140,8 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
       {withTax && !live.unclarified && agencies.length > 0 && (
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col">
-            <Label>Split rules</Label>
-            <span className="text-xs text-muted-foreground">A rule picked splits {live.name}'s transactions once.</span>
+            <Label>{t('editor.splitRules')}</Label>
+            <span className="text-xs text-muted-foreground">{t('editor.splitRulesHelp', { name: live.name })}</span>
           </div>
           <AgencyPicker
             name={live.name}
@@ -166,7 +168,7 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <Label>Descriptions this name follows</Label>
+          <Label>{t('editor.follows')}</Label>
           <Button
             type="button"
             variant="ghost"
@@ -177,7 +179,7 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
               setText('')
             }}
           >
-            <Plus className="size-3.5" /> Add
+            <Plus className="size-3.5" /> {t('common:actions.add')}
           </Button>
         </div>
         <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto rounded-lg bg-muted/40 p-2 text-sm">
@@ -186,17 +188,24 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
               <div className="flex items-center gap-2">
                 <ListFilter className="size-3.5 shrink-0 text-brand" />
                 <span className="min-w-0 flex-1 truncate">
-                  Contains “<span className="font-medium">{c.text}</span>”
+                  <Trans
+                    t={t}
+                    i18nKey="editor.contains"
+                    values={{ text: c.text }}
+                    components={{ b: <span className="font-medium" /> }}
+                  />
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{c.rows} rows</span>
-                <Button type="button" variant="ghost" size="icon-xs" title="Change the words" onClick={() => startNarrow(`c:${c.key}`, c.text)}>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {t('rows', { count: c.rows, n: c.rows.toLocaleString(currentLocale()) })}
+                </span>
+                <Button type="button" variant="ghost" size="icon-xs" title={t('editor.changeWords')} onClick={() => startNarrow(`c:${c.key}`, c.text)}>
                   <Pencil />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  title="Remove this rule"
+                  title={t('editor.removeRule')}
                   disabled={busy}
                   onClick={() => reset.mutate({ matchType: 'CONTAINS', matchKey: c.key })}
                 >
@@ -216,16 +225,16 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {d.rule?.matchType === 'DESCRIPTION'
-                      ? 'this description'
+                      ? t('editor.thisDescription')
                       : d.rule?.matchType === 'CONTAINS'
-                        ? `contains “${d.rule.text}”`
-                        : 'read by the AI'}
+                        ? t('contains', { text: d.rule.text })
+                        : t('editor.readByAi')}
                   </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    title="Narrow it to a few words"
+                    title={t('editor.narrow')}
                     onClick={() => startNarrow(id, d.description)}
                   >
                     <Pencil />
@@ -235,7 +244,7 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
                       type="button"
                       variant="ghost"
                       size="icon-xs"
-                      title="Stop following it (its rows go back to the default)"
+                      title={t('editor.stopFollowing')}
                       disabled={busy}
                       onClick={() => reset.mutate({ matchType: 'DESCRIPTION', matchKey: d.rule!.matchKey })}
                     >
@@ -256,12 +265,12 @@ export function NameDescriptionsEditor({ name, withTax = false }: { name: string
             )
           })}
           {!live.descriptions.length && !(live.followsContains ?? []).length && (
-            <li className="px-1 py-0.5 text-muted-foreground">No descriptions yet.</li>
+            <li className="px-1 py-0.5 text-muted-foreground">{t('editor.none')}</li>
           )}
         </ul>
         {adding && editor(() => void saveContains(text))}
         <p className="text-xs text-muted-foreground">
-          Drag a description from one name to another on the Names tab to move it there.
+          {t('editor.dragHelp')}
         </p>
       </div>
       {error && !ruleConflictOf(error) && <p className="text-sm text-destructive">{error.message}</p>}

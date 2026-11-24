@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { CheckCircle2, Lightbulb, Loader2, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { FeatureRequest, FeatureStatus } from '@/api/featureRequests'
 import { PageHeader } from '@/components/Dashboard/PageHeader'
 import { Badge } from '@/components/ui/badge'
@@ -18,17 +19,19 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateFeatureRequest, useFeatureRequests } from '@/hooks/useFeatureRequests'
+import i18n, { currentLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-const STATUS: Record<FeatureStatus, { label: string; className: string }> = {
-  OPEN: { label: 'Received', className: 'border-slate-200 bg-slate-50 text-slate-700' },
-  PLANNED: { label: 'Planned', className: 'border-sky-200 bg-sky-50 text-sky-700' },
-  DONE: { label: 'Available now', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-  DECLINED: { label: 'Not planned', className: 'border-slate-200 bg-white text-muted-foreground' },
+const STATUS_CLASS: Record<FeatureStatus, string> = {
+  OPEN: 'border-slate-200 bg-slate-50 text-slate-700',
+  PLANNED: 'border-sky-200 bg-sky-50 text-sky-700',
+  DONE: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  DECLINED: 'border-slate-200 bg-white text-muted-foreground',
 }
+const statusLabel = (s: FeatureStatus) => i18n.t(`dashboard:requests.status.${s}`)
 
 const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  new Date(iso).toLocaleDateString(currentLocale(), { month: 'short', day: 'numeric', year: 'numeric' })
 
 /**
  * step12e: "My requests" — when the customer asks the AI assistant for something we don't do
@@ -37,6 +40,7 @@ const fmtDate = (iso: string) =>
  * The customer can also type a request here directly ("New request").
  */
 export function RequestsPage() {
+  const { t } = useTranslation(['dashboard', 'common'])
   const requests = useFeatureRequests()
   const list = requests.data ?? []
   const [asking, setAsking] = useState(false)
@@ -44,15 +48,15 @@ export function RequestsPage() {
   const newButton = (
     <Button onClick={() => setAsking(true)} className="bg-brand text-white hover:bg-brand/85">
       <Plus className="size-4" />
-      New request
+      {t('requests.new')}
     </Button>
   )
 
   return (
     <>
       <PageHeader
-        title="My requests"
-        description="Something we don’t do yet? Ask here or through the AI assistant. Our team reviews every request."
+        title={t('requests.title')}
+        description={t('requests.description')}
         actions={newButton}
       />
 
@@ -66,9 +70,9 @@ export function RequestsPage() {
       ) : !list.length ? (
         <div className="rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-black/5">
           <Lightbulb className="mx-auto size-8 text-brand" />
-          <p className="mt-3 font-medium text-[#0B1C2C]">No requests yet</p>
+          <p className="mt-3 font-medium text-[#0B1C2C]">{t('requests.emptyTitle')}</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            Ask for something we don’t do yet — here, or by asking the assistant — and follow it on this page.
+            {t('requests.emptyText')}
           </p>
           <div className="mt-5">{newButton}</div>
         </div>
@@ -88,6 +92,7 @@ export function RequestsPage() {
 }
 
 function RequestForm({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation(['dashboard', 'common'])
   const create = useCreateFeatureRequest()
   const [summary, setSummary] = useState('')
   const [details, setDetails] = useState('')
@@ -104,23 +109,23 @@ function RequestForm({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit} className="contents">
       <DialogHeader>
-        <DialogTitle>New request</DialogTitle>
-        <DialogDescription>Tell us what you’d like us to add. Our team reviews every request.</DialogDescription>
+        <DialogTitle>{t('requests.new')}</DialogTitle>
+        <DialogDescription>{t('requests.formDescription')}</DialogDescription>
       </DialogHeader>
       <div className="grid gap-4">
         <div className="grid gap-1.5">
-          <Label htmlFor="request-summary">What would you like?</Label>
+          <Label htmlFor="request-summary">{t('requests.what')}</Label>
           <Input
             id="request-summary"
             autoFocus
             maxLength={200}
-            placeholder="e.g. File my GST returns"
+            placeholder={t('requests.whatPlaceholder')}
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
           />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="request-details">Details (optional)</Label>
+          <Label htmlFor="request-details">{t('requests.details')}</Label>
           <Textarea
             id="request-details"
             rows={4}
@@ -136,14 +141,14 @@ function RequestForm({ onDone }: { onDone: () => void }) {
         )}
       </div>
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
         <Button
           type="submit"
           disabled={create.isPending || !summary.trim()}
           className="bg-brand text-white hover:bg-brand/85"
         >
           {create.isPending && <Loader2 className="size-4 animate-spin" />}
-          Send request
+          {t('requests.send')}
         </Button>
       </DialogFooter>
     </form>
@@ -151,7 +156,8 @@ function RequestForm({ onDone }: { onDone: () => void }) {
 }
 
 function RequestCard({ request: r }: { request: FeatureRequest }) {
-  const s = STATUS[r.status] ?? STATUS.OPEN
+  const { t } = useTranslation(['dashboard', 'common'])
+  const status: FeatureStatus = r.status in STATUS_CLASS ? r.status : 'OPEN'
   const done = r.status === 'DONE'
   return (
     <li
@@ -163,21 +169,21 @@ function RequestCard({ request: r }: { request: FeatureRequest }) {
       <div className="flex flex-wrap items-center gap-2">
         {done && <CheckCircle2 className="size-4 text-emerald-600" />}
         <p className="font-medium text-[#0B1C2C]">{r.summary}</p>
-        <Badge variant="outline" className={cn('ml-auto', s.className)}>
-          {s.label}
+        <Badge variant="outline" className={cn('ml-auto', STATUS_CLASS[status])}>
+          {statusLabel(status)}
         </Badge>
       </div>
       <p className="mt-1.5 text-sm whitespace-pre-line text-muted-foreground">“{r.request}”</p>
       {r.staffNote && (
         <p className="mt-2 rounded-lg bg-brand/5 px-3 py-2 text-sm text-[#0B1C2C]">
-          <span className="font-medium">From our team: </span>
+          <span className="font-medium">{t('requests.fromTeam')} </span>
           {r.staffNote}
         </p>
       )}
       <p className="mt-2 text-xs text-muted-foreground">
-        Asked {fmtDate(r.createdAt)}
+        {t('requests.asked', { date: fmtDate(r.createdAt) })}
         {r.book && ` · ${r.book}`}
-        {done && r.doneAt && ` · available since ${fmtDate(r.doneAt)}`}
+        {done && r.doneAt && ` · ${t('requests.availableSince', { date: fmtDate(r.doneAt) })}`}
       </p>
     </li>
   )

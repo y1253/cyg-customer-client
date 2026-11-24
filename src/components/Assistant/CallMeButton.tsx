@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Phone } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { CALL_ME_KEY, fetchCallMe, requestCallMe } from '@/api/assistant'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,7 @@ export function CallMeButton({
   target: { statementId: number } | { attachmentId: number }
   disabled?: boolean
 }) {
+  const { t } = useTranslation(['assistant', 'common'])
   const book = useBook()
   const queryClient = useQueryClient()
   const [asking, setAsking] = useState(false)
@@ -53,8 +55,8 @@ export function CallMeButton({
       type="button"
       variant="ghost"
       size="icon-sm"
-      title={call.isPending ? 'Calling you…' : hasPhone ? 'Call me about this' : 'Call me about this — add your phone first'}
-      aria-label="Call me about this"
+      title={call.isPending ? t('callMe.calling') : hasPhone ? t('callMe.about') : t('callMe.aboutAddPhone')}
+      aria-label={t('callMe.about')}
       disabled={disabled || call.isPending}
       onClick={hasPhone ? () => call.mutate() : undefined}
     >
@@ -84,8 +86,8 @@ export function CallMeButton({
             )
           }}
         >
-          <p className="text-sm font-medium text-[#0B1C2C]">What number should we call?</p>
-          <p className="text-xs text-muted-foreground">It is saved on your account, so next time we just call.</p>
+          <p className="text-sm font-medium text-[#0B1C2C]">{t('callMe.whatNumber')}</p>
+          <p className="text-xs text-muted-foreground">{t('callMe.savedNote')}</p>
           <div className="flex gap-1.5">
             <Input
               autoFocus
@@ -93,7 +95,7 @@ export function CallMeButton({
               inputMode="tel"
               autoComplete="tel"
               value={phone}
-              placeholder="514 555 1234"
+              placeholder={t('callMe.phonePlaceholder')}
               onChange={(e) => setPhone(e.target.value)}
               className="h-8"
             />
@@ -103,7 +105,7 @@ export function CallMeButton({
               disabled={updateMe.isPending || !phone.trim()}
               className="bg-brand text-white hover:bg-brand/85"
             >
-              {updateMe.isPending ? <Loader2 className="size-3.5 animate-spin" /> : 'Call me'}
+              {updateMe.isPending ? <Loader2 className="size-3.5 animate-spin" /> : t('callMe.callMe')}
             </Button>
           </div>
           {updateMe.error && <p className="text-xs text-destructive">{updateMe.error.message}</p>}

@@ -1,5 +1,6 @@
 import { Folder, FolderOpen } from 'lucide-react'
-import { BUCKET_LABEL, type BucketCounts, type BucketFilter } from '@/lib/name-files'
+import { useTranslation } from 'react-i18next'
+import { type BucketCounts, type BucketFilter } from '@/lib/name-files'
 import { cn } from '@/lib/utils'
 
 type Bucket = Exclude<BucketFilter, null>
@@ -29,18 +30,19 @@ export function CountPills({
   /** The paperclip card lists all three, zeros included. */
   showZero?: boolean
 }) {
+  const { t } = useTranslation('ledger')
   const buckets = (['RELATED', 'DOCUMENT', 'ERROR'] as const).filter((b) => showZero || counts[FIELD[b]] > 0)
   if (!buckets.length) return null
   return (
     <span className={cn('inline-flex items-center gap-1', className)}>
       {buckets.map((b) => {
         const n = counts[FIELD[b]]
-        const label = `${n} ${BUCKET_LABEL[b].toLowerCase()}`
+        const label = t(`files.count.${b}`, { count: n })
         return onPick ? (
           <button
             key={b}
             type="button"
-            title={`${label} — show them`}
+            title={t('files.showThem', { label })}
             onClick={(e) => {
               e.stopPropagation()
               onPick(b)
@@ -76,6 +78,7 @@ export function FolderButton({
   counts: BucketCounts
   onOpen: (bucket: BucketFilter) => void
 }) {
+  const { t } = useTranslation('ledger')
   const any = counts.related + counts.document + counts.error + counts.reading > 0
   const Icon = any ? FolderOpen : Folder
   return (
@@ -83,7 +86,7 @@ export function FolderButton({
       <button
         type="button"
         onClick={() => onOpen(null)}
-        title={`Open the folder of ${name} — its files, or add some`}
+        title={t('files.openFolder', { name })}
         className={cn(
           'flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-brand/10 hover:text-brand',
           counts.error > 0 ? 'text-red-600' : any ? 'text-brand' : 'text-muted-foreground/60',
