@@ -249,7 +249,6 @@
   "generate": {
     "reading": "Lecture des relevés…",
     "new": "Générer · {{count}} nouveau(x)",
-    "newPaid": "Générer · {{count}} nouveau(x) · {{price}}",
     "button": "Générer",
     "ready_one": "{{count}} relevé prêt à lire",
     "ready_other": "{{count}} relevés prêts à lire",
@@ -258,7 +257,9 @@
     "readyHint": "Téléversez tout d’abord, puis cliquez sur Générer — nous les lisons et inscrivons chaque opération.",
     "upToDateHint": "Téléversez d’autres relevés quand vous voulez, puis cliquez sur Générer.",
     "home": "Devise de base",
-    "homeHint": "La devise dans laquelle vos livres sont tenus. Les relevés dans une autre devise sont convertis au taux quotidien de la Banque du Canada."
+    "homeHint": "La devise dans laquelle vos livres sont tenus. Les relevés dans une autre devise sont convertis au taux quotidien de la Banque du Canada.",
+    "limitReached": "Limite atteinte. Remise à zéro le {{date}}",
+    "trialUsedUp": "Opérations de l’essai épuisées. Abonnez-vous"
   },
   "bank": {
     "justNow": "à l’instant",
@@ -293,7 +294,9 @@
     "startDates": "Dates de départ",
     "disconnectTitle": "Déconnecter {{name}} ?",
     "disconnectThis": "Déconnecter cette banque ?",
-    "disconnectText": "Nous cessons d’importer de nouvelles opérations et supprimons notre accès. Les relevés déjà importés restent dans vos livres."
+    "disconnectText": "Nous cessons d’importer de nouvelles opérations et supprimons notre accès. Les relevés déjà importés restent dans vos livres.",
+    "pausedMonthly": "En pause jusqu’au {{date}} : limite mensuelle d’opérations",
+    "pausedTrial": "En pause : les opérations de votre essai gratuit sont épuisées"
   },
   "dates": {
     "title": "Où vos livres doivent-ils commencer ?",

@@ -3,6 +3,7 @@ import { AccountPage } from '@/components/Account/AccountPage'
 import { ForgotPasswordPage } from '@/components/Auth/ForgotPasswordPage'
 import { LoginPage } from '@/components/Auth/LoginPage'
 import { SignupPage } from '@/components/Auth/SignupPage'
+import { SubscribePage } from '@/components/Billing/SubscribePage'
 import { BookkeepingRoute } from '@/components/Bookkeeping/BookkeepingRoute'
 import { ContactsPage } from '@/components/Contacts/ContactsPage'
 import { PlaidOAuthPage } from '@/components/Bookkeeping/PlaidOAuthPage'
@@ -52,6 +53,8 @@ export const router = createBrowserRouter([
           { path: 'contacts', element: <ContactsPage /> },
           { path: 'requests', element: <RequestsPage /> },
           { path: 'account', element: <AccountPage /> },
+          // 2026-11-25: the plan. A locked account sees only this and My account.
+          { path: 'subscribe', element: <SubscribePage /> },
           { path: 'assistant', element: <Navigate to="/dashboard/bookkeeping" replace /> },
           { path: 'register', element: <RegistrationsPage /> },
           { path: 'register/:id', element: <RegisterWizardPage /> },

@@ -6,7 +6,8 @@
     "contacts": "Contacts",
     "requests": "My requests",
     "account": "My account",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "subscribe": "Subscribe"
   },
   "account": {
     "title": "My account",
@@ -65,36 +66,110 @@
     "errCurrent": "Enter your current password",
     "errCode": "Enter the 6-digit code from the email"
   },
-  "pay": {
-    "title": "Read your statements",
-    "description_one": "We read {{count}} new statement and post every transaction to your ledger.",
-    "description_other": "We read {{count}} new statements and post every transaction to your ledger.",
-    "notSetUp": "Payments are not set up yet — please contact us.",
-    "cardLoading": "The card form is still loading.",
-    "checkCard": "Check your card details.",
-    "declined": "Your card was declined.",
-    "payWith": "Pay with",
-    "newCard": "Use a new card",
-    "secured": "Secured by Stripe. Your card is saved for next time — we never see its number.",
-    "processing": "Processing…",
-    "generateFree": "Generate free",
-    "payAndGenerate": "Pay {{amount}} & generate",
-    "summary_one": "Generate · {{count}} statement",
-    "summary_other": "Generate · {{count}} statements",
-    "total": "Total",
-    "free": "Free",
-    "percentOff": "{{value}}% off",
-    "specialPrice": "Special price {{price}}",
-    "promoApplied": "{{code}} applied",
-    "removePromo": "Remove promo code",
-    "havePromo": "Have a promo code?",
-    "promoCode": "Promo code",
-    "expires": "Expires {{date}}"
-  },
-  "cards": {
-    "title": "Saved cards",
-    "description": "Saved securely by Stripe when you pay, so the next Generate is one click. We never see the card number.",
-    "empty": "No saved cards yet — your card is saved the first time you pay."
+  "billing": {
+    "interval": {
+      "day": "day",
+      "week": "week",
+      "month": "month",
+      "year": "year"
+    },
+    "perInterval": "{{price}} / {{interval}}",
+    "subscribe": "Subscribe",
+    "opening": "Opening…",
+    "manage": "Manage billing",
+    "status": {
+      "PAID": "Active",
+      "PAST_DUE": "Past due",
+      "TRIAL": "Free trial",
+      "freeUntil": "Free until {{date}}",
+      "freeForever": "Free forever",
+      "locked": "Not active"
+    },
+    "page": {
+      "title": "Subscribe",
+      "description": "One plan for your whole account — every book included.",
+      "plan": "CYG Finance — everything included",
+      "features": {
+        "books": "Every book of your account",
+        "ai": "The AI assistant by text, WhatsApp, email and phone calls",
+        "bank": "Bank feeds — your transactions filed automatically",
+        "receipts": "Receipts and documents matched to your transactions",
+        "reports": "Ledger, income statement, balance sheet and tax reports",
+        "cancel": "Cancel anytime"
+      },
+      "notSetUp": "Subscriptions are not set up yet — please contact us.",
+      "secured": "You pay on Stripe's secure page. We never see your card number.",
+      "activeTitle": "Your plan is active",
+      "back": "Back to bookkeeping",
+      "finishing": "Finishing your subscription…",
+      "finishingSlow": "Stripe can take a minute to confirm. Refresh in a moment.",
+      "refresh": "Refresh",
+      "redeemed": "Promo code applied. Welcome!"
+    },
+    "reason": {
+      "TRIAL_USED": "Your free trial is over — you used all its {{items}}. Subscribe to keep going.",
+      "UNPAID": "Your last payment did not go through. Update your card to keep going.",
+      "ENDED": "Your plan has ended. Subscribe to keep going.",
+      "endedFree": "Your free period ended on {{date}}. Subscribe to keep going.",
+      "NONE": "Subscribe to use CYG Finance."
+    },
+    "items": {
+      "transactions": "transactions",
+      "texts": "AI texts",
+      "callMinutes": "AI call minutes"
+    },
+    "promo": {
+      "have": "Have a promo code?",
+      "placeholder": "Promo code",
+      "apply": "Apply"
+    },
+    "card": {
+      "title": "Subscription",
+      "description": "Your plan, this month’s transactions and every payment.",
+      "renews": "Renews {{date}}",
+      "cancels": "Ends {{date}} — it will not renew.",
+      "trialHint": "Your free trial ends when any of these runs out.",
+      "history": "Payment history",
+      "empty": "No payments yet.",
+      "date": "Date",
+      "what": "What",
+      "amount": "Amount",
+      "statusCol": "Status",
+      "nextTry": "Next try {{date}}",
+      "completePayment": "Complete payment",
+      "receipt": "Receipt",
+      "invoice": "Invoice (PDF)"
+    },
+    "kind": {
+      "SUBSCRIPTION_START": "Subscription started",
+      "RENEWAL": "Monthly renewal",
+      "PRORATION": "Plan change",
+      "REFUND": "Refund",
+      "DISPUTE": "Dispute",
+      "FREE_PROMO": "Free promo code"
+    },
+    "txStatus": {
+      "SUCCEEDED": "Paid",
+      "FAILED": "Failed",
+      "ACTION_REQUIRED": "Needs action",
+      "REFUNDED": "Refunded",
+      "DISPUTED": "Disputed",
+      "FREE": "Free"
+    },
+    "usage": {
+      "monthly": "{{used}} of {{limit}} transactions this month",
+      "resets": "resets {{date}}",
+      "transactions": "{{used}}/{{limit}} transactions",
+      "texts": "{{used}}/{{limit}} AI texts",
+      "callMinutes": "{{used}}/{{limit}} AI call minutes"
+    },
+    "banner": {
+      "pastDue": "Your payment of {{amount}} failed on {{date}} — update your card to keep access.",
+      "pastDueNoDate": "Your last payment failed — update your card to keep access.",
+      "trial": "Free trial — {{transactions}} transactions · {{texts}} texts · {{calls}} call minutes",
+      "monthlyWarn": "You've used {{used}} of your {{limit}} transactions this month.",
+      "monthlyReached": "You reached your {{limit}} transactions for this month — new ones wait until {{date}}."
+    }
   },
   "contacts": {
     "title": "Contacts",

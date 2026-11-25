@@ -13,7 +13,27 @@ export function handleUnauthorized(): void {
   window.location.href = '/login'
 }
 
-/** `fetch` with the customer's Bearer token. */
+/**
+ * 2026-11-25: what a 402 `SUBSCRIPTION_REQUIRED` does. The dashboard registers its own
+ * (refetch the subscription + go to the Subscribe page without a reload); before it has,
+ * a full page load to the Subscribe page.
+ */
+let onSubscriptionRequired: (() => void) | null = null
+
+export function setSubscriptionRequiredHandler(handler: (() => void) | null): void {
+  onSubscriptionRequired = handler
+}
+
+function handleSubscriptionRequired(): void {
+  if (onSubscriptionRequired) onSubscriptionRequired()
+  else if (window.location.pathname !== '/dashboard/subscribe') window.location.href = '/dashboard/subscribe'
+}
+
+/**
+ * `fetch` with the customer's Bearer token. A 402 `SUBSCRIPTION_REQUIRED` (the account is
+ * locked) sends the customer to the Subscribe page; the response still goes back to the
+ * caller, whose `errorFrom` throws, so the call stops there.
+ */
 export async function fetchWithAuth(
   token: string,
   url: string,
@@ -24,6 +44,11 @@ export async function fetchWithAuth(
     headers: { ...options.headers, Authorization: `Bearer ${token}` },
   })
   if (res.status === 401) handleUnauthorized()
+  if (res.status === 402) {
+    // A clone: the caller still reads the body for its error message.
+    const body = (await res.clone().json().catch(() => null)) as { code?: string } | null
+    if (body?.code === 'SUBSCRIPTION_REQUIRED') handleSubscriptionRequired()
+  }
   return res
 }
 

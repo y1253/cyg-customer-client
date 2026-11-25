@@ -14,14 +14,15 @@ const POLL_MS = 10_000
  * (TanStack pauses the interval in a background tab) and refetches what is on screen when
  * it moves. The first answer only sets the baseline.
  */
-export function useLiveRefresh() {
+// `enabled` false while the account is locked (2026-11-25): no polling into 402s.
+export function useLiveRefresh(enabled = true) {
   const { token } = useAuth()
   const refresh = useRefreshEverything()
   const seen = useRef<string | null>(null)
   const { data } = useQuery({
     queryKey: CHANGES_KEY,
     queryFn: () => fetchChanges(token!),
-    enabled: !!token,
+    enabled: !!token && enabled,
     refetchInterval: POLL_MS,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,

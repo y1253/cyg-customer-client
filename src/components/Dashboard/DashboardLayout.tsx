@@ -1,7 +1,12 @@
-import { LogOut, Menu } from 'lucide-react'
+import { useEffect } from 'react'
+import { Loader2, LogOut, Menu } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { SUBSCRIPTION_KEY } from '@/api/billing'
+import { setSubscriptionRequiredHandler } from '@/api/client'
 import { displayName } from '@/api/customerAuth'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { BillingBanners } from '@/components/Billing/BillingBanners'
 import { DocumentsButton } from '@/components/Assistant/DocumentsButton'
 import { LanguageSwitch } from '@/components/LanguageSwitch'
 import { FloatingChat } from '@/components/Assistant/FloatingChat'
@@ -9,8 +14,12 @@ import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@/com
 import { useAuth } from '@/context/AuthContext'
 import { useAssistantEnabled } from '@/hooks/useAssistant'
 import { useLiveRefresh } from '@/hooks/useLiveRefresh'
+import { useSubscription } from '@/hooks/useSubscription'
 import { cn } from '@/lib/utils'
-import { ACCOUNT_ITEM, visibleModules, type NavItem } from './nav'
+import { ACCOUNT_ITEM, SUBSCRIBE_ITEM, visibleModules, type NavItem } from './nav'
+
+/** The pages a LOCKED account can still open (2026-11-25); everything else goes to Subscribe. */
+const OPEN_WHILE_LOCKED = ['/dashboard/subscribe', '/dashboard/account']
 
 function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   const { t } = useTranslation(['dashboard', 'common'])
@@ -35,12 +44,16 @@ function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }
   )
 }
 
-/** Logo, modules, and the signed-in customer — shared by the desktop rail and the mobile sheet. */
-function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
+/**
+ * Logo, modules, and the signed-in customer — shared by the desktop rail and the mobile sheet.
+ * `plan` (2026-11-25): locked = only Subscribe, My account and Log out; no modules at all
+ * while it is not known yet (no flash of either list).
+ */
+function SidebarContent({ inSheet = false, plan }: { inSheet?: boolean; plan: 'loading' | 'open' | 'locked' }) {
   const { t } = useTranslation(['dashboard', 'common'])
   const { customer, logout } = useAuth()
   const navigate = useNavigate()
-  const assistant = useAssistantEnabled()
+  const assistant = useAssistantEnabled(plan === 'open')
   // In the mobile sheet a link also closes the sheet.
   const row = (item: NavItem) =>
     inSheet ? (
@@ -60,7 +73,7 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
         {t('nav.services')}
       </p>
       <nav className="flex flex-col gap-1 px-3">
-        {visibleModules(assistant).map(row)}
+        {plan === 'open' ? visibleModules(assistant).map(row) : plan === 'locked' && row(SUBSCRIBE_ITEM)}
       </nav>
       <div className="mt-auto flex flex-col gap-1 border-t border-white/10 px-3 py-4">
         <LanguageSwitch tone="dark" className="mb-2 ml-3 self-start" />
@@ -106,15 +119,36 @@ function SidebarContent({ inSheet = false }: { inSheet?: boolean }) {
  */
 export function DashboardLayout() {
   const { t } = useTranslation(['dashboard', 'common'])
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  // 2026-11-25: the plan decides what opens. Locked = only Subscribe and My account; while
+  // the first answer is on its way nothing that would hit a locked route is mounted. A read
+  // that failed leaves the app open — the server still answers 402 and sends them here.
+  const subscription = useSubscription()
+  const known = !subscription.isPending || !!subscription.data
+  const open = subscription.data ? subscription.data.access.active : subscription.isError
+  const plan = !known ? 'loading' : open ? 'open' : 'locked'
+  const allowedLocked = OPEN_WHILE_LOCKED.some((p) => pathname.startsWith(p))
   // step12h: changes the AI makes on any channel show without a reload.
-  useLiveRefresh()
+  useLiveRefresh(open)
+  // Any API call answered 402 SUBSCRIPTION_REQUIRED: re-read the plan, go to Subscribe.
+  useEffect(() => {
+    setSubscriptionRequiredHandler(() => {
+      void queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_KEY })
+      if (window.location.pathname !== '/dashboard/subscribe') navigate('/dashboard/subscribe', { replace: true })
+    })
+    return () => setSubscriptionRequiredHandler(null)
+  }, [queryClient, navigate])
   // step8 (2026-11-11, `overlooping.png`): the bookkeeping page uses the whole width — the
   // ledger needs it; every other page keeps the reading width.
-  const wide = useLocation().pathname.startsWith('/dashboard/bookkeeping')
+  const wide = pathname.startsWith('/dashboard/bookkeeping')
+
+  if (plan === 'locked' && !allowedLocked) return <Navigate to="/dashboard/subscribe" replace />
   return (
     <div className="min-h-svh bg-[#F5F7F7]">
       <aside className="fixed inset-y-0 left-0 hidden w-64 bg-[#0B1C2C] lg:block">
-        <SidebarContent />
+        <SidebarContent plan={plan} />
       </aside>
 
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-[#0B1C2C] px-4 lg:hidden">
@@ -132,7 +166,7 @@ export function DashboardLayout() {
             </SheetTrigger>
             <SheetContent side="left" className="w-72 border-none bg-[#0B1C2C] p-0">
               <SheetTitle className="sr-only">{t('common:nav.menu')}</SheetTitle>
-              <SidebarContent inSheet />
+              <SidebarContent inSheet plan={plan} />
             </SheetContent>
           </Sheet>
         </div>
@@ -140,14 +174,26 @@ export function DashboardLayout() {
 
       <main className="lg:pl-64">
         <div className={cn('mx-auto px-4 py-8 sm:px-8 lg:py-10', wide ? 'max-w-[110rem]' : 'max-w-6xl')}>
-          <Outlet />
+          {!known ? (
+            <div className="flex justify-center py-24">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              {subscription.data && open && !pathname.startsWith('/dashboard/subscribe') && (
+                <BillingBanners sub={subscription.data} />
+              )}
+              <Outlet />
+            </>
+          )}
         </div>
       </main>
 
       {/* step8: the AI chat, one click away on every page. step2 (2026-11-11): beside it, the
-          paperclip — the book's documents and every way to send them in. */}
-      <DocumentsButton />
-      <FloatingChat />
+          paperclip — the book's documents and every way to send them in. Not while locked:
+          every call they make would answer 402. */}
+      {open && <DocumentsButton />}
+      {open && <FloatingChat />}
     </div>
   )
 }

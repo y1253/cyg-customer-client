@@ -239,7 +239,6 @@
   "generate": {
     "reading": "Reading statements…",
     "new": "Generate · {{count}} new",
-    "newPaid": "Generate · {{count}} new · {{price}}",
     "button": "Generate",
     "ready_one": "{{count}} statement ready to read",
     "ready_other": "{{count}} statements ready to read",
@@ -247,7 +246,9 @@
     "readyHint": "Upload everything first, then click Generate — we read them and post every transaction.",
     "upToDateHint": "Upload more statements any time, then click Generate.",
     "home": "Home currency",
-    "homeHint": "The currency your books are kept in. Statements in another currency are converted at each day's Bank of Canada rate."
+    "homeHint": "The currency your books are kept in. Statements in another currency are converted at each day's Bank of Canada rate.",
+    "limitReached": "Limit reached — resets {{date}}",
+    "trialUsedUp": "Trial transactions used up — Subscribe"
   },
   "bank": {
     "justNow": "just now",
@@ -282,7 +283,9 @@
     "startDates": "Start dates",
     "disconnectTitle": "Disconnect {{name}}?",
     "disconnectThis": "Disconnect this bank?",
-    "disconnectText": "We stop bringing in new transactions and delete our access to it. The statements already imported stay in your books."
+    "disconnectText": "We stop bringing in new transactions and delete our access to it. The statements already imported stay in your books.",
+    "pausedMonthly": "Paused until {{date}} — monthly transaction limit",
+    "pausedTrial": "Paused — your free trial’s transactions are used up"
   },
   "dates": {
     "title": "Where should your books start?",

@@ -25,20 +25,21 @@ import { useBook } from './useBook'
 import { useRefreshEverything } from './useRefreshEverything'
 
 /** Whether the AI assistant is on for this firm. Off (or unknown) = every AI control hides. */
-export function useAssistantConfig() {
+// `enabled` false while the account is locked (2026-11-25): the route answers 402 then.
+export function useAssistantConfig(enabled = true) {
   const { token } = useAuth()
   return useQuery({
     queryKey: ASSISTANT_CONFIG_KEY,
     queryFn: () => fetchAssistantConfig(token!),
-    enabled: !!token,
+    enabled: !!token && enabled,
     staleTime: 5 * 60_000,
     retry: false,
   })
 }
 
 /** True only once the server said the assistant is on. */
-export function useAssistantEnabled(): boolean {
-  return useAssistantConfig().data?.enabled === true
+export function useAssistantEnabled(enabled = true): boolean {
+  return useAssistantConfig(enabled).data?.enabled === true && enabled
 }
 
 /**

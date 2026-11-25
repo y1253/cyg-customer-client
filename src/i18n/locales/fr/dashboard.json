@@ -6,7 +6,8 @@
     "contacts": "Contacts",
     "requests": "Mes demandes",
     "account": "Mon compte",
-    "dashboard": "Tableau de bord"
+    "dashboard": "Tableau de bord",
+    "subscribe": "S’abonner"
   },
   "account": {
     "title": "Mon compte",
@@ -65,38 +66,110 @@
     "errCurrent": "Entrez votre mot de passe actuel",
     "errCode": "Entrez le code à 6 chiffres reçu par courriel"
   },
-  "pay": {
-    "title": "Lire vos relevés",
-    "description_one": "Nous lisons {{count}} nouveau relevé et inscrivons chaque opération dans votre grand livre.",
-    "description_other": "Nous lisons {{count}} nouveaux relevés et inscrivons chaque opération dans votre grand livre.",
-    "description_many": "Nous lisons {{count}} nouveaux relevés et inscrivons chaque opération dans votre grand livre.",
-    "notSetUp": "Les paiements ne sont pas encore configurés. Veuillez nous joindre.",
-    "cardLoading": "Le formulaire de carte est encore en chargement.",
-    "checkCard": "Vérifiez les détails de votre carte.",
-    "declined": "Votre carte a été refusée.",
-    "payWith": "Payer avec",
-    "newCard": "Utiliser une nouvelle carte",
-    "secured": "Sécurisé par Stripe. Votre carte est enregistrée pour la prochaine fois; nous ne voyons jamais son numéro.",
-    "processing": "Traitement…",
-    "generateFree": "Générer gratuitement",
-    "payAndGenerate": "Payer {{amount}} et générer",
-    "summary_one": "Génération · {{count}} relevé",
-    "summary_other": "Génération · {{count}} relevés",
-    "summary_many": "Génération · {{count}} relevés",
-    "total": "Total",
-    "free": "Gratuit",
-    "percentOff": "{{value}} % de rabais",
-    "specialPrice": "Prix spécial : {{price}}",
-    "promoApplied": "{{code}} appliqué",
-    "removePromo": "Retirer le code promo",
-    "havePromo": "Vous avez un code promo ?",
-    "promoCode": "Code promo",
-    "expires": "Expiration : {{date}}"
-  },
-  "cards": {
-    "title": "Cartes enregistrées",
-    "description": "Enregistrées de façon sécurisée par Stripe lors de votre paiement, pour que la prochaine génération se fasse en un clic. Nous ne voyons jamais le numéro de la carte.",
-    "empty": "Aucune carte enregistrée pour l’instant. Votre carte est enregistrée la première fois que vous payez."
+  "billing": {
+    "interval": {
+      "day": "jour",
+      "week": "semaine",
+      "month": "mois",
+      "year": "an"
+    },
+    "perInterval": "{{price}} / {{interval}}",
+    "subscribe": "S’abonner",
+    "opening": "Ouverture…",
+    "manage": "Gérer la facturation",
+    "status": {
+      "PAID": "Actif",
+      "PAST_DUE": "Paiement en retard",
+      "TRIAL": "Essai gratuit",
+      "freeUntil": "Gratuit jusqu’au {{date}}",
+      "freeForever": "Gratuit pour toujours",
+      "locked": "Inactif"
+    },
+    "page": {
+      "title": "S’abonner",
+      "description": "Un seul forfait pour tout votre compte, tous les livres compris.",
+      "plan": "CYG Finance — tout compris",
+      "features": {
+        "books": "Tous les livres de votre compte",
+        "ai": "L’assistant IA par texto, WhatsApp, courriel et appel",
+        "bank": "Flux bancaires : vos opérations classées automatiquement",
+        "receipts": "Reçus et documents jumelés à vos opérations",
+        "reports": "Grand livre, état des résultats, bilan et rapports de taxes",
+        "cancel": "Annulable en tout temps"
+      },
+      "notSetUp": "Les abonnements ne sont pas encore configurés. Veuillez nous joindre.",
+      "secured": "Vous payez sur la page sécurisée de Stripe. Nous ne voyons jamais le numéro de votre carte.",
+      "activeTitle": "Votre forfait est actif",
+      "back": "Retour à la tenue de livres",
+      "finishing": "Finalisation de votre abonnement…",
+      "finishingSlow": "La confirmation de Stripe peut prendre une minute. Actualisez dans un instant.",
+      "refresh": "Actualiser",
+      "redeemed": "Code promo appliqué. Bienvenue !"
+    },
+    "reason": {
+      "TRIAL_USED": "Votre essai gratuit est terminé : vous avez utilisé tous ses {{items}}. Abonnez-vous pour continuer.",
+      "UNPAID": "Votre dernier paiement n’a pas été accepté. Mettez votre carte à jour pour continuer.",
+      "ENDED": "Votre forfait a pris fin. Abonnez-vous pour continuer.",
+      "endedFree": "Votre période gratuite a pris fin le {{date}}. Abonnez-vous pour continuer.",
+      "NONE": "Abonnez-vous pour utiliser CYG Finance."
+    },
+    "items": {
+      "transactions": "opérations",
+      "texts": "textos IA",
+      "callMinutes": "minutes d’appel IA"
+    },
+    "promo": {
+      "have": "Vous avez un code promo ?",
+      "placeholder": "Code promo",
+      "apply": "Appliquer"
+    },
+    "card": {
+      "title": "Abonnement",
+      "description": "Votre forfait, les opérations du mois et chaque paiement.",
+      "renews": "Renouvellement le {{date}}",
+      "cancels": "Prend fin le {{date}} ; il ne sera pas renouvelé.",
+      "trialHint": "Votre essai gratuit prend fin dès que l’un de ces éléments est épuisé.",
+      "history": "Historique des paiements",
+      "empty": "Aucun paiement pour l’instant.",
+      "date": "Date",
+      "what": "Objet",
+      "amount": "Montant",
+      "statusCol": "Statut",
+      "nextTry": "Prochain essai le {{date}}",
+      "completePayment": "Terminer le paiement",
+      "receipt": "Reçu",
+      "invoice": "Facture (PDF)"
+    },
+    "kind": {
+      "SUBSCRIPTION_START": "Début de l’abonnement",
+      "RENEWAL": "Renouvellement mensuel",
+      "PRORATION": "Changement de forfait",
+      "REFUND": "Remboursement",
+      "DISPUTE": "Contestation",
+      "FREE_PROMO": "Code promo gratuit"
+    },
+    "txStatus": {
+      "SUCCEEDED": "Payé",
+      "FAILED": "Échoué",
+      "ACTION_REQUIRED": "Action requise",
+      "REFUNDED": "Remboursé",
+      "DISPUTED": "Contesté",
+      "FREE": "Gratuit"
+    },
+    "usage": {
+      "monthly": "{{used}} opérations sur {{limit}} ce mois-ci",
+      "resets": "remise à zéro le {{date}}",
+      "transactions": "{{used}}/{{limit}} opérations",
+      "texts": "{{used}}/{{limit}} textos IA",
+      "callMinutes": "{{used}}/{{limit}} minutes d’appel IA"
+    },
+    "banner": {
+      "pastDue": "Votre paiement de {{amount}} a échoué le {{date}}. Mettez votre carte à jour pour garder l’accès.",
+      "pastDueNoDate": "Votre dernier paiement a échoué. Mettez votre carte à jour pour garder l’accès.",
+      "trial": "Essai gratuit — {{transactions}} opérations · {{texts}} textos · {{calls}} minutes d’appel",
+      "monthlyWarn": "Vous avez utilisé {{used}} de vos {{limit}} opérations ce mois-ci.",
+      "monthlyReached": "Vous avez atteint vos {{limit}} opérations ce mois-ci ; les nouvelles attendent jusqu’au {{date}}."
+    }
   },
   "contacts": {
     "title": "Contacts",

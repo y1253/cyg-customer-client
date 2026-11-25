@@ -1,7 +1,13 @@
-import { BookOpenCheck, BookUser, Building2, Lightbulb, UserRound } from 'lucide-react'
+import { BookOpenCheck, BookUser, Building2, CreditCard, Lightbulb, UserRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export type NavLabelKey = 'nav.businesses' | 'nav.bookkeeping' | 'nav.contacts' | 'nav.requests' | 'nav.account'
+export type NavLabelKey =
+  | 'nav.businesses'
+  | 'nav.bookkeeping'
+  | 'nav.contacts'
+  | 'nav.requests'
+  | 'nav.account'
+  | 'nav.subscribe'
 
 export type NavItem = {
   /** Key in the `dashboard` namespace, resolved at render (`t(item.labelKey)`). */
@@ -38,4 +44,14 @@ export const ACCOUNT_ITEM: NavItem = {
   labelKey: 'nav.account',
   to: '/dashboard/account',
   icon: UserRound,
+}
+
+/**
+ * 2026-11-25: the one module of a LOCKED account (no plan, trial used up) — with My account
+ * and Log out, the only things it can open.
+ */
+export const SUBSCRIBE_ITEM: NavItem = {
+  labelKey: 'nav.subscribe',
+  to: '/dashboard/subscribe',
+  icon: CreditCard,
 }

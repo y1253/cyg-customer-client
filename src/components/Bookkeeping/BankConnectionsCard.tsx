@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import i18n, { currentLocale } from '@/i18n'
 import type { BankConnection } from '@/api/bankFeeds'
+import { billingDate, transactionBlock } from '@/api/billing'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -34,6 +35,7 @@ import {
 import { money } from '@/lib/money'
 import { fmtDay } from '@/lib/period'
 import { useStatements } from '@/hooks/useStatements'
+import { useSubscription } from '@/hooks/useSubscription'
 import { startsByFolder } from './statement-folders'
 import { cn } from '@/lib/utils'
 import { BankStartDatesDialog } from './BankStartDatesDialog'
@@ -85,6 +87,9 @@ export function BankConnectionsCard({ className }: { className?: string }) {
   const list = connections.data ?? []
   // step2 (2026-11-12): where each account's books start — its folder's first starting balance.
   const starts = startsByFolder(useStatements().data ?? [])
+  // 2026-11-25: at the plan's transaction limit the feed is still fetched but nothing new is
+  // filed until it resets (the 1st) — or, on the trial, until they subscribe.
+  const block = transactionBlock(useSubscription().data?.access)
   const error = connect.error ?? refresh.error ?? disconnect.error
   if (!enabled) return null
 
@@ -117,6 +122,15 @@ export function BankConnectionsCard({ className }: { className?: string }) {
           <p className="mt-0.5 text-sm text-muted-foreground">{t('bank.intro')}</p>
         </div>
       </div>
+
+      {block && list.length > 0 && (
+        <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-600/20">
+          <AlertTriangle className="mt-px size-3.5 shrink-0" />
+          {block.kind === 'MONTHLY'
+            ? t('bank.pausedMonthly', { date: billingDate(block.resetsAt) })
+            : t('bank.pausedTrial')}
+        </p>
+      )}
 
       {list.length > 0 && (
         <ul className="mt-4 space-y-3">

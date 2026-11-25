@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { SavedCardsCard } from '@/components/Billing/SavedCardsCard'
+import { SubscriptionCard } from '@/components/Billing/SubscriptionCard'
 import { PasswordCard } from './PasswordCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/hooks/useMe'
 import { useUpdateMe } from '@/hooks/useUpdateMe'
 import { useIntake } from '@/hooks/useIntake'
+import { useSubscription } from '@/hooks/useSubscription'
 import { sendVerb } from '@/lib/intake'
 import { setLang, type Lang } from '@/i18n'
 
@@ -68,7 +69,7 @@ export function AccountPage() {
       {/* The server copy only: a profile cached before `hasPassword` existed lacks it. */}
       {/* step12c: a password signs in with the email — an account opened by phone adds one first. */}
       {me.data?.email && <PasswordCard customer={me.data} />}
-      <SavedCardsCard />
+      <SubscriptionCard />
       <LanguageCard />
     </>
   )
@@ -109,7 +110,8 @@ function LanguageCard() {
 
 function ProfileForm({ customer }: { customer: Customer }) {
   const { t } = useTranslation(['dashboard', 'common'])
-  const intake = useIntake()
+  // A locked account opens this page too; the intake numbers are a bookkeeping route (402).
+  const intake = useIntake(useSubscription().data?.access.active === true)
   const update = useUpdateMe()
   const [name, setName] = useState(customer.name)
   const [phone, setPhone] = useState(customer.phone ?? '')
