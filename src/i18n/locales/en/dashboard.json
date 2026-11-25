@@ -104,7 +104,9 @@
       "finishing": "Finishing your subscription…",
       "finishingSlow": "Stripe can take a minute to confirm. Refresh in a moment.",
       "refresh": "Refresh",
-      "redeemed": "Promo code applied. Welcome!"
+      "redeemed": "Promo code applied. Welcome!",
+      "trialTitle": "You are on the free trial",
+      "trialNote": "Subscribe any time — your monthly plan starts today and the trial’s text and call limits go away."
     },
     "reason": {
       "TRIAL_USED": "Your free trial is over — you used all its {{items}}. Subscribe to keep going.",

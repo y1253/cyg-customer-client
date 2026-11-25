@@ -12,6 +12,11 @@ import { useAuth } from '@/context/AuthContext'
 import { useBillingConfig } from '@/hooks/useBillingConfig'
 import { useRedeemPromo, useSubscribe, useSubscription } from '@/hooks/useSubscription'
 import { lockedReason, planPrice, planStatus } from '@/lib/billing'
+import type { AccessReason } from '@/api/billing'
+import { TrialMeters } from './UsageMeter'
+
+/** A plan that needs no Subscribe: paid (or Stripe retrying) or a free promo. The trial still gets the offer. */
+const SETTLED: AccessReason[] = ['PAID', 'PAST_DUE', 'FREE']
 
 const FEATURES = ['books', 'ai', 'bank', 'receipts', 'reports', 'cancel'] as const
 
@@ -20,7 +25,8 @@ const POLL_MS = 2_000
 const POLL_FOR_MS = 30_000
 
 /**
- * `/dashboard/subscribe` (2026-11-25): the one page a LOCKED account sees (with My account).
+ * `/dashboard/subscribe` (2026-11-25): the one page a LOCKED account sees (with My account),
+ * and where a customer on the free trial subscribes before it runs out.
  * The plan from Stripe's price, Subscribe → Stripe Checkout, a free-subscription promo
  * code, and why it is locked. Stripe sends the customer back with `?done=1`: the page then
  * waits for the webhook to open the plan and goes on to Bookkeeping.
@@ -37,7 +43,7 @@ export function SubscribePage() {
       <PageHeader title={t('billing.page.title')} description={t('billing.page.description')} />
       {sub.isLoading ? (
         <div className="h-80 max-w-2xl animate-pulse rounded-2xl bg-white ring-1 ring-black/5" />
-      ) : sub.data?.access.active ? (
+      ) : sub.data && SETTLED.includes(sub.data.access.reason) ? (
         <ActivePlan />
       ) : (
         <PlanOffer />
@@ -58,7 +64,17 @@ function PlanOffer() {
   return (
     <Card className="max-w-2xl rounded-2xl border-0 py-8 shadow-sm ring-1 ring-black/5">
       <CardHeader className="px-8">
-        {sub.data && (
+        {sub.data?.access.reason === 'TRIAL' ? (
+          <div className="mb-3 flex flex-col gap-3 rounded-xl bg-brand/5 px-3 py-3 ring-1 ring-brand/20">
+            <p className="flex items-start gap-2 text-sm text-[#0B1C2C]">
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-brand" />
+              <span>
+                <span className="font-semibold">{t('billing.page.trialTitle')}</span> — {t('billing.page.trialNote')}
+              </span>
+            </p>
+            {sub.data.access.trial && <TrialMeters trial={sub.data.access.trial} />}
+          </div>
+        ) : sub.data && (
           <p className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900 ring-1 ring-amber-600/20">
             <Lock className="mt-0.5 size-4 shrink-0" />
             {lockedReason(sub.data)}
@@ -206,7 +222,8 @@ function Finishing() {
         const sub = await fetchSubscription(token)
         if (stopped) return
         qc.setQueryData(SUBSCRIPTION_KEY, sub)
-        if (sub.access.active) {
+        // The trial is open too — wait until Stripe's payment has opened the plan.
+        if (SETTLED.includes(sub.access.reason)) {
           // Whatever was fetched while locked (errors) is fetched again.
           void qc.invalidateQueries()
           navigate('/dashboard/bookkeeping', { replace: true })

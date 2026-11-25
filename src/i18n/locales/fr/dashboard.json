@@ -104,7 +104,9 @@
       "finishing": "Finalisation de votre abonnement…",
       "finishingSlow": "La confirmation de Stripe peut prendre une minute. Actualisez dans un instant.",
       "refresh": "Actualiser",
-      "redeemed": "Code promo appliqué. Bienvenue !"
+      "redeemed": "Code promo appliqué. Bienvenue !",
+      "trialTitle": "Vous profitez de l’essai gratuit",
+      "trialNote": "Abonnez-vous quand vous le voulez — votre forfait mensuel commence aujourd’hui et les limites de textos et d’appels de l’essai disparaissent."
     },
     "reason": {
       "TRIAL_USED": "Votre essai gratuit est terminé : vous avez utilisé tous ses {{items}}. Abonnez-vous pour continuer.",
