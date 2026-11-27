@@ -12,7 +12,7 @@ export interface CustomColumn {
   required: boolean
   options: Array<{ id: number; label: string }>
   /** step11 part 3: linked to QuickBooks (class / custom field); absent = not. */
-  qbo?: 'CLASS' | 'FIELD' | null
+  qbo?: 'CLASS' | 'FIELD' | 'LOCATION' | 'CUSTOMER' | null
 }
 
 export interface CustomAnswer {
