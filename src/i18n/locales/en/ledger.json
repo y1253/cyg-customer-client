@@ -233,6 +233,7 @@
     "network": "The upload failed — check your connection and try again."
   },
   "columnsDialog": {
+    "qboLinked": "Linked to QuickBooks — its answers are sent with each transaction",
     "needName": "Give the column a name",
     "charsRange": "Characters: a whole number from 0 to 1000",
     "minOverMax": "The minimum is more than the maximum",

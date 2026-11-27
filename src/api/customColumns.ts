@@ -11,6 +11,8 @@ export interface CustomColumn {
   maxChars: number | null
   required: boolean
   options: Array<{ id: number; label: string }>
+  /** step11 part 3: linked to QuickBooks (class / custom field); absent = not. */
+  qbo?: 'CLASS' | 'FIELD' | null
 }
 
 export interface CustomAnswer {

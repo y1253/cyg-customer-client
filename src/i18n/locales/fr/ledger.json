@@ -251,6 +251,7 @@
     "network": "Le téléversement a échoué — vérifiez votre connexion et réessayez."
   },
   "columnsDialog": {
+    "qboLinked": "Liée à QuickBooks — ses réponses sont envoyées avec chaque opération",
     "needName": "Donnez un nom à la colonne",
     "charsRange": "Caractères : un nombre entier de 0 à 1000",
     "minOverMax": "Le minimum dépasse le maximum",

@@ -225,7 +225,17 @@ export function CustomColumnsDialog({
             {columns.map((c) => (
               <div key={c.id} className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#0B1C2C]">{c.name}</p>
+                  <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-[#0B1C2C]">
+                    <span className="truncate">{c.name}</span>
+                    {c.qbo && (
+                      <span
+                        className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
+                        title={t('columnsDialog.qboLinked')}
+                      >
+                        QuickBooks
+                      </span>
+                    )}
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {rulesText(c)}
                     {c.type === 'DROPDOWN' && `: ${c.options.map((o) => o.label).join(', ')}`}
