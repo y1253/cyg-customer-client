@@ -113,6 +113,8 @@
   "merge": {
     "titleMove": "{{from}} onto {{into}}: merge, or make it a sub-name?",
     "title": "Merge {{from}} into {{into}}?",
+    "fromWrapper": "Each sub-name of {{from}} goes to {{into}}: into its sub-name of the same category when it has one, otherwise it moves under {{into}} as its own sub-name — every transaction keeps its category and split rules, and new ones follow.",
+    "wrapperIntoSub": "Every sub-name of {{from}} merges into {{into}}: their transactions take its category and split rules, and new ones follow.",
     "intoWrapper": "Every transaction of {{from}} moves under {{into}}, into its sub-name of the same category (made if it has none), and new ones follow.",
     "intoSub": "Every transaction of {{from}} moves under {{into}} and takes its category and split rules, and new ones follow.",
     "intoSubCategory": "Every transaction of {{from}} moves under {{into}} and takes its category ({{category}}) and split rules, and new ones follow.",

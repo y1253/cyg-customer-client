@@ -543,8 +543,14 @@ export function Names({
         onGoTo: goTo,
         onDescription: (sub, d) => moveDescription(n.name, d, false, sub),
         onOpenDescription: onOpenDescription && ((d: string, sub: SubName) => onOpenDescription(n.name, d, sub)),
-        onMergeInto: (sub, from) =>
-          setMerging({ from, into: { name: sub.name, subId: sub.id, category: sub.category } }),
+        onMergeInto: (sub, from) => {
+          // A wrapper dropped on one of its own sub-names: nothing to merge.
+          if (!from.subId && from.name.toLowerCase() === n.name.toLowerCase()) return
+          setMerging({
+            from: { ...from, wrapper: !from.subId && !!subNamesOf.get(from.name.toLowerCase())?.length },
+            into: { name: sub.name, subId: sub.id, category: sub.category },
+          })
+        },
       }}
       onRename={
         mergeable(n)
@@ -562,7 +568,7 @@ export function Names({
         mergeable(n)
           ? (from) =>
               setMerging({
-                from: { name: from },
+                from: { name: from, wrapper: !!subNamesOf.get(from.toLowerCase())?.length },
                 into: { name: n.name, wrapper: !!subNamesOf.get(n.name.toLowerCase())?.length },
               })
           : undefined
@@ -1004,7 +1010,14 @@ export function Names({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!merging} onOpenChange={(o) => !o && setMerging(null)}>
+      <Dialog
+        open={!!merging}
+        onOpenChange={(o) => {
+          if (o) return
+          setMerging(null)
+          merge.reset()
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -1012,7 +1025,11 @@ export function Names({
             </DialogTitle>
             <DialogDescription>
               {t(
-                merging?.into.wrapper
+                merging?.from.wrapper && !merging.from.subId
+                  ? merging.into.subId
+                    ? 'merge.wrapperIntoSub'
+                    : 'merge.fromWrapper'
+                  : merging?.into.wrapper
                   ? 'merge.intoWrapper'
                   : merging?.into.subId
                     ? merging.into.category
@@ -1023,7 +1040,10 @@ export function Names({
                       : 'merge.plain',
                 { from: merging?.from.name, into: merging?.into.name, category: merging?.into.category },
               )}{' '}
-              {t(merging?.from.subId ? 'merge.subRemoved' : 'merge.dropped', { from: merging?.from.name })}{' '}
+              {t(
+                merging?.from.subId || merging?.from.wrapper ? 'merge.subRemoved' : 'merge.dropped',
+                { from: merging?.from.name },
+              )}{' '}
               {t('merge.noUndo')}
             </DialogDescription>
           </DialogHeader>
@@ -1036,6 +1056,9 @@ export function Names({
                 {!merging.into.wrapper && ` ${t('merge.noSubs', { into: merging.into.name })}`}
               </p>
             </div>
+          )}
+          {merge.error && !ruleConflictOf(merge.error) && (
+            <p className="text-sm text-destructive">{merge.error.message}</p>
           )}
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>{t('common:actions.cancel')}</DialogClose>
@@ -1059,7 +1082,8 @@ export function Names({
               onClick={() => {
                 if (!merging) return
                 // step9 (2026-11-18, part 2): a sub-name is already gone from the list — close now.
-                merge.mutate(merging, { onSettled: () => setMerging(null) })
+                // A failed merge keeps the window open with the reason (it used to close silently).
+                merge.mutate(merging, { onSuccess: () => setMerging(null) })
                 if (merging.from.subId) setMerging(null)
               }}
             >
@@ -1327,7 +1351,8 @@ function NameRow({
   const refuse = useRefuseSubName(wrapper, () => own(draggedSubId() ?? 0))
   // step9 (2026-11-17): anything held over a folded wrapper unfolds it.
   const hover = useHoverOpen(wrapper && !subsOpen, () => setSubsToggled(true))
-  const draggable = mergeable && !wrapper
+  // 2026-11-27: a wrapper drags too — its sub-names go to the name it is dropped on.
+  const draggable = mergeable
   const many = n.descriptions.length
   const matched = (d: { key?: string; description: string }) =>
     (!!d.key && !!matches?.has(d.key)) || (query.length >= 2 && d.description.toLowerCase().includes(query))

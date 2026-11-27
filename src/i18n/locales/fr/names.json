@@ -117,6 +117,8 @@
   "merge": {
     "titleMove": "{{from}} sur {{into}} : fusionner, ou en faire un sous-nom ?",
     "title": "Fusionner {{from}} dans {{into}} ?",
+    "fromWrapper": "Chaque sous-nom de {{from}} va à {{into}} : dans son sous-nom de la même catégorie s’il en a un, sinon il passe sous {{into}} comme son propre sous-nom — chaque opération garde sa catégorie et ses règles de ventilation, et les nouvelles suivent.",
+    "wrapperIntoSub": "Tous les sous-noms de {{from}} sont fusionnés dans {{into}} : leurs opérations prennent sa catégorie et ses règles de ventilation, et les nouvelles suivent.",
     "intoWrapper": "Toutes les opérations de {{from}} passent sous {{into}}, dans son sous-nom de la même catégorie (créé s’il n’existe pas), et les nouvelles suivent.",
     "intoSub": "Toutes les opérations de {{from}} passent sous {{into}} et prennent sa catégorie et ses règles de ventilation, et les nouvelles suivent.",
     "intoSubCategory": "Toutes les opérations de {{from}} passent sous {{into}} et prennent sa catégorie ({{category}}) et ses règles de ventilation, et les nouvelles suivent.",
